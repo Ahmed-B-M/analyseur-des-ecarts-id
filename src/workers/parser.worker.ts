@@ -20,7 +20,7 @@ const headerAliases: Record<string, Record<string, string[]>> = {
     heureDepartPrevue: ['Départ'],
     heureFinPrevue: ['Fin'],
     capaciteBacs: ['Capacité Bac (bacs)'],
-    bacsReels: ['Bac (bacs)'],
+    bacsPrevus: ['Bac (bacs)'], // bacsReels is on the tour, but this is the planned one
     capacitePoids: ['Capacité Poids (kg)'],
     poidsPrevu: ['Poids (kg)'],
     tempsService: ['Temps de service (s)'],
@@ -79,22 +79,33 @@ function parseTime(value: any): number {
 function parseDate(value: any): string {
     if (!value) return '';
     try {
-        if (typeof value === 'number') { // Excel date
+        // Handle Excel's numeric date format
+        if (typeof value === 'number' && value > 1) {
             const date = XLSX.SSF.parse_date_code(value);
-            return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
+            if (date.y && date.m && date.d) {
+                return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
+            }
         }
+        // Handle string dates like "DD/MM/YYYY" or other standard formats
         if (typeof value === 'string') {
-             const date = new Date(value);
-             if (!isNaN(date.getTime())) {
+            let date: Date;
+            if (value.includes('/')) {
+                const parts = value.split(' ')[0].split('/');
+                if (parts.length === 3) {
+                    // Assuming DD/MM/YYYY
+                    date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                } else {
+                    date = new Date(value);
+                }
+            } else {
+                date = new Date(value);
+            }
+            if (!isNaN(date.getTime())) {
                 return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-             }
+            }
         }
     } catch(e) {
-        const stringValue = String(value);
-        if (stringValue.includes('/')) {
-            const parts = stringValue.split(' ')[0].split('/');
-            if(parts.length === 3) return `${parts[2]}-${String(parts[1]).padStart(2,'0')}-${String(parts[0]).padStart(2,'0')}`;
-        }
+      console.error(`Failed to parse date: ${value}`, e);
     }
     return '';
 }
@@ -122,12 +133,12 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
 
   const missingMandatoryHeaders = mandatoryHeaders[fileType].filter(h => !foundHeaders.has(h));
   if (missingMandatoryHeaders.length > 0) {
-      throw new Error(`En-têtes obligatoires manquants dans le fichier ${fileType}: ${missingMandatoryHeaders.join(', ')}. Alias attendus: ${missingMandatoryHeaders.map(h => headerAliases[fileType][h].join(' ou ')).join('; ')}.`);
+      throw new Error(`En-têtes obligatoires manquants dans le fichier ${fileType}: ${missingMandatoryHeaders.join(', ')}. Alias attendus: ${missingMandatoryHeaders.map(h => `'${headerAliases[fileType][h][0]}'`).join('; ')}.`);
   }
 
   const numericKeys = [
       'distancePrevue', 'distanceReelle', 'dureePrevue', 'dureeReelle',
-      'capaciteBacs', 'bacsReels', 'capacitePoids', 'poidsPrevu', 'poids',
+      'capaciteBacs', 'bacsPrevus', 'capacitePoids', 'poidsPrevu', 'poids',
       'sequence', 'items', 'tempsServiceReel', 'retard', 'notation',
       'tempsPreparationLivreur', 'tempsService', 'tempsParcours'
   ];
@@ -145,6 +156,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
     }
       
     const newRow: any = {};
+
     let hasMandatoryData = true;
     for (const header of mandatoryHeaders[fileType]) {
         const colIndex = Object.keys(headerMap).find(k => headerMap[parseInt(k)] === header);
@@ -160,9 +172,11 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
     for (const colIndex in headerMap) {
       const key = headerMap[colIndex];
       let value = row[colIndex];
+      
+      const isOptionalNullable = key === 'notation' || key === 'commentaire';
 
-      if (value === null || value === undefined) {
-        newRow[key] = (key === 'notation' || key === 'commentaire') ? null : 0;
+      if (value === null || value === undefined || String(value).toLowerCase().trim() === 'null' || String(value).trim() === '') {
+        newRow[key] = isOptionalNullable ? null : 0;
         continue;
       }
 
@@ -172,9 +186,9 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
           newRow[key] = parseTime(value);
       } else if (numericKeys.includes(key)) {
           const num = parseFloat(String(value).replace(',', '.'));
-          newRow[key] = isNaN(num) ? (key === 'notation' ? null : 0) : num;
+          newRow[key] = isNaN(num) ? (isOptionalNullable ? null : 0) : num;
       } else {
-          newRow[key] = value ? String(value).trim() : (key === 'commentaire' ? null : '');
+          newRow[key] = String(value).trim();
       }
     }
     normalized.push(newRow);
@@ -191,14 +205,15 @@ self.addEventListener('message', async (event: MessageEvent) => {
       tachesFile.arrayBuffer()
     ]);
     
-    const tourneesWb = XLSX.read(tourneesBuffer, { type: 'buffer', cellDates: true });
-    const tachesWb = XLSX.read(tachesBuffer, { type: 'buffer', cellDates: true });
+    const tourneesWb = XLSX.read(tourneesBuffer, { type: 'buffer' });
+    const tachesWb = XLSX.read(tachesBuffer, { type: 'buffer' });
 
     const tourneesSheet = tourneesWb.Sheets[tourneesWb.SheetNames[0]];
     const tachesSheet = tachesWb.Sheets[tachesWb.SheetNames[0]];
 
-    const tourneesJson = XLSX.utils.sheet_to_json(tourneesSheet, { header: 1, defval: null });
-    const tachesJson = XLSX.utils.sheet_to_json(tachesSheet, { header: 1, defval: null });
+    // Using raw:false to get formatted text for dates/times
+    const tourneesJson = XLSX.utils.sheet_to_json(tourneesSheet, { header: 1, defval: null, raw: false });
+    const tachesJson = XLSX.utils.sheet_to_json(tachesSheet, { header: 1, defval: null, raw: false });
 
     const rawTournees = normalizeData(tourneesJson, 'tournees');
     const rawTaches = normalizeData(tachesJson, 'taches');
@@ -212,6 +227,8 @@ self.addEventListener('message', async (event: MessageEvent) => {
     
     const tournees: Tournee[] = rawTournees.map((t: any) => ({
       ...t,
+      bacsReels: 0, // Will be calculated by summing tasks
+      poidsReel: 0, // Will be calculated by summing tasks
       uniqueId: `${t.nom}|${t.date}|${t.entrepot}`
     }));
 
