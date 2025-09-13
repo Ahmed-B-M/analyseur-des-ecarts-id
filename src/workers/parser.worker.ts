@@ -200,6 +200,15 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
           newRow[key] = String(value).trim();
       }
     }
+    
+    // Handle overnight tasks
+    if (fileType === 'taches' && newRow.heureCloture > 0 && newRow.heureDebutCreneau > 0 && newRow.heureCloture < newRow.heureDebutCreneau) {
+        const twelveHoursInSeconds = 12 * 3600;
+        if (newRow.heureDebutCreneau - newRow.heureCloture > twelveHoursInSeconds) {
+            newRow.heureCloture += 24 * 3600; // Add 24 hours in seconds
+        }
+    }
+
     normalized.push(newRow);
   }
   return normalized;
