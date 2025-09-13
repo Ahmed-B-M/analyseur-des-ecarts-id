@@ -46,6 +46,9 @@ function reducer(state: State, action: Action): State {
     case 'START_PROCESSING':
       return { ...state, isLoading: true, error: null };
     case 'PROCESSING_SUCCESS':
+        if (!action.data || action.data.tournees.length === 0 || action.data.taches.length === 0) {
+            return { ...state, isLoading: false, error: "Aucune donnée valide n'a été extraite des fichiers. Veuillez vérifier les en-têtes et le contenu." };
+        }
       return { ...state, isLoading: false, data: action.data, error: null };
     case 'PROCESSING_ERROR':
       return { ...state, isLoading: false, error: action.error };
@@ -161,7 +164,7 @@ export default function Dashboard() {
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
       <header className="flex items-center justify-between p-4 border-b border-border shadow-sm">
         <div className="flex items-center gap-3">
-          <Logo className="h-8 w-8 text-primary" />
+          <Logo className="h-10 w-auto" />
           <div>
             <h1 className="text-xl font-bold text-primary">Analyseur d'Écarts Logistiques</h1>
             <p className="text-sm text-muted-foreground">Importez vos données pour visualiser les performances de livraison.</p>

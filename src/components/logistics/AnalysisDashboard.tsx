@@ -80,7 +80,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                         <XAxis type="number" />
                         <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
                         <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
-                        <Bar dataKey="count" name="Retards" barSize={20} fill={ACCENT_COLOR}>
+                        <Bar dataKey="count" name="Retards" barSize={20} fill="hsl(var(--primary))">
                         </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -98,7 +98,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                   <XAxis dataKey="hour" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="count" fill={ACCENT_COLOR} name="Nb. Retards" />
+                  <Bar dataKey="count" fill="hsl(var(--primary))" name="Nb. Retards" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -113,7 +113,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     <XAxis type="number" />
                     <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
                     <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                    <Bar dataKey="count" name="Retards" barSize={20} fill={ACCENT_COLOR}>
+                    <Bar dataKey="count" name="Retards" barSize={20} fill="hsl(var(--primary))">
                     </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -129,7 +129,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     <XAxis type="number" />
                     <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
                     <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                    <Bar dataKey="count" name="Retards" barSize={20} fill={ACCENT_COLOR}>
+                    <Bar dataKey="count" name="Retards" barSize={20} fill="hsl(var(--primary))">
                     </Bar>
                 </BarChart>
               </ResponsiveContainer>
