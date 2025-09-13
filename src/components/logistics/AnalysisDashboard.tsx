@@ -29,6 +29,15 @@ function formatSecondsToTime(seconds: number): string {
     return `${isNegative ? '-' : ''}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function formatSecondsToClock(seconds: number): string {
+    if (isNaN(seconds) || seconds < 0) return '--:--';
+    seconds = Math.round(seconds);
+    const h = Math.floor(seconds / 3600) % 24;
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+
 type SortConfig<T> = {
     key: keyof T;
     direction: 'asc' | 'desc';
@@ -225,10 +234,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Timer className="text-blue-500"/>
-                    Analyse des Écarts de Durée (Estimée vs. Réelle)
+                    Analyse des Écarts de Durée de Service (Estimée vs. Réelle)
                 </CardTitle>
                 <CardDescription>
-                    Comparaison entre la durée opérationnelle estimée (via Urbantz) et la durée réelle mesurée sur le terrain.
+                    Comparaison de la durée entre la première et la dernière livraison de chaque tournée.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -236,20 +245,25 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     <TableHeader>
                         <TableRow>
                             <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'nom')}>Tournée {renderSortIcon('duration', 'nom')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'livreur')}>Livreur {renderSortIcon('duration', 'livreur')}</TableHead>
-                            <TableHead>Estimée (Urbantz)</TableHead>
-                            <TableHead>Réelle (Tâches)</TableHead>
+                            <TableHead className="text-center">1ère Livraison (Prévue / Réelle)</TableHead>
+                            <TableHead className="text-center">Dernière Livraison (Prévue / Réelle)</TableHead>
+                            <TableHead className="text-center">Durée Estimée</TableHead>
+                            <TableHead className="text-center">Durée Réelle</TableHead>
                             <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'ecart')}>Écart {renderSortIcon('duration', 'ecart')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {sortedData.durationDiscrepancies?.slice(0,10).map(tour => (
                             <TableRow key={tour.uniqueId}>
-                                <TableCell>{tour.nom}</TableCell>
-                                <TableCell>{tour.livreur}</TableCell>
-                                <TableCell>{formatSecondsToTime(tour.dureeEstimee)}</TableCell>
-                                <TableCell>{formatSecondsToTime(tour.dureeReelle)}</TableCell>
-                                <TableCell className={cn(tour.ecart > 0 ? "text-destructive font-semibold" : tour.ecart < 0 ? "text-blue-500 font-semibold" : "")}>
+                                <TableCell>
+                                    <div className="font-medium">{tour.nom}</div>
+                                    <div className="text-xs text-muted-foreground">{tour.livreur}</div>
+                                </TableCell>
+                                <TableCell className="text-center">{formatSecondsToClock(tour.heurePremiereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heurePremiereLivraisonReelle)}</span></TableCell>
+                                <TableCell className="text-center">{formatSecondsToClock(tour.heureDerniereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heureDerniereLivraisonReelle)}</span></TableCell>
+                                <TableCell className="text-center">{formatSecondsToTime(tour.dureeEstimee)}</TableCell>
+                                <TableCell className="text-center">{formatSecondsToTime(tour.dureeReelle)}</TableCell>
+                                <TableCell className={cn(tour.ecart > 300 ? "text-destructive font-semibold" : tour.ecart < -300 ? "text-blue-500 font-semibold" : "")}>
                                     {tour.ecart > 0 ? '+' : ''}{formatSecondsToTime(tour.ecart)}
                                 </TableCell>
                             </TableRow>

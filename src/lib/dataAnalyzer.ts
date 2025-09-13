@@ -50,16 +50,31 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         tour.bacsReels = tasks.reduce((sum, t) => sum + t.items, 0);
         
         if (tasks.length > 0) {
-            const firstTaskByRealArrival = tasks.reduce((earliest, curr) => curr.heureArriveeReelle < earliest.heureArriveeReelle ? curr : earliest, tasks[0]);
-            const lastTaskByRealCloture = tasks.reduce((latest, curr) => curr.heureCloture > latest.heureCloture ? curr : latest, tasks[0]);
+            tasks.sort((a,b) => a.heureArriveeApprox - b.heureArriveeApprox);
+            const firstTaskByApproxArrival = tasks[0];
+            const lastTaskByApproxArrival = tasks[tasks.length - 1];
+
+            tasks.sort((a,b) => a.heureArriveeReelle - b.heureArriveeReelle);
+            const firstTaskByRealArrival = tasks[0];
+
+            tasks.sort((a,b) => a.heureCloture - b.heureCloture);
+            const lastTaskByRealCloture = tasks[tasks.length - 1];
+
             tour.dureeReelleCalculee = lastTaskByRealCloture.heureCloture - firstTaskByRealArrival.heureArriveeReelle;
-            
-            const firstTaskByApproxArrival = tasks.reduce((earliest, curr) => curr.heureArriveeApprox < earliest.heureArriveeApprox ? curr : earliest, tasks[0]);
-            const lastTaskByApproxArrival = tasks.reduce((latest, curr) => curr.heureArriveeApprox > latest.heureArriveeApprox ? curr : latest, tasks[0]);
             tour.dureeEstimeeOperationnelle = lastTaskByApproxArrival.heureArriveeApprox - firstTaskByApproxArrival.heureArriveeApprox;
+            
+            tour.heurePremiereLivraisonPrevue = firstTaskByApproxArrival.heureArriveeApprox;
+            tour.heurePremiereLivraisonReelle = firstTaskByRealArrival.heureArriveeReelle;
+            tour.heureDerniereLivraisonPrevue = lastTaskByApproxArrival.heureArriveeApprox;
+            tour.heureDerniereLivraisonReelle = lastTaskByRealCloture.heureCloture;
+
         } else {
             tour.dureeReelleCalculee = 0;
             tour.dureeEstimeeOperationnelle = 0;
+            tour.heurePremiereLivraisonPrevue = 0;
+            tour.heurePremiereLivraisonReelle = 0;
+            tour.heureDerniereLivraisonPrevue = 0;
+            tour.heureDerniereLivraisonReelle = 0;
         }
     });
 
@@ -138,6 +153,10 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         dureeEstimee: tour.dureeEstimeeOperationnelle || 0,
         dureeReelle: tour.dureeReelleCalculee || 0,
         ecart: (tour.dureeReelleCalculee || 0) - (tour.dureeEstimeeOperationnelle || 0),
+        heurePremiereLivraisonPrevue: tour.heurePremiereLivraisonPrevue || 0,
+        heurePremiereLivraisonReelle: tour.heurePremiereLivraisonReelle || 0,
+        heureDerniereLivraisonPrevue: tour.heureDerniereLivraisonPrevue || 0,
+        heureDerniereLivraisonReelle: tour.heureDerniereLivraisonReelle || 0,
     })).sort((a, b) => Math.abs(b.ecart) - Math.abs(a.ecart));
 
     const lateStartAnomalies: LateStartAnomaly[] = uniqueTourneesWithTasks

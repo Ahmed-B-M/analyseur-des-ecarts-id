@@ -29,6 +29,10 @@ export type Tournee = {
   tempsParcours?: number;
   codePostalMajoritaire?: string;
   dureeEstimeeOperationnelle?: number;
+  heurePremiereLivraisonPrevue?: number;
+  heurePremiereLivraisonReelle?: number;
+  heureDerniereLivraisonPrevue?: number;
+  heureDerniereLivraisonReelle?: number;
 };
 
 export type Tache = {
@@ -110,6 +114,10 @@ export type DurationDiscrepancy = Tournee & {
     dureeEstimee: number;
     dureeReelle: number;
     ecart: number;
+    heurePremiereLivraisonPrevue: number;
+    heurePremiereLivraisonReelle: number;
+    heureDerniereLivraisonPrevue: number;
+    heureDerniereLivraisonReelle: number;
 }
 
 export type DelayCount = {
