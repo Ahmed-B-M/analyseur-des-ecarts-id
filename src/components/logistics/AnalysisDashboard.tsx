@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
@@ -171,7 +171,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     <div className="space-y-6">
       <section>
         <h2 className="text-2xl font-bold mb-4">KPIs Généraux & Satisfaction Client</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
           {analysisData.generalKpis.map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
         </div>
       </section>
@@ -566,6 +566,38 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     </BarChart>
                   </ResponsiveContainer>
                 </ScrollArea>
+            </CardContent>
+          </Card>
+           <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Villes avec le Plus d'Avances</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                 <BarChart data={analysisData.advancesByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }}>
+                    <XAxis type="number" />
+                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
+                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
+                    <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR} className="cursor-pointer">
+                    </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Codes Postaux avec le Plus d'Avances</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                 <BarChart data={analysisData.advancesByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }}>
+                    <XAxis type="number" />
+                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
+                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
+                    <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR} className="cursor-pointer">
+                    </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
       </div>

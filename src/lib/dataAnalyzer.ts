@@ -1,5 +1,5 @@
 import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi, AvgWorkload } from './types';
-import { Truck, Clock, Star, AlertTriangle, Smile, Frown, PackageCheck, Route, BarChart, Hash, Users, Sigma } from 'lucide-react';
+import { Truck, Clock, Star, AlertTriangle, Smile, Frown, PackageCheck, Route, BarChart, Hash, Users, Sigma, ListChecks, MessageSquareX } from 'lucide-react';
 
 export function analyzeData(data: MergedData[], filters: Record<string, any>): AnalysisData {
     
@@ -97,10 +97,13 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
 
     const generalKpis: Kpi[] = [
+        { title: 'Tournées Analysées', value: uniqueTournees.length.toString(), icon: Truck },
+        { title: 'Livraisons Analysées', value: allTasks.length.toString(), icon: ListChecks },
         { title: 'Taux de Ponctualité (Réalisé)', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${toleranceMinutes} min`, icon: Clock },
+        { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis`, icon: Star },
         { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${toleranceMinutes} min après le créneau`, icon: Frown },
         { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< -${toleranceMinutes} min avant le créneau`, icon: Smile },
-        { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis`, icon: Star },
+        { title: 'Avis Négatifs', value: negativeReviews.length.toString(), description: 'Note client de 1 à 3 / 10', icon: MessageSquareX },
     ];
     
     // --- Discrepancy KPIs ---
@@ -251,8 +254,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const totalAvgPlanned = avgWorkloadByHour.reduce((sum, item) => sum + item.avgPlanned, 0);
     const totalAvgReal = avgWorkloadByHour.reduce((sum, item) => sum + item.avgReal, 0);
     const avgWorkload: AvgWorkload = {
-      avgPlanned: totalAvgPlanned / avgWorkloadByHour.length,
-      avgReal: totalAvgReal / avgWorkloadByHour.length
+      avgPlanned: avgWorkloadByHour.length > 0 ? totalAvgPlanned / avgWorkloadByHour.filter(h => h.avgPlanned > 0).length : 0,
+      avgReal: avgWorkloadByHour.length > 0 ? totalAvgReal / avgWorkloadByHour.filter(h => h.avgReal > 0).length : 0
     }
 
 
@@ -277,7 +280,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         workloadByHour,
         avgWorkloadByDriverByHour: avgWorkloadByHour,
         avgWorkload,
-        cities: delaysByCity.map(c => c.key)
+        cities: [...new Set(allTasks.map(t => t.ville))].sort()
     };
 }
 
