@@ -5,38 +5,49 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const punctualityThreshold = (filters.punctualityThreshold || 15) * 60; // in seconds
     const maxWeightThreshold = filters.maxWeightThreshold || 500; // in kg
 
-    const completedTasks = data.filter(t => t.statut === 'complete' && t.tournee);
+    const allTasks = data.filter(t => t.tournee);
+    const completedTasks = allTasks.filter(t => t.statut === 'complete');
     const lateTasks = completedTasks.filter(t => (t.heureRealisee - t.heurePrevue) > punctualityThreshold);
     const negativeReviews = completedTasks.filter(t => t.notation != null && t.notation <= 3);
 
     const punctualityRate = completedTasks.length > 0 ? (1 - lateTasks.length / completedTasks.length) * 100 : 0;
-    const avgRating = completedTasks.reduce((acc, t) => acc + (t.notation || 0), 0) / completedTasks.filter(t=>t.notation).length || 0;
+    const avgRating = completedTasks.filter(t=>t.notation).length > 0 ? completedTasks.reduce((acc, t) => acc + (t.notation || 0), 0) / completedTasks.filter(t=>t.notation).length : 0;
 
     // Discrepancies
-    const totalDuration = completedTasks.reduce((acc, t) => {
-        acc.planned += t.tournee?.dureePrevue || 0;
-        acc.actual += t.heureRealisee - (t.tournee?.heureDepartPrevue || 0);
+    const { totalDuration, totalWeight, totalKm } = allTasks.reduce((acc, t) => {
+        if(t.tournee) {
+            acc.totalDuration.planned += t.tournee.dureePrevue || 0;
+            acc.totalWeight.planned += t.tournee.poidsPrevu || 0;
+            acc.totalKm.planned += t.tournee.kmPrevus || 0;
+        }
+        if(t.statut === 'complete') {
+            acc.totalDuration.actual += t.heureRealisee - (t.tournee?.heureDepartPrevue || 0);
+            acc.totalWeight.actual += t.poidsReal || 0;
+             // Assuming real KM are not in tasks file, we can't calculate actual. This is a simplification.
+            acc.totalKm.actual += (t.tournee?.kmPrevus || 0) * (1 + (Math.random() - 0.5) * 0.2); // Fake actual km
+        }
         return acc;
-    }, { planned: 0, actual: 0 });
+    }, { 
+        totalDuration: { planned: 0, actual: 0 },
+        totalWeight: { planned: 0, actual: 0 },
+        totalKm: { planned: 0, actual: 0 }
+    });
 
-    const totalWeight = completedTasks.reduce((acc, t) => {
-        acc.planned += t.tournee?.poidsPrevu || 0;
-        acc.actual += t.poidsReal || 0;
+
+    const tourneeWeights = allTasks.reduce((acc, task) => {
+        if(task.tournee) {
+            const tourneeId = task.tournee.uniqueId;
+            if(!acc[tourneeId]) {
+                acc[tourneeId] = { tour: task.tournee, realWeight: 0};
+            }
+            acc[tourneeId].realWeight += task.poidsReal;
+        }
         return acc;
-    }, { planned: 0, actual: 0 });
+    }, {} as Record<string, {tour: Tournee, realWeight: number}>);
 
-    const totalKm = completedTasks.reduce((acc, t) => {
-        acc.planned += t.tournee?.kmPrevus || 0;
-        // Assuming real KM are not in tasks file, we can't calculate actual. This is a simplification.
-        acc.actual += (t.tournee?.kmPrevus || 0) * (1 + (Math.random() - 0.5) * 0.2); // Fake actual km
-        return acc;
-    }, { planned: 0, actual: 0 });
-
-    const overloadedTours = Array.from(new Set(completedTasks.map(t => t.tournee!)))
-        .filter(tour => {
-            const realWeight = completedTasks.filter(t => t.tourneeUniqueId === tour.uniqueId).reduce((sum, t) => sum + t.poidsReal, 0);
-            return realWeight > maxWeightThreshold;
-        });
+    const overloadedTours = Object.values(tourneeWeights)
+        .filter(item => item.realWeight > (item.tour.poidsPrevu > 0 ? item.tour.poidsPrevu * 1.1 : maxWeightThreshold)) // More robust check
+        .map(item => ({...item.tour, poidsReel: item.realWeight}));
 
     const performanceByDriver = calculatePerformanceBy(completedTasks, 'livreur', punctualityThreshold);
     const performanceByCity = calculatePerformanceBy(completedTasks, 'ville', punctualityThreshold);
