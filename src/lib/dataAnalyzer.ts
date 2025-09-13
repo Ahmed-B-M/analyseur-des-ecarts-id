@@ -130,14 +130,15 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
             depassementBacs,
             tauxDepassementBacs,
         };
-    }).filter(t => t.isOverloaded);
+    }).filter(t => t.isOverloaded)
+      .sort((a,b) => b.tauxDepassementPoids - a.tauxDepassementPoids || b.tauxDepassementBacs - a.tauxDepassementBacs);
     
     const durationDiscrepancies: DurationDiscrepancy[] = uniqueTournees.map(tour => ({
         ...tour,
         dureeEstimee: tour.dureeEstimeeOperationnelle || 0,
         dureeReelle: tour.dureeReelleCalculee || 0,
         ecart: (tour.dureeReelleCalculee || 0) - (tour.dureeEstimeeOperationnelle || 0),
-    }));
+    })).sort((a, b) => Math.abs(b.ecart) - Math.abs(a.ecart));
 
     const lateStartAnomalies: LateStartAnomaly[] = uniqueTourneesWithTasks
         .map(({tour, tasks}) => ({ 
@@ -150,7 +151,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
             ...tour,
             tasksInDelay,
             ecartDepart
-        }));
+        }))
+        .sort((a, b) => b.tasksInDelay - a.tasksInDelay);
 
     // --- Quality Impact KPIs ---
     const overloadedToursIds = new Set(overloadedToursInfos.map(t => t.uniqueId));

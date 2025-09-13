@@ -1,14 +1,14 @@
 'use client';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
-import type { AnalysisData, MergedData } from '@/lib/types';
+import type { AnalysisData, MergedData, OverloadedTourInfo, DurationDiscrepancy, LateStartAnomaly, PerformanceByDriver, PerformanceByGeo } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 interface AnalysisDashboardProps {
   analysisData: AnalysisData | null;
@@ -29,8 +29,74 @@ function formatSecondsToTime(seconds: number): string {
     return `${isNegative ? '-' : ''}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+type SortConfig<T> = {
+    key: keyof T;
+    direction: 'asc' | 'desc';
+} | null;
+
 export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData }: AnalysisDashboardProps) {
   const [activeTab, setActiveTab] = useState('ville');
+  const [sorts, setSorts] = useState<{ [key: string]: SortConfig<any> }>({
+      overloaded: { key: 'tauxDepassementPoids', direction: 'desc' },
+      duration: { key: 'ecart', direction: 'desc' },
+      anomaly: { key: 'tasksInDelay', direction: 'desc' },
+      driver: { key: 'totalTours', direction: 'desc' },
+      geo: { key: 'totalDelays', direction: 'desc' },
+  });
+
+  const handleSort = <T,>(table: string, key: keyof T) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    const currentSort = sorts[table];
+    if (currentSort && currentSort.key === key && currentSort.direction === 'asc') {
+        direction = 'desc';
+    }
+    setSorts(prev => ({...prev, [table]: { key, direction } }));
+  };
+
+  const renderSortIcon = (table: string, key: string) => {
+    const sortConfig = sorts[table];
+    if (!sortConfig || sortConfig.key !== key) {
+        return <ArrowUpDown className="ml-2 h-4 w-4 opacity-30 group-hover:opacity-80" />;
+    }
+    return sortConfig.direction === 'asc' ? '▲' : '▼';
+  };
+  
+  const sortedData = useMemo(() => {
+    if (!analysisData) return {};
+    
+    const sortFn = <T,>(data: T[], config: SortConfig<T>): T[] => {
+        if (!config) return data;
+        return [...data].sort((a, b) => {
+            const aValue = a[config.key];
+            const bValue = b[config.key];
+            if (aValue == null) return 1;
+            if (bValue == null) return -1;
+
+            let comparison = 0;
+            if (typeof aValue === 'number' && typeof bValue === 'number') {
+                comparison = aValue - bValue;
+            } else {
+                comparison = String(aValue).localeCompare(String(bValue));
+            }
+            
+            // For duration discrepancy, sort by absolute value
+            if (config.key === 'ecart') {
+                comparison = Math.abs(bValue as number) - Math.abs(aValue as number);
+            }
+
+            return config.direction === 'asc' ? comparison : -comparison;
+        });
+    }
+    
+    return {
+      overloadedTours: sortFn<OverloadedTourInfo>(analysisData.overloadedTours, sorts.overloaded),
+      durationDiscrepancies: sortFn<DurationDiscrepancy>(analysisData.durationDiscrepancies, sorts.duration),
+      lateStartAnomalies: sortFn<LateStartAnomaly>(analysisData.lateStartAnomalies, sorts.anomaly),
+      performanceByDriver: sortFn<PerformanceByDriver>(analysisData.performanceByDriver, sorts.driver),
+      performanceByCity: sortFn<PerformanceByGeo>(analysisData.performanceByCity, sorts.geo),
+      performanceByPostalCode: sortFn<PerformanceByGeo>(analysisData.performanceByPostalCode, sorts.geo),
+    };
+  }, [analysisData, sorts]);
 
   if (!analysisData) {
     return (
@@ -62,6 +128,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       }
     }
   };
+  
+  const geoDataToDisplay = activeTab === 'ville' ? sortedData.performanceByCity : sortedData.performanceByPostalCode;
 
   return (
     <div className="space-y-6">
@@ -108,18 +176,18 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Tournée</TableHead>
-                            <TableHead>Livreur</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'nom')}>Tournée {renderSortIcon('overloaded', 'nom')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'livreur')}>Livreur {renderSortIcon('overloaded', 'livreur')}</TableHead>
                             <TableHead>Capacité Poids</TableHead>
                             <TableHead>Poids Réel</TableHead>
-                            <TableHead>Dépassement Poids</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementPoids')}>Dépassement Poids {renderSortIcon('overloaded', 'tauxDepassementPoids')}</TableHead>
                             <TableHead>Capacité Bacs</TableHead>
                             <TableHead>Bacs Réels</TableHead>
-                            <TableHead>Dépassement Bacs</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementBacs')}>Dépassement Bacs {renderSortIcon('overloaded', 'tauxDepassementBacs')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {analysisData.overloadedTours.slice(0,10).map(tour => (
+                        {sortedData.overloadedTours?.slice(0,10).map(tour => (
                             <TableRow key={tour.uniqueId}>
                                 <TableCell>{tour.nom}</TableCell>
                                 <TableCell>{tour.livreur}</TableCell>
@@ -160,21 +228,21 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Tournée</TableHead>
-                            <TableHead>Livreur</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'nom')}>Tournée {renderSortIcon('duration', 'nom')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'livreur')}>Livreur {renderSortIcon('duration', 'livreur')}</TableHead>
                             <TableHead>Estimée (Urbantz)</TableHead>
                             <TableHead>Réelle (Tâches)</TableHead>
-                            <TableHead>Écart</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'ecart')}>Écart {renderSortIcon('duration', 'ecart')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {analysisData.durationDiscrepancies.slice(0,10).map(tour => (
+                        {sortedData.durationDiscrepancies?.slice(0,10).map(tour => (
                             <TableRow key={tour.uniqueId}>
                                 <TableCell>{tour.nom}</TableCell>
                                 <TableCell>{tour.livreur}</TableCell>
                                 <TableCell>{formatSecondsToTime(tour.dureeEstimee)}</TableCell>
                                 <TableCell>{formatSecondsToTime(tour.dureeReelle)}</TableCell>
-                                <TableCell className={cn(tour.ecart > 0 && "text-destructive font-semibold")}>
+                                <TableCell className={cn(tour.ecart > 0 ? "text-destructive font-semibold" : tour.ecart < 0 ? "text-blue-500 font-semibold" : "")}>
                                     {tour.ecart > 0 ? '+' : ''}{formatSecondsToTime(tour.ecart)}
                                 </TableCell>
                             </TableRow>
@@ -200,16 +268,16 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Tournée</TableHead>
-                            <TableHead>Livreur</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'nom')}>Tournée {renderSortIcon('anomaly', 'nom')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'livreur')}>Livreur {renderSortIcon('anomaly', 'livreur')}</TableHead>
                             <TableHead>Départ Prévu</TableHead>
                             <TableHead>Départ Réel</TableHead>
                             <TableHead>Écart au Départ</TableHead>
-                            <TableHead># Tâches en Retard</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'tasksInDelay')}># Tâches en Retard {renderSortIcon('anomaly', 'tasksInDelay')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {analysisData.lateStartAnomalies.slice(0,5).map(tour => (
+                        {sortedData.lateStartAnomalies?.slice(0,5).map(tour => (
                             <TableRow key={tour.uniqueId}>
                                 <TableCell>{tour.nom}</TableCell>
                                 <TableCell>{tour.livreur}</TableCell>
@@ -236,16 +304,16 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Livreur</TableHead>
-                            <TableHead>Nb. Tournées</TableHead>
-                            <TableHead>Ponctualité</TableHead>
-                            <TableHead>Retard Moyen (min)</TableHead>
-                            <TableHead>Dépassements Poids</TableHead>
-                            <TableHead>Notation Moy.</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'key')}>Livreur {renderSortIcon('driver', 'key')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'totalTours')}>Nb. Tournées {renderSortIcon('driver', 'totalTours')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'punctualityRate')}>Ponctualité {renderSortIcon('driver', 'punctualityRate')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('driver', 'avgDelay')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'overweightToursCount')}>Dépassements Poids {renderSortIcon('driver', 'overweightToursCount')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgRating')}>Notation Moy. {renderSortIcon('driver', 'avgRating')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {analysisData.performanceByDriver.slice(0, 10).map(driver => (
+                        {sortedData.performanceByDriver?.slice(0, 10).map(driver => (
                             <TableRow key={driver.key}>
                                 <TableCell>{driver.key}</TableCell>
                                 <TableCell>{driver.totalTours}</TableCell>
@@ -274,15 +342,15 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Secteur</TableHead>
-                            <TableHead>Tâches Totales</TableHead>
-                            <TableHead>Taux Ponctualité</TableHead>
-                            <TableHead>Nb. Retards</TableHead>
-                            <TableHead>Retard Moyen (min)</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'key')}>Secteur {renderSortIcon('geo', 'key')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalTasks')}>Tâches Totales {renderSortIcon('geo', 'totalTasks')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'punctualityRate')}>Taux Ponctualité {renderSortIcon('geo', 'punctualityRate')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalDelays')}>Nb. Retards {renderSortIcon('geo', 'totalDelays')}</TableHead>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('geo', 'avgDelay')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {(activeTab === 'ville' ? analysisData.performanceByCity : analysisData.performanceByPostalCode).slice(0, 10).map(item => (
+                        {geoDataToDisplay?.slice(0, 10).map(item => (
                             <TableRow key={item.key}>
                                 <TableCell>{item.key}</TableCell>
                                 <TableCell>{item.totalTasks}</TableCell>
