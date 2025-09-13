@@ -316,7 +316,7 @@ function calculatePerformanceByDriver(toursWithTasks: { tour: Tournee, tasks: Me
         group.tours.push(tour);
         group.tasks.push(...tasks);
         
-        const isOverweight = tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids;
+        const isOverweight = tour.capacitePoids > 0 && tour.poidsReel > tour.poidsReel;
         if (isOverweight) {
             group.overweightTours.add(tour.uniqueId);
         }
