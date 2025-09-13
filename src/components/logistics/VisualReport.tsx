@@ -5,23 +5,12 @@ import { Logo } from './Logo';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Printer, Loader2, AlertCircle, Info, Clock, MapPin, Users, Truck, BarChart2, AlertTriangle, Frown, Smile, Sigma } from 'lucide-react';
+import { Printer, Loader2, AlertCircle, Info, Clock, MapPin, Users, Truck, BarChart2, AlertTriangle, Frown, Smile, Sigma, Lightbulb, Package, Route, Target, TrendingDown, ThumbsDown, CheckCircle, Search, FileText } from 'lucide-react';
 import { KpiCard } from './KpiCard';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-
-const iconMap = {
-    Clock: Clock,
-    MapPin: MapPin,
-    Users: Users,
-    Truck: Truck,
-    BarChart2: BarChart2,
-    AlertTriangle: AlertTriangle,
-    Sigma: Sigma,
-    Frown: Frown,
-    Smile: Smile,
-};
+import { Separator } from '../ui/separator';
 
 export default function VisualReport() {
     const [reportData, setReportData] = useState<VisualReportData | null>(null);
@@ -43,8 +32,6 @@ export default function VisualReport() {
     const handlePrint = () => {
         window.print();
     };
-    
-    // Removed automatic printing to allow user interaction first
 
     if (isLoading) {
         return (
@@ -67,13 +54,6 @@ export default function VisualReport() {
     
     const { analysis, ai, filters } = reportData;
 
-    const mainKpis = analysis.generalKpis.filter(kpi => 
-        ['Tournées Analysées', 'Livraisons Analysées', 'Taux de Ponctualité (Réalisé)', 'Notation Moyenne Client'].includes(kpi.title)
-    );
-    const secondaryKpis = analysis.generalKpis.filter(kpi => 
-        ['Livraisons en Retard', 'Livraisons en Avance', 'Avis Négatifs'].includes(kpi.title)
-    );
-
     const getFilterValue = (key: string, value: any) => {
         if (!value) return 'N/A';
         if (key === 'dateRange' && typeof value === 'object' && value.from) {
@@ -85,28 +65,28 @@ export default function VisualReport() {
         return value;
     }
 
-    const punctualityKpi = mainKpis.find(k => k.title.includes('Ponctualité'));
-    const ratingKpi = mainKpis.find(k => k.title.includes('Notation'));
+    const punctualityKpi = analysis.generalKpis.find(k => k.title.includes('Ponctualité'));
+    const ratingKpi = analysis.generalKpis.find(k => k.title.includes('Notation'));
 
     const isPunctualityOk = punctualityKpi ? parseFloat(punctualityKpi.value) >= 95 : true;
     const isRatingOk = ratingKpi ? parseFloat(ratingKpi.value) >= 4.8 : true;
 
     return (
-        <div className="max-w-4xl mx-auto p-4 sm:p-8 bg-white print:shadow-none">
+        <div className="max-w-4xl mx-auto p-4 sm:p-8 bg-white print:shadow-none font-sans text-gray-800">
             <header className="flex justify-between items-center pb-4 border-b-2 border-black">
                  <div className="flex items-center gap-6">
                     <Logo className="h-12 w-auto" />
                     <Image src="/carrefour-logo.svg" alt="Carrefour Logo" width={120} height={40} className="object-contain" />
                 </div>
                  <div className="text-right">
-                    <h1 className="text-2xl font-bold text-gray-800">{ai.title}</h1>
+                    <h1 className="text-2xl font-bold">{ai.title}</h1>
                     <p className="text-sm text-gray-500">
                         Période : {getFilterValue(filters.dateRange ? 'dateRange' : 'selectedDate', filters.dateRange || filters.selectedDate)}
                     </p>
                 </div>
             </header>
 
-            <main className="mt-6 space-y-6">
+            <main className="mt-6 space-y-8">
                  {/* Print Button */}
                 <div className="no-print flex justify-end">
                     <Button onClick={handlePrint}>
@@ -115,98 +95,123 @@ export default function VisualReport() {
                     </Button>
                 </div>
 
-                {/* Synthesis */}
-                <Card className="bg-blue-50 border-blue-200 print:shadow-none">
+                {/* Executive Summary */}
+                <Card className="bg-blue-50 border-blue-200 print:shadow-none print:border-none">
                     <CardHeader>
-                        <CardTitle className="text-lg text-blue-900">Synthèse de Performance</CardTitle>
+                        <CardTitle className="text-lg text-blue-900 flex items-center gap-2"><FileText /> Synthèse Managériale</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-gray-700">{ai.synthesis}</p>
+                        <p className="text-gray-700 leading-relaxed">{ai.executiveSummary}</p>
                     </CardContent>
                 </Card>
 
-                {/* Main KPIs */}
-                <div className="grid grid-cols-2 gap-4">
-                    <Card className={`print:shadow-none ${isPunctualityOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                        <CardHeader className="pb-2">
-                             <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                <Clock /> Taux de Ponctualité
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-4xl font-bold">{punctualityKpi?.value}</p>
-                            <p className="text-xs text-muted-foreground">Objectif: 95%</p>
-                        </CardContent>
-                    </Card>
-                     <Card className={`print:shadow-none ${isRatingOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                <Users /> Notation Moyenne
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-4xl font-bold">{ratingKpi?.value}</p>
-                            <p className="text-xs text-muted-foreground">Objectif: 4.8/5</p>
-                        </CardContent>
-                    </Card>
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                    {mainKpis.filter(k => !k.title.includes('Ponctualité') && !k.title.includes('Notation')).map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
-                    {secondaryKpis.map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
-                </div>
-
-                {/* AI Insights & Key Charts */}
+                {/* Main KPIs Section */}
                 <section>
-                    <h2 className="text-xl font-bold mb-4">Analyse Approfondie & Insights IA</h2>
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Target/> Analyse des Indicateurs Clés (KPIs)</h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Card className={`print:shadow-none ${isPunctualityOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ponctualité</CardTitle></CardHeader>
+                            <CardContent>
+                                <p className="text-3xl font-bold">{punctualityKpi?.value}</p>
+                                <p className="text-xs text-muted-foreground">Objectif: 95%</p>
+                            </CardContent>
+                        </Card>
+                        <Card className={`print:shadow-none ${isRatingOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Notation Client</CardTitle></CardHeader>
+                            <CardContent>
+                                <p className="text-3xl font-bold">{ratingKpi?.value}</p>
+                                <p className="text-xs text-muted-foreground">Objectif: 4.8/5</p>
+                            </CardContent>
+                        </Card>
+                         <KpiCard {...analysis.generalKpis.find(k=>k.title.includes('Retard'))!} />
+                         <KpiCard {...analysis.generalKpis.find(k=>k.title.includes('Avance'))!} />
+                    </div>
+                    <div className="mt-4 bg-gray-50 p-4 rounded-lg border">
+                        <p className="text-sm leading-relaxed"><span className="font-semibold text-gray-700">Analyse :</span> {ai.kpiAnalysis.punctuality} {ai.kpiAnalysis.rating} {ai.kpiAnalysis.delays}</p>
+                    </div>
+                </section>
+                
+                <Separator/>
+
+                {/* Anomalies Section */}
+                <section>
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Search/> Analyse des Anomalies Opérationnelles</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card className="print:shadow-none">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2"><Sigma/> Répartition des Écarts</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <ResponsiveContainer width="100%" height={200}>
-                                    <BarChart data={analysis.delayHistogram}>
-                                    <XAxis dataKey="range" fontSize={10} angle={-30} textAnchor="end" height={50} />
-                                    <YAxis fontSize={10} />
-                                    <Tooltip />
-                                    <Bar dataKey="count" name="Nb. de Tâches">
-                                        {analysis.delayHistogram.map((entry) => (
-                                            <Cell key={entry.range} fill={entry.range.includes('retard') ? '#E4002B' : entry.range.includes('avance') ? '#00A1DE' : '#a0aec0'} />
-                                        ))}
-                                    </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </CardContent>
-                        </Card>
-                        <Card className="print:shadow-none">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2"><MapPin className="text-destructive"/> Top 5 Villes (Retards)</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <ResponsiveContainer width="100%" height={200}>
-                                    <BarChart data={analysis.delaysByCity.slice(0,5).reverse()} layout="vertical" margin={{ left: 60, right: 20 }}>
-                                        <XAxis type="number" fontSize={10} />
-                                        <YAxis dataKey="key" type="category" fontSize={10} tickLine={false} axisLine={false} />
-                                        <Tooltip />
-                                        <Bar dataKey="count" name="Retards" barSize={15} fill={'#E4002B'} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </CardContent>
-                        </Card>
-                        <div className="md:col-span-2 space-y-3">
-                             <h3 className="font-semibold">Insights Clés de l'IA</h3>
-                             {ai.keyInsights.map((insight, index) => {
-                                const Icon = iconMap[insight.icon as keyof typeof iconMap];
-                                return (
-                                <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                    {Icon ? <Icon className="w-5 h-5 mt-0.5 text-primary shrink-0" /> : <BarChart2 className="w-5 h-5 mt-0.5 text-primary shrink-0" />}
-                                    <p className="text-sm text-gray-800">{insight.text}</p>
-                                </div>
-                                )
-                             })}
+                        <div>
+                             <KpiCard icon="AlertTriangle" title="Tournées en Surcharge" value={analysis.overloadedTours.length.toString()} description="Dépassement de poids ou volume"/>
+                             {ai.anomaliesAnalysis.overload && <p className="text-sm mt-2 p-2 bg-gray-50 rounded border">{ai.anomaliesAnalysis.overload}</p>}
+                        </div>
+                        <div>
+                             <KpiCard icon="Route" title="Anomalies de Planification" value={analysis.lateStartAnomalies.length.toString()} description="Parties à l'heure, livrées en retard"/>
+                             {ai.anomaliesAnalysis.planning && <p className="text-sm mt-2 p-2 bg-gray-50 rounded border">{ai.anomaliesAnalysis.planning}</p>}
                         </div>
                     </div>
                 </section>
+
+                <Separator/>
+
+                {/* Geo & Driver Analysis */}
+                <section>
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><MapPin/> Analyse Géographique et par Livreur</h2>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h3 className="font-semibold mb-2">Performance par Ville</h3>
+                            <Card className="print:shadow-none">
+                                <CardContent className="pt-4">
+                                     <ResponsiveContainer width="100%" height={200}>
+                                        <BarChart data={analysis.delaysByCity.slice(0,5).reverse()} layout="vertical" margin={{ left: 80, right: 20 }}>
+                                            <XAxis type="number" fontSize={10} />
+                                            <YAxis dataKey="key" type="category" fontSize={10} tickLine={false} axisLine={false} />
+                                            <Tooltip />
+                                            <Bar dataKey="count" name="Retards" barSize={15} fill={'#E4002B'} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                            {ai.geoDriverAnalysis.city && <p className="text-sm mt-2 p-2 bg-gray-50 rounded border">{ai.geoDriverAnalysis.city}</p>}
+                        </div>
+                         <div>
+                            <h3 className="font-semibold mb-2">Performance par Livreur</h3>
+                            <p className="text-sm p-2 bg-gray-50 rounded border">{ai.geoDriverAnalysis.driver || "Aucune anomalie majeure par livreur."}</p>
+                        </div>
+                    </div>
+                </section>
+
+                <Separator/>
+
+                {/* Customer Impact */}
+                <section>
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><TrendingDown/> Impact sur la Qualité Client</h2>
+                     <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200">
+                        <p className="text-sm leading-relaxed">{ai.customerImpactAnalysis.mainReason}</p>
+                     </div>
+                </section>
+                
+                <Separator/>
+
+                {/* Conclusion & Recommendations */}
+                <section>
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Lightbulb/> Conclusion et Recommandations</h2>
+                    <Card className="print:shadow-none bg-gray-50/50">
+                        <CardHeader>
+                            <CardTitle className="text-base">Problèmes Principaux Identifiés</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <p className="text-sm">{ai.conclusion.summary}</p>
+                        </CardContent>
+                    </Card>
+                     <Card className="mt-4 print:shadow-none bg-green-50/50 border-green-200">
+                        <CardHeader>
+                            <CardTitle className="text-base">Plan d'Action Recommandé</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ul className="list-disc pl-5 space-y-2 text-sm">
+                                {ai.conclusion.recommendations.map((rec, i) => <li key={i}>{rec}</li>)}
+                            </ul>
+                        </CardContent>
+                    </Card>
+                </section>
+
             </main>
             <footer className="text-center text-xs text-gray-400 mt-8 pt-4 border-t">
                 Rapport généré le {format(new Date(), 'dd/MM/yyyy à HH:mm')}
