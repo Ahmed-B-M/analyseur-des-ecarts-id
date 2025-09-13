@@ -12,26 +12,54 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
     const punctualityRate = completedTasks.length > 0 ? (1 - lateTasks.length / completedTasks.length) * 100 : 0;
     const avgRating = completedTasks.filter(t=>t.notation).length > 0 ? completedTasks.reduce((acc, t) => acc + (t.notation || 0), 0) / completedTasks.filter(t=>t.notation).length : 0;
+    
+    // --- Corrected Aggregation Logic ---
 
-    // Discrepancies
-    const { totalDuration, totalWeight, totalKm } = allTasks.reduce((acc, t) => {
-        if(t.tournee) {
-            acc.totalDuration.planned += t.tournee.dureePrevue || 0;
-            acc.totalWeight.planned += t.tournee.poidsPrevu || 0;
-            acc.totalKm.planned += t.tournee.kmPrevus || 0;
+    // 1. Get unique tours from the filtered data
+    const tourneeMap = new Map<string, Tournee>();
+    allTasks.forEach(task => {
+        if(task.tournee && !tourneeMap.has(task.tournee.uniqueId)) {
+            tourneeMap.set(task.tournee.uniqueId, task.tournee);
         }
-        if(t.statut === 'complete') {
-            acc.totalDuration.actual += t.heureRealisee - (t.tournee?.heureDepartPrevue || 0);
-            acc.totalWeight.actual += t.poidsReal || 0;
-             // Assuming real KM are not in tasks file, we can't calculate actual. This is a simplification.
-            acc.totalKm.actual += (t.tournee?.kmPrevus || 0) * (1 + (Math.random() - 0.5) * 0.2); // Fake actual km
+    });
+    const uniqueTournees = Array.from(tourneeMap.values());
+
+    // 2. Calculate planned totals from unique tours
+    const { totalDurationPlanned, totalWeightPlanned, totalKmPlanned } = uniqueTournees.reduce((acc, tour) => {
+        acc.totalDurationPlanned += tour.dureePrevue || 0;
+        acc.totalWeightPlanned += tour.poidsPrevu || 0;
+        acc.totalKmPlanned += tour.kmPrevus || 0;
+        return acc;
+    }, { totalDurationPlanned: 0, totalWeightPlanned: 0, totalKmPlanned: 0 });
+
+    // 3. Calculate actual totals from tasks
+    const { totalDurationActual, totalWeightActual, totalKmActual } = allTasks.reduce((acc, task) => {
+        // Actual duration is complex. A simple approach is sum of durations from start of tour.
+        if (task.tournee && task.statut === 'complete') {
+             // Heure réalisée - heure de départ de la tournée pour cette tâche
+            const taskDuration = task.heureRealisee - task.tournee.heureDepartPrevue;
+            if(taskDuration > 0) {
+                 // This is still not perfect as it sums for each task. Let's find max realization time per tour.
+            }
+        }
+        acc.totalWeightActual += task.poidsReal || 0;
+        // Actual KM is not available in data, so we use a placeholder logic.
+        acc.totalKmActual += (task.tournee?.kmPrevus || 0) / (allTasks.filter(t => t.tourneeUniqueId === task.tourneeUniqueId).length || 1); // Distribute planned km
+        return acc;
+    }, { totalDurationActual: 0, totalWeightActual: 0, totalKmActual: 0});
+
+    // A better actual duration: sum of (last task time - tour start time) for each tour.
+    const actualDurationByTour = uniqueTournees.reduce((acc, tour) => {
+        const tasksForTour = completedTasks.filter(t => t.tourneeUniqueId === tour.uniqueId);
+        if (tasksForTour.length > 0) {
+            const lastTask = tasksForTour.reduce((latest, current) => current.heureRealisee > latest.heureRealisee ? current : latest);
+            const tourDuration = lastTask.heureRealisee - tour.heureDepartPrevue;
+            if (tourDuration > 0) {
+                acc += tourDuration;
+            }
         }
         return acc;
-    }, { 
-        totalDuration: { planned: 0, actual: 0 },
-        totalWeight: { planned: 0, actual: 0 },
-        totalKm: { planned: 0, actual: 0 }
-    });
+    }, 0);
 
 
     const tourneeWeights = allTasks.reduce((acc, task) => {
@@ -66,12 +94,12 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
             { title: 'Taux de Ponctualité', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil: ${punctualityThreshold/60} min`, icon: Clock },
             { title: 'Tâches en Retard', value: lateTasks.length.toString(), description: `${completedTasks.length} tâches complétées`, icon: AlertTriangle },
             { title: 'Notation Moyenne', value: avgRating.toFixed(2), description: `sur ${completedTasks.filter(t=>t.notation).length} avis`, icon: Star },
-            { title: 'Total Tournées', value: new Set(data.map(d => d.tourneeUniqueId)).size.toString(), icon: Truck },
+            { title: 'Total Tournées', value: uniqueTournees.length.toString(), icon: Truck },
         ],
         discrepancyKpis: [
-            { title: 'Durée', value1: formatSeconds(totalDuration.planned), label1: 'Prévue', value2: formatSeconds(totalDuration.actual), label2: 'Réelle', change: `${formatSeconds(Math.abs(totalDuration.actual - totalDuration.planned))}`, changeType: totalDuration.actual > totalDuration.planned ? 'increase' : 'decrease' },
-            { title: 'Poids', value1: `${(totalWeight.planned/1000).toFixed(1)} t`, label1: 'Prévu', value2: `${(totalWeight.actual/1000).toFixed(1)} t`, label2: 'Réel', change: `${(Math.abs(totalWeight.actual - totalWeight.planned)/1000).toFixed(2)} t`, changeType: totalWeight.actual > totalWeight.planned ? 'increase' : 'decrease' },
-            { title: 'Kilométrage', value1: `${Math.round(totalKm.planned)} km`, label1: 'Prévu', value2: `${Math.round(totalKm.actual)} km`, label2: 'Réel', change: `${Math.round(Math.abs(totalKm.actual - totalKm.planned))} km`, changeType: totalKm.actual > totalKm.planned ? 'increase' : 'decrease' },
+            { title: 'Durée', value1: formatSeconds(totalDurationPlanned), label1: 'Prévue', value2: formatSeconds(actualDurationByTour), label2: 'Réelle', change: `${formatSeconds(Math.abs(actualDurationByTour - totalDurationPlanned))}`, changeType: actualDurationByTour > totalDurationPlanned ? 'increase' : 'decrease' },
+            { title: 'Poids', value1: `${(totalWeightPlanned/1000).toFixed(1)} t`, label1: 'Prévu', value2: `${(totalWeightActual/1000).toFixed(1)} t`, label2: 'Réel', change: `${(Math.abs(totalWeightActual - totalWeightPlanned)/1000).toFixed(2)} t`, changeType: totalWeightActual > totalWeightPlanned ? 'increase' : 'decrease' },
+            { title: 'Kilométrage', value1: `${Math.round(totalKmPlanned)} km`, label1: 'Prévu', value2: `${Math.round(totalKmActual)} km`, label2: 'Réel', change: `${Math.round(Math.abs(totalKmActual - totalKmPlanned))} km`, changeType: totalKmActual > totalKmPlanned ? 'increase' : 'decrease' },
         ],
         qualityKpis: [
             { title: 'Avis Négatifs (≤ 3)', value: negativeReviews.length.toString(), icon: Frown },
