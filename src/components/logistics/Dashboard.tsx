@@ -51,11 +51,31 @@ function reducer(state: State, action: Action): State {
       return { ...state, [`${action.fileType}File`]: action.file, error: null };
     case 'START_PROCESSING':
       return { ...state, isLoading: true, error: null };
-    case 'PROCESSING_SUCCESS':
+    case 'PROCESSING_SUCCESS': {
         if (!action.data || action.data.tournees.length === 0 || action.data.taches.length === 0) {
             return { ...state, isLoading: false, error: "Aucune donnée valide n'a été extraite des fichiers. Veuillez vérifier les en-têtes et le contenu." };
         }
-      return { ...state, isLoading: false, data: action.data, error: null };
+        
+        // Set initial date range for the current week, AFTER data is loaded.
+        const today = new Date();
+        const start = new Date(today);
+        start.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); // Handle Sunday
+        start.setHours(0,0,0,0);
+        
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23,59,59,999);
+
+        const initialFilters = { 
+            ...state.filters,
+            dateRange: { 
+              from: start, 
+              to: end 
+            } 
+        };
+
+        return { ...state, isLoading: false, data: action.data, error: null, filters: initialFilters };
+    }
     case 'PROCESSING_ERROR':
       return { ...state, isLoading: false, error: action.error };
     case 'SET_FILTERS':
@@ -89,21 +109,6 @@ export default function Dashboard() {
     newWorker.onerror = (error) => {
       dispatch({ type: 'PROCESSING_ERROR', error: `Erreur du worker: ${error.message}` });
     };
-
-    // Set initial date range for the current week
-    const today = new Date();
-    const start = new Date(today.setDate(today.getDate() - today.getDay() + 1));
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-
-    const initialFilters = { 
-        punctualityThreshold: 15,
-        dateRange: { 
-          from: start, 
-          to: end 
-        } 
-    };
-    dispatch({ type: 'SET_FILTERS', filters: initialFilters });
 
     return () => {
       newWorker.terminate();
@@ -210,7 +215,7 @@ export default function Dashboard() {
           </div>
         </div>
          <div className="flex items-center gap-2">
-            <ApiKeySettings />
+            
             {state.data && (
             <Button onClick={() => dispatch({type: 'RESET'})} variant="outline" size="sm">Réinitialiser</Button>
             )}
@@ -323,5 +328,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    
