@@ -141,8 +141,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                 <TableCell>{tour.entrepot}</TableCell>
                                 <TableCell>{tour.poidsPrevu.toFixed(2)}</TableCell>
                                 <TableCell className="font-bold text-destructive">
-                                    {/* This is a simplification; real weight is sum of tasks */}
-                                    {tour.poidsPrevu * 1.25}
+                                    {tour.poidsReel?.toFixed(2)}
                                 </TableCell>
                             </TableRow>
                         ))}

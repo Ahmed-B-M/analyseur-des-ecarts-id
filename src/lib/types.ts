@@ -8,6 +8,7 @@ export type Tournee = {
   entrepot: string;
   livreur: string;
   poidsPrevu: number;
+  poidsReel?: number; // Optional, calculated field
   bacsPrevus: number;
   kmPrevus: number;
   dureePrevue: number; // in seconds
