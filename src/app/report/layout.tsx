@@ -12,11 +12,9 @@ export default function ReportLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        {/* Les liens de polices sont déjà dans le layout principal, pas besoin de les répéter */}
         <style>
           {`
             @media print {
@@ -31,9 +29,8 @@ export default function ReportLayout({
           `}
         </style>
       </head>
-      <body className="font-body antialiased bg-background">
-        {children}
-      </body>
-    </html>
+      {/* Le <body> est déjà fourni par le layout racine, on injecte juste le contenu */}
+      {children}
+    </>
   );
 }
