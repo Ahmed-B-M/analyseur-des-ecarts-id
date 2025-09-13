@@ -32,7 +32,9 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
         item.nomTournee?.toLowerCase().includes(search) ||
         item.livreur?.toLowerCase().includes(search) ||
         item.ville?.toLowerCase().includes(search) ||
-        item.codePostal?.toLowerCase().includes(search)
+        item.codePostal?.toLowerCase().includes(search) ||
+        item.date?.toLowerCase().includes(search) ||
+        item.entrepot?.toLowerCase().includes(search)
       );
     });
   }, [data, searchTerm]);
@@ -91,7 +93,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
   return (
     <div className="space-y-4">
       <Input
-        placeholder="Rechercher par tournée, livreur, ville..."
+        placeholder="Rechercher par tournée, livreur, ville, date..."
         value={searchTerm}
         onChange={(e) => {
           setSearchTerm(e.target.value);
@@ -103,7 +105,9 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead onClick={() => handleSort('date')} className="cursor-pointer">Date {renderSortIcon('date')}</TableHead>
               <TableHead onClick={() => handleSort('nomTournee')} className="cursor-pointer">Tournée {renderSortIcon('nomTournee')}</TableHead>
+              <TableHead onClick={() => handleSort('entrepot')} className="cursor-pointer">Entrepôt {renderSortIcon('entrepot')}</TableHead>
               <TableHead onClick={() => handleSort('livreur')} className="cursor-pointer">Livreur {renderSortIcon('livreur')}</TableHead>
               <TableHead onClick={() => handleSort('ville')} className="cursor-pointer">Ville {renderSortIcon('ville')}</TableHead>
               <TableHead onClick={() => handleSort('heureDebutCreneau')} className="cursor-pointer">Créneau {renderSortIcon('heureDebutCreneau')}</TableHead>
@@ -116,7 +120,9 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
           <TableBody>
             {paginatedData.length > 0 ? paginatedData.map((item, index) => (
               <TableRow key={`${item.tourneeUniqueId}-${item.sequence}-${index}`}>
+                <TableCell>{item.date}</TableCell>
                 <TableCell>{item.nomTournee}</TableCell>
+                <TableCell>{item.entrepot}</TableCell>
                 <TableCell>{item.livreur}</TableCell>
                 <TableCell>{item.ville}, {item.codePostal}</TableCell>
                 <TableCell>{formatSecondsToTime(item.heureDebutCreneau)} - {formatSecondsToTime(item.heureFinCreneau)}</TableCell>
@@ -130,7 +136,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
                 <TableCell className="max-w-xs truncate" title={item.commentaire || ''}>{item.commentaire}</TableCell>
               </TableRow>
             )) : (
-                <TableRow><TableCell colSpan={8} className="text-center h-24">Aucune donnée à afficher.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center h-24">Aucune donnée à afficher.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
