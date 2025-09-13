@@ -20,7 +20,7 @@ const headerAliases: Record<string, Record<string, string[]>> = {
     heureDepartPrevue: ['Départ'],
     heureFinPrevue: ['Fin'],
     capaciteBacs: ['Capacité Bac (bacs)'],
-    bacsPrevus: ['Bac (bacs)'], // bacsReels is on the tour, but this is the planned one
+    bacsPrevus: ['Bac (bacs)'],
     capacitePoids: ['Capacité Poids (kg)'],
     poidsPrevu: ['Poids (kg)'],
     tempsService: ['Temps de service (s)'],
@@ -30,7 +30,7 @@ const headerAliases: Record<string, Record<string, string[]>> = {
     date: ['Date'],
     entrepot: ['Entrepôt'],
     livreur: ['Livreur'],
-    nomTournee: ['Tournée'],
+    nomTournee: ['Tournée', 'Nom'],
     sequence: ['Séquence'],
     items: ['Items'],
     codePostal: ['Code postal'],
@@ -211,9 +211,8 @@ self.addEventListener('message', async (event: MessageEvent) => {
     const tourneesSheet = tourneesWb.Sheets[tourneesWb.SheetNames[0]];
     const tachesSheet = tachesWb.Sheets[tachesWb.SheetNames[0]];
 
-    // Using raw:false to get formatted text for dates/times
-    const tourneesJson = XLSX.utils.sheet_to_json(tourneesSheet, { header: 1, defval: null, raw: false });
-    const tachesJson = XLSX.utils.sheet_to_json(tachesSheet, { header: 1, defval: null, raw: false });
+    const tourneesJson = XLSX.utils.sheet_to_json(tourneesSheet, { header: 1, defval: null });
+    const tachesJson = XLSX.utils.sheet_to_json(tachesSheet, { header: 1, defval: null });
 
     const rawTournees = normalizeData(tourneesJson, 'tournees');
     const rawTaches = normalizeData(tachesJson, 'taches');
@@ -227,8 +226,8 @@ self.addEventListener('message', async (event: MessageEvent) => {
     
     const tournees: Tournee[] = rawTournees.map((t: any) => ({
       ...t,
-      bacsReels: 0, // Will be calculated by summing tasks
-      poidsReel: 0, // Will be calculated by summing tasks
+      bacsReels: 0,
+      poidsReel: 0,
       uniqueId: `${t.nom}|${t.date}|${t.entrepot}`
     }));
 
