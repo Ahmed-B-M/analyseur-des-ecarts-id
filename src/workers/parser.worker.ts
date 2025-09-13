@@ -20,7 +20,7 @@ const headerAliases: Record<string, Record<string, string[]>> = {
     heureDepartPrevue: ['Départ'],
     heureFinPrevue: ['Fin'],
     capaciteBacs: ['Capacité Bac (bacs)'],
-    bacsReels: ['Bac (bacs)'], // Corrected from bacsPrevus
+    bacsReels: ['Bac (bacs)'],
     capacitePoids: ['Capacité Poids (kg)'],
     poidsPrevu: ['Poids (kg)'],
     tempsService: ['Temps de service (s)'],
@@ -145,10 +145,26 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
     }
       
     const newRow: any = {};
+    let hasMandatoryData = true;
+    for (const header of mandatoryHeaders[fileType]) {
+        const colIndex = Object.keys(headerMap).find(k => headerMap[parseInt(k)] === header);
+        if (colIndex === undefined || row[parseInt(colIndex)] === null || row[parseInt(colIndex)] === '') {
+            hasMandatoryData = false;
+            break;
+        }
+    }
+    if (!hasMandatoryData) {
+        continue;
+    }
     
     for (const colIndex in headerMap) {
       const key = headerMap[colIndex];
       let value = row[colIndex];
+
+      if (value === null || value === undefined) {
+        newRow[key] = (key === 'notation' || key === 'commentaire') ? null : 0;
+        continue;
+      }
 
       if (key === 'date') {
           newRow[key] = parseDate(value);
@@ -161,18 +177,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
           newRow[key] = value ? String(value).trim() : (key === 'commentaire' ? null : '');
       }
     }
-    
-    let hasMandatoryData = true;
-    for (const header of mandatoryHeaders[fileType]) {
-        if (!newRow[header]) {
-            hasMandatoryData = false;
-            break; 
-        }
-    }
-
-    if (hasMandatoryData) {
-      normalized.push(newRow);
-    }
+    normalized.push(newRow);
   }
   return normalized;
 }
@@ -198,6 +203,13 @@ self.addEventListener('message', async (event: MessageEvent) => {
     const rawTournees = normalizeData(tourneesJson, 'tournees');
     const rawTaches = normalizeData(tachesJson, 'taches');
     
+    if (rawTournees.length === 0) {
+        throw new Error("Aucune donnée de tournée n'a pu être lue. Vérifiez le fichier des tournées et ses en-têtes.");
+    }
+    if (rawTaches.length === 0) {
+        throw new Error("Aucune donnée de tâche n'a pu être lue. Vérifiez le fichier des tâches et ses en-têtes.");
+    }
+    
     const tournees: Tournee[] = rawTournees.map((t: any) => ({
       ...t,
       uniqueId: `${t.nom}|${t.date}|${t.entrepot}`
@@ -207,13 +219,6 @@ self.addEventListener('message', async (event: MessageEvent) => {
       ...t,
       tourneeUniqueId: `${t.nomTournee}|${t.date}|${t.entrepot}`
     }));
-
-    if (tournees.length === 0) {
-        throw new Error("Aucune donnée de tournée n'a pu être lue. Vérifiez le fichier des tournées et ses en-têtes.");
-    }
-    if (taches.length === 0) {
-        throw new Error("Aucune donnée de tâche n'a pu être lue. Vérifiez le fichier des tâches et ses en-têtes.");
-    }
 
     self.postMessage({ type: 'success', data: { tournees, taches } });
 
