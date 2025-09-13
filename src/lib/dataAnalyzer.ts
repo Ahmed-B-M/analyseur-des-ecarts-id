@@ -152,7 +152,12 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         heurePremiereLivraisonReelle: tour.heurePremiereLivraisonReelle || 0,
         heureDerniereLivraisonPrevue: tour.heureDerniereLivraisonPrevue || 0,
         heureDerniereLivraisonReelle: tour.heureDerniereLivraisonReelle || 0,
-    })).sort((a, b) => Math.abs(b.ecart) - Math.abs(a.ecart));
+    })).sort((a, b) => {
+      // Sort by positive écart descending, then negative écart descending (closer to 0)
+      if (a.ecart >= 0 && b.ecart < 0) return -1;
+      if (a.ecart < 0 && b.ecart >= 0) return 1;
+      return b.ecart - a.ecart;
+    });
 
     const lateStartAnomalies: LateStartAnomaly[] = uniqueTourneesWithTasks
         .map(({tour, tasks}) => ({ 
@@ -200,30 +205,42 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     // --- Workload Charts ---
     const workloadByHour: WorkloadByHour[] = [];
     const avgWorkloadByHour: AvgWorkloadByHour[] = [];
-    const tasksByHour: Record<string, { planned: number, real: number, drivers: Set<string> }> = {};
+    const tasksByHour: Record<string, { planned: number, real: number, plannedDrivers: Set<string>, realDrivers: Set<string> }> = {};
 
     for (let i = 0; i < 24; i++) {
         const hourStr = `${String(i).padStart(2, '0')}:00`;
-        tasksByHour[hourStr] = { planned: 0, real: 0, drivers: new Set() };
+        tasksByHour[hourStr] = { planned: 0, real: 0, plannedDrivers: new Set(), realDrivers: new Set() };
     }
 
     allTasks.forEach(task => {
-        const plannedHour = new Date(task.heureArriveeApprox * 1000).getUTCHours();
-        const plannedHourStr = `${String(plannedHour).padStart(2, '0')}:00`;
-        if (tasksByHour[plannedHourStr]) tasksByHour[plannedHourStr].planned++;
+        if (task.livreur) {
+            const plannedHour = new Date(task.heureArriveeApprox * 1000).getUTCHours();
+            const plannedHourStr = `${String(plannedHour).padStart(2, '0')}:00`;
+            if (tasksByHour[plannedHourStr]) {
+                tasksByHour[plannedHourStr].planned++;
+                tasksByHour[plannedHourStr].plannedDrivers.add(task.livreur);
+            }
 
-        const realHour = new Date(task.heureCloture * 1000).getUTCHours();
-        const realHourStr = `${String(realHour).padStart(2, '0')}:00`;
-        if (tasksByHour[realHourStr]) {
-            tasksByHour[realHourStr].real++;
-            if (task.livreur) tasksByHour[realHourStr].drivers.add(task.livreur);
+            const realHour = new Date(task.heureCloture * 1000).getUTCHours();
+            const realHourStr = `${String(realHour).padStart(2, '0')}:00`;
+            if (tasksByHour[realHourStr]) {
+                tasksByHour[realHourStr].real++;
+                tasksByHour[realHourStr].realDrivers.add(task.livreur);
+            }
         }
     });
 
     Object.entries(tasksByHour).forEach(([hour, data]) => {
         workloadByHour.push({ hour, planned: data.planned, real: data.real });
-        const driverCount = data.drivers.size;
-        avgWorkloadByHour.push({ hour, avgLoad: driverCount > 0 ? data.real / driverCount : 0 });
+        
+        const plannedDriverCount = data.plannedDrivers.size;
+        const realDriverCount = data.realDrivers.size;
+        
+        avgWorkloadByHour.push({ 
+            hour, 
+            avgPlanned: plannedDriverCount > 0 ? data.planned / plannedDriverCount : 0,
+            avgReal: realDriverCount > 0 ? data.real / realDriverCount : 0 
+        });
     });
 
 

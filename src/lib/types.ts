@@ -138,7 +138,8 @@ export type WorkloadByHour = {
 
 export type AvgWorkloadByHour = {
   hour: string;
-  avgLoad: number;
+  avgPlanned: number;
+  avgReal: number;
 }
 
 export type AnalysisData = {

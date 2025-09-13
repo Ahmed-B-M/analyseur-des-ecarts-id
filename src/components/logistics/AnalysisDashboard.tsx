@@ -103,13 +103,9 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             
             // Specific sort for 'ecart' in durationDiscrepancies
             if (config.key === 'ecart') {
-                if (aValue > bValue) {
-                    return -1;
-                }
-                if (aValue < bValue) {
-                    return 1;
-                }
-                return 0;
+              if (aValue >= 0 && bValue < 0) return -1;
+              if (aValue < 0 && bValue >= 0) return 1;
+              return bValue - aValue;
             }
 
 
@@ -449,13 +445,15 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={analysisData.avgWorkloadByDriverByHour}>
+                <AreaChart data={analysisData.avgWorkloadByDriverByHour}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="hour" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="avgLoad" fill={PRIMARY_COLOR} name="Tâches / Livreur" />
-                </BarChart>
+                  <Legend />
+                  <Area type="monotone" dataKey="avgPlanned" name="Planifié / Livreur" stroke={ACCENT_COLOR} fill={ACCENT_COLOR} fillOpacity={0.3} />
+                  <Area type="monotone" dataKey="avgReal" name="Réalisé / Livreur" stroke={PRIMARY_COLOR} fill={PRIMARY_COLOR} fillOpacity={0.3} />
+                </AreaChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
