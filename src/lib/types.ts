@@ -68,7 +68,7 @@ export type Kpi = {
   title: string;
   value: string;
   description?: string;
-  icon?: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>;
+  icon?: string;
 };
 
 export type ComparisonKpi = {

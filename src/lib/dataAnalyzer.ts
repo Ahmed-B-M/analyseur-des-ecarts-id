@@ -1,5 +1,4 @@
 import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi, AvgWorkload, PerformanceByDay, PerformanceByTimeSlot, DelayHistogramBin } from './types';
-import { Truck, Clock, Star, AlertTriangle, Smile, Frown, PackageCheck, Route, BarChart, Hash, Users, Sigma, ListChecks, MessageSquareX, Calendar, Sun, Moon, Sunset } from 'lucide-react';
 import { fr } from 'date-fns/locale';
 import { format, getDay } from 'date-fns';
 
@@ -99,13 +98,13 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
 
     const generalKpis: Kpi[] = [
-        { title: 'Tournées Analysées', value: uniqueTournees.length.toString(), icon: Truck },
-        { title: 'Livraisons Analysées', value: allTasks.length.toString(), icon: ListChecks },
-        { title: 'Taux de Ponctualité (Réalisé)', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${toleranceMinutes} min`, icon: Clock },
-        { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis (sur 5)`, icon: Star },
-        { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${toleranceMinutes} min après le créneau`, icon: Frown },
-        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< -${toleranceMinutes} min avant le créneau`, icon: Smile },
-        { title: 'Avis Négatifs', value: negativeReviews.length.toString(), description: 'Note client de 1 à 3 / 5', icon: MessageSquareX },
+        { title: 'Tournées Analysées', value: uniqueTournees.length.toString(), icon: 'Truck' },
+        { title: 'Livraisons Analysées', value: allTasks.length.toString(), icon: 'ListChecks' },
+        { title: 'Taux de Ponctualité (Réalisé)', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${toleranceMinutes} min`, icon: 'Clock' },
+        { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis (sur 5)`, icon: 'Star' },
+        { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${toleranceMinutes} min après le créneau`, icon: 'Frown' },
+        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< -${toleranceMinutes} min avant le créneau`, icon: 'Smile' },
+        { title: 'Avis Négatifs', value: negativeReviews.length.toString(), description: 'Note client de 1 à 3 / 5', icon: 'MessageSquareX' },
     ];
     
     // --- Discrepancy KPIs ---
@@ -187,9 +186,9 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const correlationOverload = negativeReviews.length > 0 ? (negativeReviewsOnOverloadedTours.length / negativeReviews.length) * 100 : 0;
     
     const qualityKpis: Kpi[] = [
-        { title: 'Corrélation Retards / Avis Négatifs', value: `${correlationDelays.toFixed(1)}%`, icon: BarChart },
-        { title: 'Corrélation Surcharge / Avis Négatifs', value: `${correlationOverload.toFixed(1)}%`, icon: Hash },
-        { title: 'Anomalies en Tournée', value: lateStartAnomalies.length.toString(), icon: Route },
+        { title: 'Corrélation Retards / Avis Négatifs', value: `${correlationDelays.toFixed(1)}%`, icon: 'BarChart' },
+        { title: 'Corrélation Surcharge / Avis Négatifs', value: `${correlationOverload.toFixed(1)}%`, icon: 'Hash' },
+        { title: 'Anomalies en Tournée', value: lateStartAnomalies.length.toString(), icon: 'Route' },
     ];
     
     // --- Performance & Context Analysis ---

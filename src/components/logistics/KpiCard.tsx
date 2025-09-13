@@ -2,9 +2,33 @@
 import type { Kpi, ComparisonKpi } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, Truck, Clock, Star, AlertTriangle, Smile, Frown, PackageCheck, Route, BarChart, Hash, Users, Sigma, ListChecks, MessageSquareX, Calendar, Sun, Moon, Sunset } from 'lucide-react';
 
-export function KpiCard({ title, value, description, icon: Icon, variant = "default" }: Kpi & { variant?: "default" | "inline" }) {
+const iconMap: Record<string, React.FC<any>> = {
+  Truck,
+  Clock,
+  Star,
+  AlertTriangle,
+  Smile,
+  Frown,
+  PackageCheck,
+  Route,
+  BarChart,
+  Hash,
+  Users,
+  Sigma,
+  ListChecks,
+  MessageSquareX,
+  Calendar,
+  Sun,
+  Moon,
+  Sunset
+};
+
+
+export function KpiCard({ title, value, description, icon, variant = "default" }: Kpi & { variant?: "default" | "inline" }) {
+  const Icon = icon ? iconMap[icon] : null;
+  
   if (variant === "inline") {
       return (
           <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
