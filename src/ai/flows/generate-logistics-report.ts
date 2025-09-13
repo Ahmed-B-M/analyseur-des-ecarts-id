@@ -37,7 +37,7 @@ const prompt = ai.definePrompt({
   input: { schema: ReportInputSchema },
   output: { format: 'text' },
   prompt: `
-    En tant qu'expert en analyse de données logistiques, tu dois rédiger un rapport de performance basé sur les données suivantes.
+    En tant qu'expert en analyse de données logistiques, tu dois rédiger un rapport de performance basé sur les données suivantes pour le client Carrefour.
     L'objectif principal est de comparer la performance réalisée aux objectifs fixés (95% de ponctualité, 4.8/5 de note moyenne), d'identifier si les objectifs étaient initialement réalisables, de mettre en évidence les indicateurs en forte dégradation et d'en trouver les causes principales. Ne propose PAS de recommandations ou de plan d'action.
 
     Données d'analyse pour la période :
@@ -54,6 +54,8 @@ const prompt = ai.definePrompt({
     {{#if mainReasonForNegativeFeedback}}- Cause principale des avis négatifs (IA): {{{mainReasonForNegativeFeedback}}}{{/if}}
 
     Rédige le rapport en suivant IMPÉRATIVEMENT la structure ci-dessous, en utilisant des titres Markdown (##):
+
+    # Rapport de Performance Logistique - Carrefour
 
     ## Synthèse de Performance vs. Objectifs
     Commence par une ou deux phrases qui comparent la performance aux objectifs.

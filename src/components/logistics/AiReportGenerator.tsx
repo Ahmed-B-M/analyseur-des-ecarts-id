@@ -2,12 +2,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { Wand2, Loader2, Clipboard, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateLogisticsReport } from '@/ai/flows/generate-logistics-report';
 import type { AnalysisData } from '@/lib/types';
 import ReactMarkdown from 'react-markdown';
+import { Textarea } from '../ui/textarea';
 
 interface AiReportGeneratorProps {
   analysisData: AnalysisData;
@@ -78,7 +78,7 @@ export default function AiReportGenerator({ analysisData }: AiReportGeneratorPro
           Générateur de Rapport d'Analyse IA
         </CardTitle>
         <CardDescription>
-          Cliquez sur le bouton pour générer une synthèse intelligente de la période sélectionnée, incluant les points clés et des recommandations.
+          Cliquez sur le bouton pour générer une synthèse intelligente de la période sélectionnée, qui met en évidence les écarts, les dégradations et les causes principales.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -106,7 +106,7 @@ export default function AiReportGenerator({ analysisData }: AiReportGeneratorPro
 
         {report && (
           <div className="p-4 border rounded-lg bg-background/50 space-y-3">
-             <div className="prose prose-sm max-w-none text-foreground dark:prose-invert">
+             <div className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:text-primary prose-h1:text-2xl prose-h2:text-xl">
                 <ReactMarkdown>{report}</ReactMarkdown>
              </div>
              <Button onClick={handleCopy} variant="ghost" size="sm" className="w-full justify-center">
