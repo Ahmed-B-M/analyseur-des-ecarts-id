@@ -95,17 +95,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     const sortFn = <T,>(data: T[], config: SortConfig<T>): T[] => {
         if (!config) return data;
         const sorted = [...data].sort((a, b) => {
-            let aValue: any;
-            let bValue: any;
-            
-            // Handle special case for duration discrepancy absolute value sort
-            if (config.key === 'ecart') {
-                aValue = Math.abs(a[config.key] as number);
-                bValue = Math.abs(b[config.key] as number);
-            } else {
-                aValue = a[config.key];
-                bValue = b[config.key];
-            }
+            let aValue = a[config.key];
+            let bValue = b[config.key];
             
             if (aValue == null) return 1;
             if (bValue == null) return -1;
