@@ -24,10 +24,10 @@ export type Tournee = {
   capacitePoids: number; // in kg
   poidsPrevu: number; // in kg
   poidsReel: number; 
-  tempsPreparationLivreur: number;
-  tempsService: number;
-  tempsParcours: number;
-  codePostalMajoritaire: string;
+  tempsPreparationLivreur?: number;
+  tempsService?: number;
+  tempsParcours?: number;
+  codePostalMajoritaire?: string;
 };
 
 export type Tache = {
@@ -35,21 +35,23 @@ export type Tache = {
   nomTournee: string;
   date: string; // YYYY-MM-DD
   entrepot: string;
-  livreur: string;
-  sequence: number;
+  livreur?: string;
+  sequence?: number;
   items: number; // bacs
   codePostal: string;
   heureDebutCreneau: number; // in seconds from midnight
   heureFinCreneau: number; // in seconds from midnight
   heureArriveeApprox: number; // in seconds from midnight
+  heureArriveeReelle: number; // in seconds from midnight
   heureCloture: number; // in seconds from midnight
-  tempsService: number; // in seconds
-  tempsServiceReel: number; // in seconds
+  tempsService?: number; // in seconds
+  tempsServiceReel?: number; // in seconds
   retard: number; // in seconds
   poids: number; // in kg
   ville: string;
   notation: number | null;
   commentaire: string | null;
+  avancement?: string;
 };
 
 export type MergedData = Tache & { tournee: Tournee | null };

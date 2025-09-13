@@ -4,45 +4,37 @@ import type { Tournee, Tache } from '../lib/types';
 
 const headerAliases: Record<string, Record<string, string[]>> = {
   tournees: {
-    date: ['Date'],
-    entrepot: ['Entrepôt'],
-    nom: ['Nom'],
-    codePostalMajoritaire: ['Code postal majoritaire'],
-    tempsPreparationLivreur: ['Temps de préparation livreur (s)'],
-    livreur: ['Livreur'],
-    distancePrevue: ['Distance (m)'],
-    distanceReelle: ['Distance réelle (m)'],
-    demarre: ['Démarré'],
-    termine: ['Terminé'],
-    heureDepartReelle: ['Heure de départ réelle du livreur'],
-    dureePrevue: ['Durée (s)'],
-    dureeReelle: ['Durée réelle de la tournée (s)'],
-    heureDepartPrevue: ['Départ'],
-    heureFinPrevue: ['Fin'],
-    capaciteBacs: ['Capacité Bac (bacs)'],
-    bacsPrevus: ['Bac (bacs)'],
-    capacitePoids: ['Capacité Poids (kg)'],
-    poidsPrevu: ['Poids (kg)'],
-    tempsService: ['Temps de service (s)'],
-    tempsParcours: ['Temps de parcours (s)'],
+    nom: ['nom', 'Tournée', 'tournée'],
+    date: ['date', 'Date'],
+    entrepot: ['entrepôt', 'entrepot'],
+    livreur: ['livreur', 'Livreur'],
+    dureePrevue: ['durée (s)'],
+    dureeReelle: ['durée réelle de la tournée (s)'],
+    capaciteBacs: ['capacité bac (bacs)'],
+    bacsPrevus: ['bac (bacs)'],
+    capacitePoids: ['capacité poids (kg)'],
+    poidsPrevu: ['poids (kg)'],
+    distancePrevue: ['kilométrage (km)'],
+    distanceReelle: ['kilométrage réel (km)'],
+    heureDepartPrevue: ['départ'],
+    heureDepartReelle: ['heure de départ réelle du livreur'],
+    demarre: ['démarré'],
   },
   taches: {
-    date: ['Date'],
-    entrepot: ['Entrepôt'],
-    livreur: ['Livreur'],
-    nomTournee: ['Tournée', 'Nom'],
-    sequence: ['Séquence'],
-    items: ['Items'],
-    codePostal: ['Code postal'],
-    heureDebutCreneau: ['Départ'],
-    heureFinCreneau: ['Arrivée'],
+    nomTournee: ['Tournée', 'tournée', 'tournee'],
+    date: ['Date', 'date', 'jour'],
+    entrepot: ['Entrepôt', 'entrepot'],
+    avancement: ['Avancement', 'avancement'],
+    poids: ['Poids', 'poids', 'poids (kg)'],
+    items: ['Items', 'items'],
+    heureDebutCreneau: ['Départ', 'départ'],
+    heureFinCreneau: ['Arrivée', 'arrivée'],
     heureArriveeApprox: ['Arrivée approximative'],
-    heureCloture: ['Heure de clôture'],
-    tempsService: ['Temps de service'],
-    tempsServiceReel: ['Temps de service réel'],
-    retard: ['Retard (s)'],
-    poids: ['Poids'],
-    ville: ['Ville'],
+    heureArriveeReelle: ["Heure d'arrivée sur site", "heure d'arrivee sur site"],
+    heureCloture: ['Heure de clôture', 'heure de clôture'],
+    retard: ['Retard (s)', 'retard (s)'],
+    ville: ['Ville', 'ville'],
+    codePostal: ['Code postal', 'code postal'],
     notation: ['Notez votre livraison'],
     commentaire: ["Qu'avez vous pensé de la livraison de votre commande?"],
   },
@@ -133,7 +125,11 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
 
   const missingMandatoryHeaders = mandatoryHeaders[fileType].filter(h => !foundHeaders.has(h));
   if (missingMandatoryHeaders.length > 0) {
-      throw new Error(`En-têtes obligatoires manquants dans le fichier ${fileType}: ${missingMandatoryHeaders.join(', ')}. Alias attendus: ${missingMandatoryHeaders.map(h => `'${headerAliases[fileType][h][0]}'`).join('; ')}.`);
+      const aliasExamples = missingMandatoryHeaders.map(h => {
+        const aliases = headerAliases[fileType][h];
+        return aliases && aliases.length > 0 ? `'${aliases[0]}'` : h;
+      }).join('; ');
+      throw new Error(`En-têtes obligatoires manquants dans le fichier ${fileType}: ${missingMandatoryHeaders.join(', ')}. Exemples attendus: ${aliasExamples}.`);
   }
 
   const numericKeys = [
@@ -144,7 +140,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
   ];
   const timeKeys = [
       'heureDepartReelle', 'heureFinReelle', 'heureDepartPrevue', 'heureFinPrevue',
-      'heureDebutCreneau', 'heureFinCreneau', 'heureArriveeApprox', 'heureCloture',
+      'heureDebutCreneau', 'heureFinCreneau', 'heureArriveeApprox', 'heureCloture', 'heureArriveeReelle',
       'demarre', 'termine'
   ];
 
@@ -160,7 +156,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
     let hasMandatoryData = true;
     for (const header of mandatoryHeaders[fileType]) {
         const colIndex = Object.keys(headerMap).find(k => headerMap[parseInt(k)] === header);
-        if (colIndex === undefined || row[parseInt(colIndex)] === null || row[parseInt(colIndex)] === '') {
+        if (colIndex === undefined || row[parseInt(colIndex)] === null || String(row[parseInt(colIndex)]).trim() === '') {
             hasMandatoryData = false;
             break;
         }

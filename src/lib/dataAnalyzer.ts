@@ -6,7 +6,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const toleranceMinutes = filters.punctualityThreshold || 15;
     const toleranceSeconds = toleranceMinutes * 60;
 
-    const allTasks = data.filter(t => t.tournee);
+    const allTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée');
     if (allTasks.length === 0) {
         return createEmptyAnalysisData();
     }
@@ -15,7 +15,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     allTasks.forEach(task => {
         if (task.tournee) {
             if (!tourneeMap.has(task.tournee.uniqueId)) {
-                tourneeMap.set(task.tournee.uniqueId, { tour: task.tournee, tasks: [] });
+                tourneeMap.set(task.tournee.uniqueId, { tour: { ...task.tournee }, tasks: [] });
             }
             tourneeMap.get(task.tournee.uniqueId)!.tasks.push(task);
         }
@@ -29,9 +29,9 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         tour.bacsReels = tasks.reduce((sum, t) => sum + t.items, 0);
         
         if (tasks.length > 0) {
-            const firstTask = tasks.reduce((earliest, curr) => curr.heureArriveeApprox < earliest.heureArriveeApprox ? curr : earliest, tasks[0]);
+            const firstTask = tasks.reduce((earliest, curr) => curr.heureArriveeReelle < earliest.heureArriveeReelle ? curr : earliest, tasks[0]);
             const lastTask = tasks.reduce((latest, curr) => curr.heureCloture > latest.heureCloture ? curr : latest, tasks[0]);
-            tour.dureeReelleCalculee = lastTask.heureCloture - firstTask.heureArriveeApprox;
+            tour.dureeReelleCalculee = lastTask.heureCloture - firstTask.heureArriveeReelle;
         } else {
             tour.dureeReelleCalculee = 0;
         }
@@ -69,14 +69,14 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const discrepancyKpis: AnalysisData['discrepancyKpis'] = [
         { title: 'Écart de Durée Totale', value1: formatSeconds(totals.dureePrevue), label1: 'Prévue', value2: formatSeconds(totals.dureeReelleCalculee), label2: 'Réelle "Calculée"', change: formatSeconds(Math.abs(totals.dureeReelleCalculee - totals.dureePrevue)), changeType: totals.dureeReelleCalculee > totals.dureePrevue ? 'increase' : 'decrease' },
         { title: 'Écart de Poids Total', value1: `${(totals.poidsPrevu / 1000).toFixed(2)} t`, label1: 'Prévu', value2: `${(totals.poidsReel / 1000).toFixed(2)} t`, label2: 'Réel', change: `${(Math.abs(totals.poidsReel - totals.poidsPrevu) / 1000).toFixed(2)} t`, changeType: totals.poidsReel > totals.poidsPrevu ? 'increase' : 'decrease' },
-        { title: 'Écart de Distance Totale', value1: `${(totals.distancePrevue / 1000).toFixed(1)} km`, label1: 'Prévue', value2: `${(totals.distanceReelle / 1000).toFixed(1)} km`, label2: 'Réelle', change: `${(Math.abs(totals.distanceReelle - totals.distancePrevue) / 1000).toFixed(1)} km`, changeType: totals.distanceReelle > totals.distancePrevue ? 'increase' : 'decrease' },
+        { title: 'Écart de Distance Totale', value1: `${totals.distancePrevue.toFixed(1)} km`, label1: 'Prévue', value2: `${totals.distanceReelle.toFixed(1)} km`, label2: 'Réelle', change: `${(Math.abs(totals.distanceReelle - totals.distancePrevue)).toFixed(1)} km`, changeType: totals.distanceReelle > totals.distancePrevue ? 'increase' : 'decrease' },
     ];
 
     const maxWeightThreshold = filters.maxWeightThreshold;
     const overloadedTours: OverloadedTourInfo[] = uniqueTournees.map(tour => {
-        let isOverloaded = false;
         const weightThreshold = maxWeightThreshold || tour.capacitePoids;
-
+        
+        let isOverloaded = false;
         if (weightThreshold > 0 && tour.poidsReel > weightThreshold) isOverloaded = true;
         if (tour.capaciteBacs > 0 && tour.bacsReels > tour.capaciteBacs) isOverloaded = true;
 
@@ -111,7 +111,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const delaysByPostalCode = countItemsBy(lateTasks, (t) => t.codePostal);
 
     const delaysByHour = lateTasks.reduce((acc, task) => {
-        const hour = new Date(task.heureCloture * 1000).getHours();
+        const hour = new Date(task.heureCloture * 1000).getUTCHours();
         const hourString = `${String(hour).padStart(2, '0')}:00`;
         acc[hourString] = (acc[hourString] || 0) + 1;
         return acc;
@@ -168,7 +168,7 @@ function countItemsBy(tasks: MergedData[], keyGetter: (task: MergedData) => stri
 
 function calculatePerformanceBy(data: MergedData[], key: 'livreur' | 'ville', toleranceSeconds: number): PerformanceBy<string>[] {
     const groups = data.reduce((acc, t) => {
-        const groupKey = key === 'livreur' ? t.livreur : t[key];
+        const groupKey = key === 'livreur' ? t.tournee?.livreur : t[key];
         if (!groupKey) return acc;
         if (!acc[groupKey]) {
             acc[groupKey] = { tasks: [], lateTasks: [], totalRating: 0, ratingCount: 0 };
