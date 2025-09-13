@@ -18,10 +18,18 @@ interface FilterBarProps {
   warehouses: string[];
 }
 
+const ALL_ITEMS_VALUE = '__ALL__';
+
 export default function FilterBar({ filters, setFilters, depots, warehouses }: FilterBarProps) {
 
   const handleFilterChange = (key: string, value: any) => {
-    setFilters({ ...filters, [key]: value });
+    if (value === ALL_ITEMS_VALUE) {
+        const newFilters = { ...filters };
+        delete newFilters[key];
+        setFilters(newFilters);
+    } else {
+        setFilters({ ...filters, [key]: value });
+    }
   };
   
   const clearFilter = (key: string) => {
@@ -54,14 +62,14 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
         <div>
           <Label htmlFor="depot-select">Dépôt</Label>
           <Select
-            value={filters.depot || ''}
+            value={filters.depot || ALL_ITEMS_VALUE}
             onValueChange={(value) => handleFilterChange('depot', value)}
           >
             <SelectTrigger id="depot-select">
               <SelectValue placeholder="Tous les dépôts" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tous les dépôts</SelectItem>
+              <SelectItem value={ALL_ITEMS_VALUE}>Tous les dépôts</SelectItem>
               {depots.map(depot => (
                 <SelectItem key={depot} value={depot}>{depot}</SelectItem>
               ))}
@@ -71,14 +79,14 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
         <div>
           <Label htmlFor="warehouse-select">Entrepôt</Label>
            <Select
-            value={filters.entrepot || ''}
+            value={filters.entrepot || ALL_ITEMS_VALUE}
             onValueChange={(value) => handleFilterChange('entrepot', value)}
           >
             <SelectTrigger id="warehouse-select">
               <SelectValue placeholder="Tous les entrepôts" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tous les entrepôts</SelectItem>
+              <SelectItem value={ALL_ITEMS_VALUE}>Tous les entrepôts</SelectItem>
               {warehouses.map(warehouse => (
                 <SelectItem key={warehouse} value={warehouse}>{warehouse}</SelectItem>
               ))}

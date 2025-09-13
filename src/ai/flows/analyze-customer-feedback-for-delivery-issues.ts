@@ -34,4 +34,17 @@ const prompt = ai.definePrompt({
   name: 'analyzeCustomerFeedbackPrompt',
   input: {schema: AnalyzeCustomerFeedbackInputSchema},
   output: {schema: AnalyzeCustomerFeedbackOutputSchema},
-  prompt: `Le commentaire client suivant est-il lié à un retard ou à une livraison en avance ? Commentaire: "{{{commentaire}}}\
+  prompt: `Le commentaire client suivant est-il lié à un retard ou à une livraison en avance ? Commentaire: "{{{commentaire}}}"`,
+});
+
+const analyzeCustomerFeedbackFlow = ai.defineFlow(
+  {
+    name: 'analyzeCustomerFeedbackFlow',
+    inputSchema: AnalyzeCustomerFeedbackInputSchema,
+    outputSchema: AnalyzeCustomerFeedbackOutputSchema,
+  },
+  async (input) => {
+    const {output} = await prompt(input);
+    return output!;
+  }
+);
