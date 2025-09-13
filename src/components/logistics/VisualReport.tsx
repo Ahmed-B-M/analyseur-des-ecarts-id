@@ -18,6 +18,9 @@ const iconMap = {
     Truck: Truck,
     BarChart2: BarChart2,
     AlertTriangle: AlertTriangle,
+    Sigma: Sigma,
+    Frown: Frown,
+    Smile: Smile,
 };
 
 export default function VisualReport() {
@@ -197,10 +200,10 @@ export default function VisualReport() {
                         <div className="md:col-span-2 space-y-3">
                              <h3 className="font-semibold">Insights Clés de l'IA</h3>
                              {ai.keyInsights.map((insight, index) => {
-                                const Icon = iconMap[insight.icon];
+                                const Icon = iconMap[insight.icon as keyof typeof iconMap];
                                 return (
                                 <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                    <Icon className="w-5 h-5 mt-0.5 text-primary shrink-0" />
+                                    {Icon ? <Icon className="w-5 h-5 mt-0.5 text-primary shrink-0" /> : <BarChart2 className="w-5 h-5 mt-0.5 text-primary shrink-0" />}
                                     <p className="text-sm text-gray-800">{insight.text}</p>
                                 </div>
                                 )
