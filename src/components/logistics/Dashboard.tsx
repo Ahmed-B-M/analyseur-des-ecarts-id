@@ -5,6 +5,7 @@ import type { Tournee, Tache, MergedData, AnalysisData } from '@/lib/types';
 import FileUpload from '@/components/logistics/FileUpload';
 import FilterBar from '@/components/logistics/FilterBar';
 import AnalysisDashboard from '@/components/logistics/AnalysisDashboard';
+import DetailedDataView from '@/components/logistics/DetailedDataView';
 import { Logo } from '@/components/logistics/Logo';
 import { analyzeData } from '@/lib/dataAnalyzer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
