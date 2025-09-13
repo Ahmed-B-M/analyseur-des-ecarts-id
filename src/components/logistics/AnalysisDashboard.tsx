@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
@@ -167,6 +167,12 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
   
   const geoDataToDisplay = activeTab === 'ville' ? sortedData.performanceByCity : sortedData.performanceByPostalCode;
 
+  const dayOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  const sortedPerformanceByDay = analysisData.performanceByDayOfWeek.sort((a,b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
+
+  const slotOrder = ['Matin (06-12h)', 'Après-midi (12-18h)', 'Soir (18-00h)'];
+  const sortedPerformanceBySlot = analysisData.performanceByTimeSlot.sort((a,b) => slotOrder.indexOf(a.slot) - slotOrder.indexOf(b.slot));
+
   return (
     <div className="space-y-6">
       <section>
@@ -195,6 +201,69 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
         <div className="lg:col-span-2">
             <AiAnalysis allData={allData} />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card>
+             <CardHeader>
+               <CardTitle className="flex items-center gap-2"><Calendar/>Performance par Jour</CardTitle>
+             </CardHeader>
+             <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                   <ComposedChart data={sortedPerformanceByDay}>
+                     <CartesianGrid strokeDasharray="3 3" />
+                     <XAxis dataKey="day" fontSize={12} />
+                     <YAxis yAxisId="left" label={{ value: 'Nb. Tâches', angle: -90, position: 'insideLeft', fontSize: 12, offset: 10 }} />
+                     <YAxis yAxisId="right" orientation="right" label={{ value: 'Retard Moyen (min)', angle: -90, position: 'insideRight', fontSize: 12, offset: 10 }} />
+                     <Tooltip />
+                     <Legend wrapperStyle={{fontSize: "12px"}}/>
+                     <Bar yAxisId="left" dataKey="delays" name="Retards" fill={PRIMARY_COLOR} />
+                     <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} />
+                     <Line yAxisId="right" type="monotone" dataKey="avgDelay" name="Retard Moyen" stroke="#ff7300" dot={false} strokeWidth={2} />
+                   </ComposedChart>
+                </ResponsiveContainer>
+             </CardContent>
+           </Card>
+           <Card>
+             <CardHeader>
+               <CardTitle className="flex items-center gap-2"><Clock/>Performance par Créneau</CardTitle>
+             </CardHeader>
+             <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                   <ComposedChart data={sortedPerformanceBySlot}>
+                     <CartesianGrid strokeDasharray="3 3" />
+                     <XAxis dataKey="slot" fontSize={12}/>
+                     <YAxis yAxisId="left" label={{ value: 'Nb. Tâches', angle: -90, position: 'insideLeft', fontSize: 12, offset: 10 }} />
+                     <YAxis yAxisId="right" orientation="right" label={{ value: 'Retard Moyen (min)', angle: -90, position: 'insideRight', fontSize: 12, offset: 10 }}/>
+                     <Tooltip />
+                     <Legend wrapperStyle={{fontSize: "12px"}}/>
+                     <Bar yAxisId="left" dataKey="delays" name="Retards" fill={PRIMARY_COLOR} />
+                     <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} />
+                     <Line yAxisId="right" type="monotone" dataKey="avgDelay" name="Retard Moyen" stroke="#ff7300" dot={false} strokeWidth={2} />
+                   </ComposedChart>
+                </ResponsiveContainer>
+             </CardContent>
+           </Card>
+           <Card>
+             <CardHeader>
+               <CardTitle className="flex items-center gap-2"><Sigma />Répartition des Écarts</CardTitle>
+             </CardHeader>
+             <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                   <BarChart data={analysisData.delayHistogram}>
+                     <CartesianGrid strokeDasharray="3 3" />
+                     <XAxis dataKey="range" fontSize={12} angle={-30} textAnchor="end" height={60} />
+                     <YAxis />
+                     <Tooltip />
+                     <Bar dataKey="count" name="Nb. de Tâches">
+                        {analysisData.delayHistogram.map((entry, index) => (
+                           <Cell key={`cell-${index}`} fill={entry.range.includes('retard') ? PRIMARY_COLOR : entry.range.includes('avance') ? ADVANCE_COLOR : '#a0aec0'} />
+                        ))}
+                     </Bar>
+                   </BarChart>
+                </ResponsiveContainer>
+             </CardContent>
+           </Card>
       </div>
        
       {analysisData.overloadedTours.length > 0 && (

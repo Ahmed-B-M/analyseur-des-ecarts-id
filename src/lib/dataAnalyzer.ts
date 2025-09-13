@@ -1,5 +1,7 @@
-import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi, AvgWorkload } from './types';
-import { Truck, Clock, Star, AlertTriangle, Smile, Frown, PackageCheck, Route, BarChart, Hash, Users, Sigma, ListChecks, MessageSquareX } from 'lucide-react';
+import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi, AvgWorkload, PerformanceByDay, PerformanceByTimeSlot, DelayHistogramBin } from './types';
+import { Truck, Clock, Star, AlertTriangle, Smile, Frown, PackageCheck, Route, BarChart, Hash, Users, Sigma, ListChecks, MessageSquareX, Calendar, Sun, Moon, Sunset } from 'lucide-react';
+import { fr } from 'date-fns/locale';
+import { format, getDay } from 'date-fns';
 
 export function analyzeData(data: MergedData[], filters: Record<string, any>): AnalysisData {
     
@@ -257,6 +259,11 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
       avgPlanned: avgWorkloadByHour.length > 0 ? totalAvgPlanned / avgWorkloadByHour.filter(h => h.avgPlanned > 0).length : 0,
       avgReal: avgWorkloadByHour.length > 0 ? totalAvgReal / avgWorkloadByHour.filter(h => h.avgReal > 0).length : 0
     }
+    
+    // --- New Analyses ---
+    const performanceByDayOfWeek = calculatePerformanceByDayOfWeek(allTasks, toleranceSeconds);
+    const performanceByTimeSlot = calculatePerformanceByTimeSlot(allTasks, toleranceSeconds);
+    const delayHistogram = createDelayHistogram(allTasks);
 
 
     return {
@@ -280,6 +287,9 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         workloadByHour,
         avgWorkloadByDriverByHour: avgWorkloadByHour,
         avgWorkload,
+        performanceByDayOfWeek,
+        performanceByTimeSlot,
+        delayHistogram,
         cities: [...new Set(allTasks.map(t => t.ville))].sort()
     };
 }
@@ -307,6 +317,9 @@ function createEmptyAnalysisData(): AnalysisData {
         workloadByHour: [],
         avgWorkloadByDriverByHour: [],
         avgWorkload: { avgPlanned: 0, avgReal: 0 },
+        performanceByDayOfWeek: [],
+        performanceByTimeSlot: [],
+        delayHistogram: [],
         cities: []
     };
 }
@@ -406,6 +419,121 @@ function calculatePerformanceByGeo(tasks: MergedData[], key: 'ville' | 'codePost
             avgDelay: data.lateTasks.length > 0 ? (sumOfDelays / data.lateTasks.length) / 60 : 0, // in minutes
         }
     }).sort((a,b) => b.totalDelays - a.totalDelays);
+}
+
+function calculatePerformanceByDayOfWeek(tasks: MergedData[], toleranceSeconds: number): PerformanceByDay[] {
+    const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    const daysData: Record<number, { totalTasks: number; lateTasks: MergedData[]; earlyTasks: MergedData[] }> = {};
+
+    for (let i = 0; i < 7; i++) {
+        daysData[i] = { totalTasks: 0, lateTasks: [], earlyTasks: [] };
+    }
+
+    tasks.forEach(task => {
+        if (task.date) {
+            const dayIndex = getDay(new Date(task.date)); // Sunday = 0, Monday = 1...
+            daysData[dayIndex].totalTasks++;
+            if (task.retardStatus === 'late') {
+                daysData[dayIndex].lateTasks.push(task);
+            } else if (task.retardStatus === 'early') {
+                daysData[dayIndex].earlyTasks.push(task);
+            }
+        }
+    });
+
+    return Object.entries(daysData).map(([dayIndex, data]) => {
+        const totalTasks = data.totalTasks;
+        const delays = data.lateTasks.length;
+        const advances = data.earlyTasks.length;
+        const sumOfDelays = data.lateTasks.reduce((sum, task) => sum + task.retard, 0);
+
+        return {
+            day: dayNames[parseInt(dayIndex)],
+            totalTasks,
+            punctualityRate: totalTasks > 0 ? ((totalTasks - delays) / totalTasks) * 100 : 100,
+            avgDelay: delays > 0 ? (sumOfDelays / delays) / 60 : 0,
+            delays,
+            advances
+        };
+    });
+}
+
+function calculatePerformanceByTimeSlot(tasks: MergedData[], toleranceSeconds: number): PerformanceByTimeSlot[] {
+    const slots = {
+        'Matin (06-12h)': { totalTasks: 0, lateTasks: [], earlyTasks: [] },
+        'Après-midi (12-18h)': { totalTasks: 0, lateTasks: [], earlyTasks: [] },
+        'Soir (18-00h)': { totalTasks: 0, lateTasks: [], earlyTasks: [] }
+    };
+
+    tasks.forEach(task => {
+        const startHour = task.heureDebutCreneau / 3600;
+        let slotKey: keyof typeof slots | null = null;
+        if (startHour >= 6 && startHour < 12) slotKey = 'Matin (06-12h)';
+        else if (startHour >= 12 && startHour < 18) slotKey = 'Après-midi (12-18h)';
+        else if (startHour >= 18 && startHour < 24) slotKey = 'Soir (18-00h)';
+
+        if (slotKey) {
+            slots[slotKey].totalTasks++;
+            if (task.retardStatus === 'late') {
+                slots[slotKey].lateTasks.push(task);
+            } else if (task.retardStatus === 'early') {
+                slots[slotKey].earlyTasks.push(task);
+            }
+        }
+    });
+
+    return Object.entries(slots).map(([slotName, data]) => {
+        const totalTasks = data.totalTasks;
+        const delays = data.lateTasks.length;
+        const advances = data.earlyTasks.length;
+        const sumOfDelays = data.lateTasks.reduce((sum, task) => sum + task.retard, 0);
+
+        return {
+            slot: slotName,
+            totalTasks,
+            punctualityRate: totalTasks > 0 ? ((totalTasks - delays) / totalTasks) * 100 : 100,
+            avgDelay: delays > 0 ? (sumOfDelays / delays) / 60 : 0,
+            delays,
+            advances
+        };
+    });
+}
+
+function createDelayHistogram(tasks: MergedData[]): DelayHistogramBin[] {
+    const bins: { [key: string]: { min: number, max: number, count: number } } = {
+        '> 60 min en avance': { min: -Infinity, max: -3601, count: 0 },
+        '30-60 min en avance': { min: -3600, max: -1801, count: 0 },
+        '0-30 min en avance': { min: -1800, max: -1, count: 0 },
+        'À l\'heure (0-15 min)': { min: 0, max: 900, count: 0 },
+        '15-30 min de retard': { min: 901, max: 1800, count: 0 },
+        '30-60 min de retard': { min: 1801, max: 3600, count: 0 },
+        '> 60 min de retard': { min: 3601, max: Infinity, count: 0 },
+    };
+
+    tasks.forEach(task => {
+        for (const key in bins) {
+            if (task.retard >= bins[key].min && task.retard <= bins[key].max) {
+                bins[key].count++;
+                break;
+            }
+        }
+    });
+    
+    // Sort bins for logical display order
+    const sortedBinKeys = [
+        '> 60 min en avance',
+        '30-60 min en avance',
+        '0-30 min en avance',
+        'À l\'heure (0-15 min)',
+        '15-30 min de retard',
+        '30-60 min de retard',
+        '> 60 min de retard'
+    ];
+
+    return sortedBinKeys.map(key => ({
+        range: key,
+        count: bins[key].count
+    }));
 }
 
 

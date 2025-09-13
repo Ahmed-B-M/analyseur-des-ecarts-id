@@ -149,6 +149,30 @@ export type AvgWorkload = {
   avgReal: number;
 }
 
+export type PerformanceByDay = {
+    day: string;
+    totalTasks: number;
+    punctualityRate: number;
+    avgDelay: number; // in minutes
+    delays: number;
+    advances: number;
+};
+
+export type PerformanceByTimeSlot = {
+    slot: string;
+    totalTasks: number;
+    punctualityRate: number;
+    avgDelay: number; // in minutes
+    delays: number;
+    advances: number;
+};
+
+export type DelayHistogramBin = {
+    range: string;
+    count: number;
+};
+
+
 export type AnalysisData = {
   generalKpis: Kpi[];
   discrepancyKpis: ComparisonKpi[];
@@ -170,6 +194,9 @@ export type AnalysisData = {
   workloadByHour: WorkloadByHour[];
   avgWorkloadByDriverByHour: AvgWorkloadByHour[];
   avgWorkload: AvgWorkload;
+  performanceByDayOfWeek: PerformanceByDay[];
+  performanceByTimeSlot: PerformanceByTimeSlot[];
+  delayHistogram: DelayHistogramBin[];
   cities: string[];
   aiAnalysisResults?: {
     totalNegative: number;
