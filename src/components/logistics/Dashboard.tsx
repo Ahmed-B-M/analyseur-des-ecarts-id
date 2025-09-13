@@ -52,7 +52,7 @@ function reducer(state: State, action: Action): State {
     case 'SET_FILTERS':
       return { ...state, filters: action.filters };
     case 'RESET':
-      return {...initialState, worker: state.worker};
+      return {...initialState};
     default:
       return state;
   }
@@ -70,11 +70,7 @@ export default function Dashboard() {
     newWorker.onmessage = (event) => {
       const { type, data, error } = event.data;
       if (type === 'success') {
-        if(data.tournees.length === 0 || data.taches.length === 0) {
-            dispatch({ type: 'PROCESSING_ERROR', error: 'Un des fichiers est vide ou n\'a pas pu être lu. Veuillez vérifier les fichiers et les en-têtes.' });
-        } else {
-            dispatch({ type: 'PROCESSING_SUCCESS', data });
-        }
+        dispatch({ type: 'PROCESSING_SUCCESS', data });
       } else {
         dispatch({ type: 'PROCESSING_ERROR', error });
       }

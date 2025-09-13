@@ -2,7 +2,6 @@
 import * as XLSX from 'xlsx';
 import type { Tournee, Tache } from '../lib/types';
 
-// Updated header aliases to match the user's new file structure
 const headerAliases: Record<string, Record<string, string[]>> = {
   tournees: {
     date: ['Date'],
@@ -91,7 +90,6 @@ function parseDate(value: any): string {
              }
         }
     } catch(e) {
-        // Fallback for weird formats
         const stringValue = String(value);
         if (stringValue.includes('/')) {
             const parts = stringValue.split(' ')[0].split('/');
@@ -105,13 +103,23 @@ function parseDate(value: any): string {
 function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
   if (data.length < 2) return [];
 
-  const headers = data[0].map(h => String(h));
+  const headers = data[0].map(h => String(h).trim());
   const headerMap: Record<number, string> = {};
+  const foundHeaders = new Set<string>();
+
   for (let i = 0; i < headers.length; i++) {
       const foundKey = findHeader(headers[i], fileType);
       if (foundKey) {
         headerMap[i] = foundKey;
+        foundHeaders.add(foundKey);
       }
+  }
+
+  // Check for missing mandatory headers
+  const allHeaders = Object.keys(headerAliases[fileType]);
+  const missingHeaders = allHeaders.filter(h => !foundHeaders.has(h));
+  if (missingHeaders.length > 0) {
+      throw new Error(`En-têtes manquants dans le fichier ${fileType}: ${missingHeaders.join(', ')}. Veuillez vérifier le fichier.`);
   }
 
   const numericKeys = [
@@ -148,7 +156,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
           newRow[key] = value ? String(value).trim() : (key === 'commentaire' ? null : '');
       }
     }
-    if (hasData && newRow.date) { // Ensure row has a date to be valid
+    if (hasData && newRow.date) {
       normalized.push(newRow);
     }
   }
@@ -175,6 +183,13 @@ self.addEventListener('message', async (event: MessageEvent) => {
 
     const rawTournees = normalizeData(tourneesJson, 'tournees');
     const rawTaches = normalizeData(tachesJson, 'taches');
+    
+    if (rawTournees.length === 0) {
+        throw new Error("Aucune donnée de tournée n'a pu être lue. Vérifiez le fichier des tournées et ses en-têtes.");
+    }
+    if (rawTaches.length === 0) {
+        throw new Error("Aucune donnée de tâche n'a pu être lue. Vérifiez le fichier des tâches et ses en-têtes.");
+    }
     
     const tournees: Tournee[] = rawTournees.map((t: any) => ({
       ...t,
