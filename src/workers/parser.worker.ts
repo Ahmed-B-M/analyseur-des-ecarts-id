@@ -20,7 +20,7 @@ const headerAliases: Record<string, Record<string, string[]>> = {
     heureDepartPrevue: ['Départ'],
     heureFinPrevue: ['Fin'],
     capaciteBacs: ['Capacité Bac (bacs)'],
-    bacsPrevus: ['Bac (bacs)'],
+    bacsReels: ['Bac (bacs)'], // Corrected from bacsPrevus
     capacitePoids: ['Capacité Poids (kg)'],
     poidsPrevu: ['Poids (kg)'],
     tempsService: ['Temps de service (s)'],
@@ -122,13 +122,13 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
 
   const missingMandatoryHeaders = mandatoryHeaders[fileType].filter(h => !foundHeaders.has(h));
   if (missingMandatoryHeaders.length > 0) {
-      throw new Error(`En-têtes obligatoires manquants dans le fichier ${fileType}: ${missingMandatoryHeaders.join(', ')}. Veuillez vérifier le fichier.`);
+      throw new Error(`En-têtes obligatoires manquants dans le fichier ${fileType}: ${missingMandatoryHeaders.join(', ')}. Alias attendus: ${missingMandatoryHeaders.map(h => headerAliases[fileType][h].join(' ou ')).join('; ')}.`);
   }
 
   const numericKeys = [
       'distancePrevue', 'distanceReelle', 'dureePrevue', 'dureeReelle',
-      'capaciteBacs', 'bacsPrevus', 'capacitePoids', 'poidsPrevu',
-      'sequence', 'items', 'tempsServiceReel', 'retard', 'poids', 'notation',
+      'capaciteBacs', 'bacsReels', 'capacitePoids', 'poidsPrevu', 'poids',
+      'sequence', 'items', 'tempsServiceReel', 'retard', 'notation',
       'tempsPreparationLivreur', 'tempsService', 'tempsParcours'
   ];
   const timeKeys = [
@@ -140,8 +140,11 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
   const normalized = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
+    if (!row || row.every(cell => cell === null || cell === '')) {
+        continue; // Skip empty rows
+    }
+      
     const newRow: any = {};
-    let hasMandatoryData = true;
     
     for (const colIndex in headerMap) {
       const key = headerMap[colIndex];
@@ -159,11 +162,13 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
       }
     }
     
-    mandatoryHeaders[fileType].forEach(header => {
+    let hasMandatoryData = true;
+    for (const header of mandatoryHeaders[fileType]) {
         if (!newRow[header]) {
             hasMandatoryData = false;
+            break; 
         }
-    });
+    }
 
     if (hasMandatoryData) {
       normalized.push(newRow);
