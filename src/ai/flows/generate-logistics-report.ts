@@ -38,7 +38,7 @@ const prompt = ai.definePrompt({
   output: { format: 'text' },
   prompt: `
     En tant qu'expert en analyse de données logistiques, tu dois rédiger un rapport de performance basé sur les données suivantes.
-    Le rapport doit être structuré, clair, et aller droit au but. Utilise le format Markdown pour la mise en forme.
+    L'objectif principal est de comparer la performance réalisée aux objectifs fixés (95% de ponctualité, 4.8 de note moyenne), de mettre en évidence les écarts significatifs par rapport au prévisionnel, d'identifier les indicateurs en forte dégradation et d'en trouver les causes principales. Ne propose PAS de recommandations ou de plan d'action.
 
     Données d'analyse pour la période :
     - Nombre total de tournées: {{{totalTours}}}
@@ -55,27 +55,28 @@ const prompt = ai.definePrompt({
 
     Rédige le rapport en suivant IMPÉRATIVEMENT la structure ci-dessous, en utilisant des titres Markdown (##):
 
-    ## Synthèse de la Performance
-    Commence par une ou deux phrases qui résument l'état général de la performance logistique (par exemple, "La performance est mitigée avec une bonne satisfaction client mais des problèmes de ponctualité...").
+    ## Synthèse de Performance vs. Objectifs
+    Commence par une ou deux phrases qui comparent la performance aux objectifs.
+    Exemple: "La performance de la période est en dessous des objectifs, avec un taux de ponctualité de {{{punctualityRate}}}% (cible: 95%) et une note moyenne de {{{avgRating}}}/10 (cible: 4.8)."
+    Mets en évidence l'écart le plus significatif.
 
-    ## Points Clés Positifs
-    Liste 2 à 3 points forts basés sur les données. Cherche les aspects positifs (ex: bonne note client, faible nombre de tournées en surcharge, etc.).
-
-    ## Problèmes Principaux et Impacts
-    Liste 2 à 3 problèmes les plus impactants identifiés dans les données. Pour chaque point, explique brièvement l'impact probable.
+    ## Indicateurs en Dégradation et Écarts Clés
+    Liste les 2 à 3 points les plus critiques où la performance s'est dégradée ou montre un écart important avec le prévisionnel. Sois factuel.
+    Utilise les données fournies pour identifier ces points.
     Par exemple:
-    - "Un nombre élevé de retards ({{{totalLateTasks}}}) impacte directement la satisfaction client, comme le suggère l'analyse des retours."
-    - "Les {{{overloadedToursCount}}} tournées en surcharge peuvent entraîner une usure prématurée des véhicules et des risques de sécurité."
-    - Mentionne spécifiquement la ville et le livreur les plus problématiques s'ils sont fournis, car ce sont des points d'action clairs.
+    - "Le principal point de dégradation est le taux de ponctualité, avec {{{totalLateTasks}}} livraisons en retard."
+    - "{{{overloadedToursCount}}} tournées ont été effectuées en surcharge, ce qui représente un risque opérationnel."
+    - "Les anomalies de type 'départ à l'heure, arrivée en retard' ({{{lateStartAnomaliesCount}}} cas) montrent une sous-estimation des temps de parcours."
 
-    ## Recommandations Stratégiques
-    Propose 2 à 3 recommandations concrètes et actionnables pour adresser les problèmes identifiés. Les recommandations doivent être directement liées aux données.
+    ## Analyse des Causes Principales
+    Identifie et détaille les causes qui expliquent les dégradations listées ci-dessus. Fais des liens entre les différentes données.
     Par exemple:
-    - Si les retards sont élevés dans une ville: "Lancer une analyse spécifique des tournées pour {{{topLateCity}}} afin de réévaluer les temps de trajet et les conditions de circulation."
-    - Si un livreur est souvent en retard: "Organiser un point d'accompagnement avec {{{topLateDriver}}} pour comprendre les difficultés rencontrées sur ses tournées."
-    - Si la surcharge est un problème: "Mettre en place un contrôle de poids et volume systématique avant le départ des tournées."
+    - "La cause majeure des retards semble être géographique, concentrée sur la ville de {{{topLateCity}}}."
+    - "Les problèmes de surcharge ({{{overloadedToursCount}}} cas) sont un facteur aggravant, impactant potentiellement les temps de trajet et la ponctualité des livreurs concernés."
+    - "L'analyse des retours clients (si disponible) confirme que les retards sont la principale source d'insatisfaction."
+    - Mentionne le livreur problématique s'il représente un point de focalisation.
 
-    Le ton doit être professionnel, factuel et orienté vers l'action.
+    Le ton doit être analytique, factuel et se concentrer uniquement sur le diagnostic basé sur les chiffres.
     `,
 });
 
