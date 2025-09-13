@@ -14,10 +14,10 @@ const headerAliases: Record<string, Record<string, string[]>> = {
     bacsPrevus: ['bac (bacs)'],
     capacitePoids: ['capacité poids (kg)'],
     poidsPrevu: ['poids (kg)'],
-    distancePrevue: ['kilométrage (km)', 'distance (m)'], // Added 'distance (m)'
+    distancePrevue: ['kilométrage (km)', 'distance (m)'],
     distanceReelle: ['kilométrage réel (km)'],
     heureDepartPrevue: ['départ'],
-    heureFinPrevue: ['fin'], // Added 'fin'
+    heureFinPrevue: ['fin'],
     heureDepartReelle: ['heure de départ réelle du livreur'],
     demarre: ['démarré'],
     termine: ['terminé'],
@@ -179,7 +179,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
       const key = headerMap[colIndex];
       let value = row[colIndex];
       
-      const isOptionalNullable = key === 'notation' || key === 'commentaire';
+      const isOptionalNullable = key === 'notation' || key === 'commentaire' || key === 'livreur';
 
       if (value === null || value === undefined || String(value).toLowerCase().trim() === 'null' || String(value).trim() === '') {
         newRow[key] = isOptionalNullable ? null : 0;
@@ -193,7 +193,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
       } else if (numericKeys.includes(key)) {
           const num = parseFloat(String(value).replace(',', '.'));
           newRow[key] = isNaN(num) ? (isOptionalNullable ? null : 0) : num;
-           if (key === 'distancePrevue') {
+           if (key === 'distancePrevue' && headers[colIndex].toLowerCase().includes('(m)')) {
               newRow[key] = newRow[key] / 1000; // Convert meters to km
            }
       } else {

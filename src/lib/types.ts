@@ -28,6 +28,7 @@ export type Tournee = {
   tempsService?: number;
   tempsParcours?: number;
   codePostalMajoritaire?: string;
+  dureeEstimeeOperationnelle?: number;
 };
 
 export type Tache = {
@@ -74,13 +75,22 @@ export type ComparisonKpi = {
   changeType: 'increase' | 'decrease' | 'neutral';
 };
 
-export type PerformanceBy<T> = {
-  key: T;
-  totalTasks: number;
+export type PerformanceByDriver = {
+  key: string; // driver name
+  totalTours: number;
   punctualityRate: number;
   avgDelay: number; // in minutes
+  overweightToursCount: number;
   avgRating?: number;
 };
+
+export type PerformanceByGeo = {
+    key: string; // city or postal code
+    totalTasks: number;
+    punctualityRate: number;
+    avgDelay: number; // in minutes
+    totalDelays: number;
+}
 
 export type OverloadedTourInfo = Tournee & {
     isOverloaded: boolean;
@@ -92,6 +102,13 @@ export type OverloadedTourInfo = Tournee & {
 
 export type LateStartAnomaly = Tournee & {
   tasksInDelay: number;
+  ecartDepart: number;
+}
+
+export type DurationDiscrepancy = Tournee & {
+    dureeEstimee: number;
+    dureeReelle: number;
+    ecart: number;
 }
 
 export type DelayCount = {
@@ -120,8 +137,11 @@ export type AnalysisData = {
   discrepancyKpis: ComparisonKpi[];
   qualityKpis: Kpi[];
   overloadedTours: OverloadedTourInfo[];
+  durationDiscrepancies: DurationDiscrepancy[];
   lateStartAnomalies: LateStartAnomaly[];
-  performanceByDriver: PerformanceBy<string>[];
+  performanceByDriver: PerformanceByDriver[];
+  performanceByCity: PerformanceByGeo[];
+  performanceByPostalCode: PerformanceByGeo[];
   delaysByWarehouse: DelayCount[];
   delaysByHour: DelayByHour[];
   delaysByCity: DelayCount[];

@@ -1,4 +1,4 @@
-import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceBy, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi } from './types';
+import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy } from './types';
 import { Truck, Clock, Star, AlertTriangle, Smile, Frown, Package, Weight, UserCheck, BarChart, Hash, Users, Sigma } from 'lucide-react';
 
 export function analyzeData(data: MergedData[], filters: Record<string, any>): AnalysisData {
@@ -37,17 +37,22 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
     const uniqueTourneesWithTasks = Array.from(tourneeMap.values());
     
-    // Aggregate real values per tour
+    // Aggregate real values and calculated durations per tour
     uniqueTourneesWithTasks.forEach(({ tour, tasks }) => {
         tour.poidsReel = tasks.reduce((sum, t) => sum + t.poids, 0);
         tour.bacsReels = tasks.reduce((sum, t) => sum + t.items, 0);
         
         if (tasks.length > 0) {
-            const firstTask = tasks.reduce((earliest, curr) => curr.heureArriveeReelle < earliest.heureArriveeReelle ? curr : earliest, tasks[0]);
-            const lastTask = tasks.reduce((latest, curr) => curr.heureCloture > latest.heureCloture ? curr : latest, tasks[0]);
-            tour.dureeReelleCalculee = lastTask.heureCloture - firstTask.heureArriveeReelle;
+            const firstTaskByRealArrival = tasks.reduce((earliest, curr) => curr.heureArriveeReelle < earliest.heureArriveeReelle ? curr : earliest, tasks[0]);
+            const lastTaskByRealCloture = tasks.reduce((latest, curr) => curr.heureCloture > latest.heureCloture ? curr : latest, tasks[0]);
+            tour.dureeReelleCalculee = lastTaskByRealCloture.heureCloture - firstTaskByRealArrival.heureArriveeReelle;
+            
+            const firstTaskByApproxArrival = tasks.reduce((earliest, curr) => curr.heureArriveeApprox < earliest.heureArriveeApprox ? curr : earliest, tasks[0]);
+            const lastTaskByApproxArrival = tasks.reduce((latest, curr) => curr.heureArriveeApprox > latest.heureArriveeApprox ? curr : latest, tasks[0]);
+            tour.dureeEstimeeOperationnelle = lastTaskByApproxArrival.heureArriveeApprox - firstTaskByApproxArrival.heureArriveeApprox;
         } else {
             tour.dureeReelleCalculee = 0;
+            tour.dureeEstimeeOperationnelle = 0;
         }
     });
 
@@ -92,39 +97,53 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         { title: 'Écart de Kilométrage Total', value1: `${totals.distancePrevue.toFixed(1)} km`, label1: 'Planifié', value2: `${totals.distanceReelle.toFixed(1)} km`, label2: 'Réalisé', change: `${(Math.abs(totals.distanceReelle - totals.distancePrevue)).toFixed(1)} km`, changeType: totals.distanceReelle > totals.distancePrevue ? 'increase' : 'decrease' },
     ];
     
-    // --- Quality Impact ---
+    // --- Detailed Analysis Tables ---
     const overloadedToursInfos: OverloadedTourInfo[] = uniqueTournees.map(tour => {
-        const capacity = tour.capacitePoids;
-        const isOverloadedByWeight = capacity > 0 && tour.poidsReel > capacity;
+        const isOverloadedByWeight = tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids;
         const isOverloadedByBins = tour.capaciteBacs > 0 && tour.bacsReels > tour.capaciteBacs;
-
-        const depassementPoids = tour.poidsReel - capacity;
-        const tauxDepassementPoids = capacity > 0 ? (depassementPoids / capacity) * 100 : Infinity;
-        const depassementBacs = tour.bacsReels - tour.capaciteBacs;
-        const tauxDepassementBacs = tour.capaciteBacs > 0 ? (depassementBacs / tour.capaciteBacs) * 100 : Infinity;
         
+        const depassementPoids = isOverloadedByWeight ? tour.poidsReel - tour.capacitePoids : 0;
+        const tauxDepassementPoids = tour.capacitePoids > 0 ? (depassementPoids / tour.capacitePoids) * 100 : 0;
+        const depassementBacs = isOverloadedByBins ? tour.bacsReels - tour.capaciteBacs : 0;
+        const tauxDepassementBacs = tour.capaciteBacs > 0 ? (depassementBacs / tour.capaciteBacs) * 100 : 0;
+
         return {
             ...tour, 
             isOverloaded: isOverloadedByWeight || isOverloadedByBins,
-            depassementPoids: isOverloadedByWeight ? depassementPoids : 0,
-            tauxDepassementPoids: isOverloadedByWeight ? tauxDepassementPoids : 0,
-            depassementBacs: isOverloadedByBins ? depassementBacs : 0,
-            tauxDepassementBacs: isOverloadedByBins ? tauxDepassementBacs : 0,
+            depassementPoids,
+            tauxDepassementPoids,
+            depassementBacs,
+            tauxDepassementBacs,
         };
-    });
+    }).filter(t => t.isOverloaded);
+    
+    const durationDiscrepancies: DurationDiscrepancy[] = uniqueTournees.map(tour => ({
+        ...tour,
+        dureeEstimee: tour.dureeEstimeeOperationnelle || 0,
+        dureeReelle: tour.dureeReelleCalculee || 0,
+        ecart: (tour.dureeReelleCalculee || 0) - (tour.dureeEstimeeOperationnelle || 0),
+    }));
 
-    const overloadedTours = overloadedToursInfos.filter(t => t.isOverloaded);
-    const overloadedToursIds = new Set(overloadedTours.map(t => t.uniqueId));
+    const lateStartAnomalies: LateStartAnomaly[] = uniqueTourneesWithTasks
+        .map(({tour, tasks}) => ({ 
+            tour, 
+            tasksInDelay: tasks.filter(t => t.retard > toleranceSeconds).length,
+            ecartDepart: tour.heureDepartReelle - tour.heureDepartPrevue
+        }))
+        .filter(({ tour, tasksInDelay, ecartDepart }) => ecartDepart <= 0 && tasksInDelay > 0)
+        .map(({ tour, tasksInDelay, ecartDepart }) => ({
+            ...tour,
+            tasksInDelay,
+            ecartDepart
+        }));
+
+    // --- Quality Impact KPIs ---
+    const overloadedToursIds = new Set(overloadedToursInfos.map(t => t.uniqueId));
     const negativeReviewsOnOverloadedTours = negativeReviews.filter(t => t.tournee && overloadedToursIds.has(t.tournee.uniqueId));
 
     const correlationDelays = negativeReviews.length > 0 ? (negativeReviewsOnLateTasks.length / negativeReviews.length) * 100 : 0;
     const correlationOverload = negativeReviews.length > 0 ? (negativeReviewsOnOverloadedTours.length / negativeReviews.length) * 100 : 0;
-
-    const lateStartAnomalies: LateStartAnomaly[] = uniqueTourneesWithTasks
-        .filter(({tour, tasks}) => tour.heureDepartReelle <= tour.heureDepartPrevue && tasks.some(t => t.retard > toleranceSeconds))
-        .map(({tour, tasks}) => ({ ...tour, tasksInDelay: tasks.filter(t => t.retard > toleranceSeconds).length }));
-
-
+    
     const qualityKpis: Kpi[] = [
         { title: 'Corrélation Retards / Avis Négatifs', value: `${correlationDelays.toFixed(1)}%`, icon: BarChart },
         { title: 'Corrélation Surcharge / Avis Négatifs', value: `${correlationOverload.toFixed(1)}%`, icon: Hash },
@@ -132,17 +151,21 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     ];
     
     // --- Performance & Context Analysis ---
-    const performanceByDriver = calculatePerformanceBy(allTasks, 'livreur', toleranceSeconds);
+    const performanceByDriver = calculatePerformanceByDriver(uniqueTourneesWithTasks, toleranceSeconds);
+    const performanceByCity = calculatePerformanceByGeo(allTasks, 'ville', toleranceSeconds);
+    const performanceByPostalCode = calculatePerformanceByGeo(allTasks, 'codePostal', toleranceSeconds);
 
     const delaysByWarehouse = countItemsBy(lateTasks, (t) => t.tournee!.entrepot);
     const delaysByCity = countItemsBy(lateTasks, (t) => t.ville);
     const delaysByPostalCode = countItemsBy(lateTasks, (t) => t.codePostal);
+    
     const delaysByHour = lateTasks.reduce((acc, task) => {
         const hour = new Date(task.heureCloture * 1000).getUTCHours();
         const hourString = `${String(hour).padStart(2, '0')}:00`;
         acc[hourString] = (acc[hourString] || 0) + 1;
         return acc;
     }, {} as Record<string, number>);
+    
     const sortedDelaysByHour: DelayByHour[] = Object.entries(delaysByHour)
       .map(([hour, count]) => ({ hour, count }))
       .sort((a, b) => a.hour.localeCompare(b.hour));
@@ -158,12 +181,10 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     }
 
     allTasks.forEach(task => {
-        // Planned
         const plannedHour = new Date(task.heureArriveeApprox * 1000).getUTCHours();
         const plannedHourStr = `${String(plannedHour).padStart(2, '0')}:00`;
         if (tasksByHour[plannedHourStr]) tasksByHour[plannedHourStr].planned++;
 
-        // Real
         const realHour = new Date(task.heureCloture * 1000).getUTCHours();
         const realHourStr = `${String(realHour).padStart(2, '0')}:00`;
         if (tasksByHour[realHourStr]) {
@@ -183,9 +204,12 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         generalKpis,
         discrepancyKpis,
         qualityKpis,
-        overloadedTours,
+        overloadedTours: overloadedToursInfos,
+        durationDiscrepancies,
         lateStartAnomalies,
         performanceByDriver,
+        performanceByCity,
+        performanceByPostalCode,
         delaysByWarehouse,
         delaysByCity,
         delaysByPostalCode,
@@ -202,8 +226,11 @@ function createEmptyAnalysisData(): AnalysisData {
         discrepancyKpis: [],
         qualityKpis: [],
         overloadedTours: [],
+        durationDiscrepancies: [],
         lateStartAnomalies: [],
         performanceByDriver: [],
+        performanceByCity: [],
+        performanceByPostalCode: [],
         delaysByWarehouse: [],
         delaysByCity: [],
         delaysByPostalCode: [],
@@ -212,7 +239,6 @@ function createEmptyAnalysisData(): AnalysisData {
         avgWorkloadByDriverByHour: []
     };
 }
-
 
 function countItemsBy(tasks: MergedData[], keyGetter: (task: MergedData) => string): DelayCount[] {
     const counts = tasks.reduce((acc, task) => {
@@ -228,40 +254,76 @@ function countItemsBy(tasks: MergedData[], keyGetter: (task: MergedData) => stri
         .sort((a, b) => b.count - a.count);
 }
 
+function calculatePerformanceByDriver(toursWithTasks: { tour: Tournee, tasks: MergedData[] }[], toleranceSeconds: number): PerformanceByDriver[] {
+    const driverGroups = new Map<string, { tours: Tournee[], tasks: MergedData[], overweightTours: Set<string> }>();
 
-function calculatePerformanceBy(data: MergedData[], key: 'livreur' | 'ville', toleranceSeconds: number): PerformanceBy<string>[] {
-    const groups = data.reduce((acc, t) => {
-        const groupKey = key === 'livreur' ? t.livreur : t[key];
-        if (!groupKey) return acc;
-        if (!acc[groupKey]) {
-            acc[groupKey] = { tasks: [], lateTasks: [], totalRating: 0, ratingCount: 0 };
-        }
-        const group = acc[groupKey];
-        group.tasks.push(t);
-        if (t.retard > toleranceSeconds) {
-            group.lateTasks.push(t);
-        }
-        if (t.notation != null) {
-            group.totalRating += t.notation;
-            group.ratingCount++;
-        }
-        return acc;
-    }, {} as Record<string, { tasks: MergedData[], lateTasks: MergedData[], totalRating: number, ratingCount: number }>);
+    toursWithTasks.forEach(({ tour, tasks }) => {
+        const driverName = tour.livreur;
+        if (!driverName) return;
 
-    return Object.entries(groups).map(([groupKey, value]) => {
-        const totalTasks = value.tasks.length;
-        const lateTasksCount = value.lateTasks.length;
-        const sumOfDelaysInSeconds = value.lateTasks.reduce((sum, task) => sum + task.retard, 0);
+        if (!driverGroups.has(driverName)) {
+            driverGroups.set(driverName, { tours: [], tasks: [], overweightTours: new Set() });
+        }
+        const group = driverGroups.get(driverName)!;
+        group.tours.push(tour);
+        group.tasks.push(...tasks);
+        
+        const isOverweight = tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids;
+        if (isOverweight) {
+            group.overweightTours.add(tour.uniqueId);
+        }
+    });
+
+    return Array.from(driverGroups.entries()).map(([driverName, data]) => {
+        const allTasks = data.tasks;
+        const totalTasks = allTasks.length;
+        const onTimeTasks = allTasks.filter(t => Math.abs(t.retard) <= toleranceSeconds).length;
+        const lateTasks = allTasks.filter(t => t.retard > toleranceSeconds);
+        const sumOfDelays = lateTasks.reduce((sum, task) => sum + task.retard, 0);
+        
+        const ratedTasks = allTasks.filter(t => t.notation != null);
+        const sumOfRatings = ratedTasks.reduce((sum, task) => sum + task.notation!, 0);
 
         return {
-            key: groupKey,
-            totalTasks: totalTasks,
-            punctualityRate: totalTasks > 0 ? (1 - lateTasksCount / totalTasks) * 100 : 100,
-            avgDelay: lateTasksCount > 0 ? (sumOfDelaysInSeconds / lateTasksCount) / 60 : 0, // in minutes
-            avgRating: value.ratingCount > 0 ? value.totalRating / value.ratingCount : undefined,
+            key: driverName,
+            totalTours: data.tours.length,
+            punctualityRate: totalTasks > 0 ? (onTimeTasks / totalTasks) * 100 : 100,
+            avgDelay: lateTasks.length > 0 ? (sumOfDelays / lateTasks.length) / 60 : 0, // in minutes
+            overweightToursCount: data.overweightTours.size,
+            avgRating: ratedTasks.length > 0 ? sumOfRatings / ratedTasks.length : undefined,
         }
-    }).sort((a,b) => b.totalTasks - a.totalTasks);
+    }).sort((a, b) => b.totalTours - a.totalTours);
 }
+
+function calculatePerformanceByGeo(tasks: MergedData[], key: 'ville' | 'codePostal', toleranceSeconds: number): PerformanceByGeo[] {
+    const geoGroups = new Map<string, { totalTasks: number, lateTasks: MergedData[] }>();
+
+    tasks.forEach(task => {
+        const geoKey = task[key];
+        if (!geoKey) return;
+
+        if (!geoGroups.has(geoKey)) {
+            geoGroups.set(geoKey, { totalTasks: 0, lateTasks: [] });
+        }
+        const group = geoGroups.get(geoKey)!;
+        group.totalTasks++;
+        if (task.retard > toleranceSeconds) {
+            group.lateTasks.push(task);
+        }
+    });
+
+    return Array.from(geoGroups.entries()).map(([geoKey, data]) => {
+        const sumOfDelays = data.lateTasks.reduce((sum, task) => sum + task.retard, 0);
+        return {
+            key: geoKey,
+            totalTasks: data.totalTasks,
+            totalDelays: data.lateTasks.length,
+            punctualityRate: data.totalTasks > 0 ? ((data.totalTasks - data.lateTasks.length) / data.totalTasks) * 100 : 100,
+            avgDelay: data.lateTasks.length > 0 ? (sumOfDelays / data.lateTasks.length) / 60 : 0, // in minutes
+        }
+    }).sort((a,b) => b.totalDelays - a.totalDelays);
+}
+
 
 function formatSeconds(seconds: number): string {
     if (seconds < 0) seconds = 0;
