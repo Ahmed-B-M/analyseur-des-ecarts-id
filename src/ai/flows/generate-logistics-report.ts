@@ -1,54 +1,107 @@
 
 'use server';
 
-/**
- * @fileOverview Generates a comprehensive logistics performance report using AI.
- *
- * - generateLogisticsReport - A function that analyzes logistics data and generates a structured report.
- * - GenerateLogisticsReportInput - The input type for the generateLogisticsReport function.
- */
-
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import {
+    Kpi
+} from '@/lib/types';
+
+// Schemas for complex objects to be used in the input
+const KpiSchema = z.object({
+  title: z.string(),
+  value: z.string(),
+  description: z.string().optional(),
+});
+
+const ComparisonKpiSchema = z.object({
+  title: z.string(),
+  value1: z.string(),
+  label1: z.string(),
+  value2: z.string(),
+  label2: z.string(),
+  change: z.string(),
+});
+
+const OverloadedTourSchema = z.object({
+  nom: z.string(),
+  livreur: z.string(),
+  tauxDepassementPoids: z.number(),
+});
+
+const DurationDiscrepancySchema = z.object({
+  nom: z.string(),
+  livreur: z.string(),
+  ecart: z.number(), // in seconds
+  dureeEstimee: z.number(), // in seconds
+  dureeReelle: z.number(), // in seconds
+});
+
+const LateStartAnomalySchema = z.object({
+  nom: z.string(),
+  livreur: z.string(),
+  tasksInDelay: z.number(),
+  heureDepartPrevue: z.number(), // in seconds from midnight
+  heureDepartReelle: z.number(), // in seconds from midnight
+});
+
+const ExemplaryDriverSchema = z.object({
+    key: z.string().describe("Nom du livreur."),
+    punctualityRate: z.number().describe("Son taux de ponctualité."),
+    overweightToursCount: z.number().describe("Nombre de tournées en surcharge qu'il a effectuées."),
+    avgDelay: z.number().describe("Son retard moyen en minutes.")
+});
 
 const ReportInputSchema = z.object({
-  totalTours: z.number().describe("Nombre total de tournées analysées."),
-  totalTasks: z.number().describe("Nombre total de livraisons (tâches) analysées."),
-  punctualityRate: z.number().describe("Taux de ponctualité global en pourcentage."),
-  avgRating: z.number().describe("Note moyenne donnée par les clients."),
-  totalLateTasks: z.number().describe("Nombre total de livraisons en retard."),
-  totalEarlyTasks: z.number().describe("Nombre total de livraisons en avance."),
-  overloadedToursCount: z.number().describe("Nombre de tournées ayant dépassé la capacité (poids ou volume)."),
-  lateStartAnomaliesCount: z.number().describe("Nombre de tournées parties à l'heure mais arrivées en retard."),
-  topLateDriver: z.string().optional().describe("Le livreur avec le taux de retard le plus élevé ou le plus grand nombre de retards."),
-  topLateCity: z.string().optional().describe("La ville avec le plus grand nombre de retards."),
-  mainReasonForNegativeFeedback: z.string().optional().describe("La cause principale (Retard, Avance, Autre) des avis clients négatifs, si analysée."),
+  totalTours: z.number(),
+  generalKpis: z.array(KpiSchema).describe("KPIs généraux."),
+  negativeReviewsFromLateness: KpiSchema.describe("KPI spécifique sur les avis négatifs dus aux retards."),
+  discrepancyKpis: z.array(ComparisonKpiSchema).describe("KPIs comparant le planifié et le réalisé."),
+  
+  // Anomaly percentages
+  overloadedToursPercentage: z.number().describe("Pourcentage de tournées en surcharge sur le total."),
+  durationDiscrepancyPercentage: z.number().describe("Pourcentage de tournées avec écart de durée positif significatif."),
+  planningAnomalyPercentage: z.number().describe("Pourcentage de tournées en anomalie de planification."),
+
+  // Top 10 examples from detailed tables
+  top10OverloadedTours: z.array(OverloadedTourSchema).describe("Top 10 des tournées en dépassement de charge."),
+  top10PositiveDurationDiscrepancies: z.array(DurationDiscrepancySchema).describe("Top 10 des tournées avec les plus grands écarts de durée POSITIFS."),
+  top10LateStartAnomalies: z.array(LateStartAnomalySchema).describe("Top 10 des tournées 'parties en avance, arrivées en retard'."),
+  
+  // New driver analysis
+  topExemplaryDrivers: z.array(ExemplaryDriverSchema).describe("Top livreurs qui restent performants malgré la surcharge."),
+
+  // Data for charts - just the key facts
+  topWarehouseByDelay: z.string().optional().describe("L'entrepôt avec le plus de retards."),
+  topCityByDelay: z.string().optional().describe("La ville avec le plus de retards."),
 });
 export type GenerateLogisticsReportInput = z.infer<typeof ReportInputSchema>;
 
-
 const ReportOutputSchema = z.object({
-    title: z.string().describe("Un titre dynamique et concis pour le rapport. Par exemple: 'Rapport de Performance Logistique - Semaine 24'."),
-    executiveSummary: z.string().describe("Synthèse managériale de 2 à 3 phrases. Comparer la performance globale aux objectifs (95% ponctualité, 4.8/5 note), énoncer le principal problème et l'insight majeur de la période."),
-    kpiAnalysis: z.object({
-        punctuality: z.string().describe("Analyse du KPI de ponctualité. Mentionner l'objectif de 95% et commenter l'écart."),
-        rating: z.string().describe("Analyse du KPI de notation client. Mentionner l'objectif de 4.8 et commenter l'écart."),
-        delays: z.string().describe("Analyse du nombre de retards et d'avances. Mettre en perspective par rapport au nombre total de livraisons."),
+    title: z.string().describe("Titre très court et factuel. Ex: 'Rapport Opérationnel - Semaine 24'."),
+    
+    executiveSummary: z.string().describe("Synthèse managériale (1-2 phrases) sur l'impact de la planification sur la ponctualité."),
+    
+    kpiComments: z.object({
+        punctuality: z.string().describe("Commentaire sur la ponctualité. Ex: 'Ponctualité sous l'objectif, principalement due aux...'"),
+        rating: z.string().describe("Commentaire sur le KPI des avis négatifs liés aux retards."),
     }),
-    anomaliesAnalysis: z.object({
-        overload: z.string().optional().describe("Analyse des surcharges. Commenter le nombre de tournées concernées et l'impact potentiel."),
-        planning: z.string().optional().describe("Analyse des anomalies de planification (parties à l'heure, arrivées en retard). Expliquer ce que cela signifie (temps de trajet sous-estimés).")
+
+    chartsInsights: z.object({
+        temporalAnalysis: z.string().describe("Insight sur le graphique temporel heure/heure. Ex: 'Le pic de retards se situe entre 10h et 14h.'"),
+        workloadAnalysis: z.string().describe("Insight sur la comparaison charge planifiée vs. réelle. Ex: 'La charge réelle est constamment supérieure à la planification.'"),
     }),
-    geoDriverAnalysis: z.object({
-        city: z.string().optional().describe("Analyse des performances par ville. Pointer la ville la plus en retard et suggérer des causes locales possibles."),
-        driver: z.string().optional().describe("Analyse des performances par livreur. Commenter le livreur le plus en retard et suggérer un besoin d'accompagnement.")
+
+    anomaliesComments: z.object({
+        overloaded: z.string().describe("Commentaire sur les dépassements de charge, mentionnant l'impact."),
+        duration: z.string().describe("Commentaire sur les écarts de durée, expliquant ce que cela signifie (temps de service, etc.)."),
+        planning: z.string().describe("Commentaire sur les anomalies de planification (départ en avance/arrivée en retard)."),
     }),
-    customerImpactAnalysis: z.object({
-        mainReason: z.string().describe("Analyse de l'impact sur les clients. Faire le lien entre la ponctualité, la note moyenne et la raison principale des avis négatifs si disponible.")
-    }),
-    conclusion: z.object({
-        summary: z.string().describe("Résumé des 2 ou 3 problèmes principaux identifiés."),
-        recommendations: z.array(z.string()).describe("Liste de 2 à 3 recommandations actionnables et concrètes pour adresser ces problèmes.")
+    
+    geoDriverComments: z.object({
+        warehouse: z.string().describe("Commentaire sur l'analyse par entrepôt. Ex: 'L'entrepôt de [Nom] concentre le plus de difficultés.'"),
+        city: z.string().describe("Commentaire sur l'analyse par ville. Ex: 'La ville de [Nom] présente des défis de circulation.'"),
+        driver: z.string().describe("Commentaire sur l'analyse des livreurs exemplaires, soulignant que la performance est possible malgré les contraintes."),
     })
 });
 export type GenerateLogisticsReportOutput = z.infer<typeof ReportOutputSchema>;
@@ -64,52 +117,36 @@ const prompt = ai.definePrompt({
   input: { schema: ReportInputSchema },
   output: { schema: ReportOutputSchema },
   prompt: `
-    En tant qu'expert analyste en logistique pour Carrefour, tu dois rédiger une analyse complète et détaillée pour un rapport de performance destiné à la direction.
-    Ton objectif est d'être analytique, percutant et de fournir des insights actionnables basés sur les données fournies.
-    Rédige chaque section en phrases complètes.
+    En tant qu'IA experte en analyse logistique, génère des commentaires concis pour un rapport VISUEL destiné à des directeurs opérationnels. L'objectif est d'expliquer les données des graphiques et tableaux sans être verbeux. Sois analytique et va droit au but.
 
-    ## Données brutes pour ton analyse :
-    - Nombre total de tournées: {{{totalTours}}}
-    - Nombre total de livraisons: {{{totalTasks}}}
-    - Taux de ponctualité global: {{{punctualityRate}}}% (Objectif: 95%)
-    - Note moyenne des clients: {{{avgRating}}}/5 (Objectif: 4.8)
-    - Total livraisons en retard: {{{totalLateTasks}}}
-    - Total livraisons en avance: {{{totalEarlyTasks}}}
-    - Nombre de tournées en surcharge (poids/volume): {{{overloadedToursCount}}}
-    - Anomalies de planification (parties à l'heure, arrivées en retard): {{{lateStartAnomaliesCount}}}
-    {{#if topLateDriver}}- Livreur le plus en retard: {{{topLateDriver}}}{{/if}}
-    {{#if topLateCity}}- Ville la plus impactée par les retards: {{{topLateCity}}}{{/if}}
-    {{#if mainReasonForNegativeFeedback}}- Raison principale des avis négatifs: {{{mainReasonForNegativeFeedback}}}{{/if}}
+    ## Données Clés Analysées :
+    - Total de tournées: {{{totalTours}}}
+    - KPI "Avis négatifs liés aux retards": {{{json negativeReviewsFromLateness}}}
+    - Pourcentage de tournées en surcharge: {{{overloadedToursPercentage}}}%
+    - Pourcentage de tournées avec écart de durée > 15min: {{{durationDiscrepancyPercentage}}}%
+    - Pourcentage de tournées en anomalie de planification: {{{planningAnomalyPercentage}}}%
+    - Top 10 Dépassements de Charge: {{{json top10OverloadedTours}}}
+    - Top 10 Écarts de Durée (Positifs): {{{json top10PositiveDurationDiscrepancies}}}
+    - Top 10 Anomalies (Départ Avance/Arrivée Retard): {{{json top10LateStartAnomalies}}}
+    - Top Livreur performants malgré la surcharge: {{{json topExemplaryDrivers}}}
+    - Pire Entrepôt (retards): {{{topWarehouseByDelay}}}
+    - Pire Ville (retards): {{{topCityByDelay}}}
 
-    ## Instructions pour chaque section du rapport :
+    ## Instructions par Section :
+    - **title**: "Rapport de Performance Opérationnelle".
+    - **executiveSummary**: En 1-2 phrases, explique comment les écarts de planification (charge, durée) impactent la ponctualité globale.
+    - **kpiComments.punctuality**: Commente la ponctualité en la liant à la satisfaction client.
+    - **kpiComments.rating**: Explique ce que le chiffre des "avis négatifs liés aux retards" signifie pour l'image de marque.
+    - **chartsInsights.temporalAnalysis**: Donne l'insight principal du graphique heure par heure. Quel est le créneau le plus critique ?
+    - **chartsInsights.workloadAnalysis**: Commente le graphique de charge planifiée vs. réelle. Y a-t-il un décalage constant ?
+    - **anomaliesComments.overloaded**: Résume l'impact des {{{overloadedToursPercentage}}}% de tournées en surcharge sur le matériel et les livreurs.
+    - **anomaliesComments.duration**: Explique pourquoi {{{durationDiscrepancyPercentage}}}% des tournées qui durent plus longtemps que prévu est un problème de planification (temps de service sous-estimé).
+    - **anomaliesComments.planning**: Explique ce que l'anomalie "départ en avance, arrivée en retard" révèle sur l'estimation des temps de trajet.
+    - **geoDriverComments.warehouse**: Identifie l'entrepôt le plus problématique ({{{topWarehouseByDelay}}}) et ce que cela suggère.
+    - **geoDriverComments.city**: Identifie la ville la plus problématique ({{{topCityByDelay}}}) et ce que cela suggère (trafic, etc.).
+    - **geoDriverComments.driver**: En te basant sur les 'Top Livreur', rédige un commentaire expliquant que malgré des conditions difficiles (surcharge), une haute performance est possible, suggérant que le problème n'est pas forcément humain mais lié à la planification.
 
-    ### 1. Titre (title)
-    Génère un titre court et informatif. Ex: "Analyse de Performance Logistique - Semaine 24".
-
-    ### 2. Synthèse Managériale (executiveSummary)
-    Rédige une synthèse de 2-3 phrases. Compare la performance aux objectifs de ponctualité (95%) et de notation (4.8). Énonce clairement le problème principal de la période (ex: "forte dégradation de la ponctualité due à des problèmes de planification") et l'insight majeur (ex: "concentrée sur le secteur Nord").
-
-    ### 3. Analyse des KPIs Principaux (kpiAnalysis)
-    - **ponctuality**: Commente le taux de ponctualité de {{{punctualityRate}}}%. Est-il au-dessus ou en dessous de l'objectif de 95%? L'écart est-il significatif ?
-    - **rating**: Commente la note moyenne de {{{avgRating}}}/5. Est-elle conforme à l'objectif de 4.8 ? Fais un lien direct avec la performance de ponctualité.
-    - **delays**: Analyse le nombre de retards ({{{totalLateTasks}}}) et d'avances ({{{totalEarlyTasks}}}). Mets ces chiffres en perspective par rapport au nombre total de livraisons ({{{totalTasks}}}). Par exemple, "Les {{{totalLateTasks}}} retards représentent X% du total des livraisons, indiquant un problème systémique ou ponctuel."
-
-    ### 4. Analyse des Anomalies Opérationnelles (anomaliesAnalysis)
-    - **overload**: Si {{{overloadedToursCount}}} > 0, commente ce chiffre. Exemple: "{{{overloadedToursCount}}} tournées en surcharge ont été détectées. Cela indique un problème potentiel de planification des capacités ou de non-respect des processus, impactant directement les temps de service et la ponctualité." Si 0, mentionne que c'est un point positif.
-    - **planning**: Si {{{lateStartAnomaliesCount}}} > 0, commente ce chiffre. Exemple: "{{{lateStartAnomaliesCount}}} tournées, bien que parties à l'heure, ont accumulé des retards. Ceci est un indicateur fort que les temps de trajet alloués pour ces tournées sont structurellement sous-estimés, menant à des retards inévitables." Si 0, indique que la planification des temps de trajet semble correcte.
-
-    ### 5. Analyse Géographique et par Livreur (geoDriverAnalysis)
-    - **city**: Si {{{topLateCity}}} est fourni, analyse ce point. Exemple: "L'analyse géographique montre une concentration significative des retards sur la ville de {{{topLateCity}}}. Ce secteur est le plus problématique et pourrait être affecté par des conditions de trafic spécifiques, des erreurs de planification de zone ou des difficultés opérationnelles locales."
-    - **driver**: Si {{{topLateDriver}}} est fourni, analyse ce point. Exemple: "Le livreur {{{topLateDriver}}} présente la plus forte concentration de retards sur la période. Un suivi individuel est recommandé pour comprendre les causes (difficultés sur le secteur, besoin de formation, etc.)."
-
-    ### 6. Analyse de l'Impact Client (customerImpactAnalysis)
-    - **mainReason**: Fais une synthèse percutante. Exemple: "L'impact sur l'expérience client est direct : la chute de la ponctualité à {{{punctualityRate}}}% se traduit par une note moyenne de {{{avgRating}}}/5. L'analyse des commentaires clients confirme que la raison principale de l'insatisfaction est '{{{mainReasonForNegativeFeedback}}}', ce qui prouve que chaque retard érodé la confiance de nos clients."
-
-    ### 7. Conclusion et Recommandations (conclusion)
-    - **summary**: Résume les 2 ou 3 problèmes fondamentaux identifiés (ex: "Problème de planification des temps de trajet, surcharge récurrente des véhicules, et une concentration des incidents sur le secteur de {{{topLateCity}}}.")
-    - **recommendations**: Propose 2-3 recommandations concrètes et actionnables. Exemples : "Ré-évaluer les temps de parcours pour les tournées identifiées en anomalie", "Auditer le processus de chargement des véhicules pour les {{{overloadedToursCount}}} tournées en surcharge", "Lancer une analyse spécifique sur le secteur de {{{topLateCity}}} pour ajuster les plans de tournée".
-
-    **Sois factuel, analytique et orienté business. Le public est la direction de Carrefour. Ne génère que la structure JSON demandée.**
+    **Sois bref et factuel. Tes textes sont des légendes pour des visuels. Ne génère que le JSON.**
     `,
 });
 

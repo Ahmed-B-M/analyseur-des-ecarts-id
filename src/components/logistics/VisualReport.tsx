@@ -1,19 +1,57 @@
 'use client';
 import { useEffect, useState } from 'react';
-import type { VisualReportData, Kpi } from '@/lib/types';
+import type { VisualReportData, OverloadedTourInfo, DurationDiscrepancy, LateStartAnomaly, Kpi } from '@/lib/types';
 import { Logo } from './Logo';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Printer, Loader2, AlertCircle, Info, Clock, MapPin, Users, Truck, BarChart2, AlertTriangle, Frown, Smile, Sigma, Lightbulb, Package, Route, Target, TrendingDown, ThumbsDown, CheckCircle, Search, FileText } from 'lucide-react';
-import { KpiCard } from './KpiCard';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { Printer, Loader2, AlertCircle, FileText, Target, Search, MapPin, Users, BarChart2, Calendar, Clock, Sigma, AlertTriangle, Timer, Route, Warehouse, Award, TrendingUp } from 'lucide-react';
+import { KpiCard, ComparisonKpiCard } from './KpiCard';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart, CartesianGrid, Legend, Line, Area } from 'recharts';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Separator } from '../ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from '../ui/scroll-area';
+
+type ExtendedVisualReportData = VisualReportData & {
+    extra: {
+        negativeReviewsKpi: Kpi;
+        overloadedToursPercentage: number;
+        durationDiscrepancyPercentage: number;
+        planningAnomalyPercentage: number;
+        exemplaryDrivers: any[];
+        top10PositiveDuration: any[];
+        top10Anomalies: any[];
+        top10Overloaded: any[];
+    }
+}
+
+// Reusable component for report sections with AI commentary
+const ReportBlock = ({ title, icon: Icon, aiComment, children }: { title: string, icon: React.ElementType, aiComment?: string, children: React.ReactNode }) => (
+    <section className="break-after-page">
+        <div className="flex items-start gap-3 mb-4">
+            <Icon className="w-6 h-6 text-primary mt-1 flex-shrink-0" />
+            <div>
+                <h2 className="text-xl font-bold">{title}</h2>
+                {aiComment && <p className="text-sm text-gray-600 italic">"{aiComment}"</p>}
+            </div>
+        </div>
+        {children}
+    </section>
+);
+
+// Helper to format seconds into HH:MM
+function formatSecondsToClock(seconds: number): string {
+    if (isNaN(seconds) || seconds < 0) return '--:--';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
 
 export default function VisualReport() {
-    const [reportData, setReportData] = useState<VisualReportData | null>(null);
+    const [reportData, setReportData] = useState<ExtendedVisualReportData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -34,183 +72,123 @@ export default function VisualReport() {
     };
 
     if (isLoading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen text-center p-8">
-                <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-                <h3 className="text-xl font-semibold">Chargement du rapport...</h3>
-            </div>
-        );
+        return <div className="flex items-center justify-center min-h-screen"><Loader2 className="w-12 h-12 animate-spin" /></div>;
     }
     
     if (!reportData) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen text-center p-8">
-                <AlertCircle className="w-12 h-12 text-destructive mb-4" />
-                <h3 className="text-xl font-semibold">Aucune donnée de rapport trouvée</h3>
-                <p className="text-muted-foreground mt-1">Veuillez générer un rapport depuis le tableau de bord principal.</p>
-            </div>
-        );
+        return <div className="flex items-center justify-center min-h-screen"><AlertCircle className="w-12 h-12" /> No Report Data</div>;
     }
     
-    const { analysis, ai, filters } = reportData;
+    const { analysis, ai, filters, extra } = reportData;
 
-    const getFilterValue = (key: string, value: any) => {
-        if (!value) return 'N/A';
-        if (key === 'dateRange' && typeof value === 'object' && value.from) {
-           return `${format(new Date(value.from), 'd MMM yyyy', { locale: fr })} - ${format(new Date(value.to || value.from), 'd MMM yyyy', { locale: fr })}`;
-        }
-        if (key === 'selectedDate') {
-            return format(new Date(value), 'd MMMM yyyy', { locale: fr });
-        }
-        return value;
-    }
+    const renderDateFilter = () => {
+        if (filters.dateRange?.from) return `Période du ${format(new Date(filters.dateRange.from), 'd MMM', { locale: fr })} au ${format(new Date(filters.dateRange.to || filters.dateRange.from), 'd MMM yyyy', { locale: fr })}`;
+        if (filters.selectedDate) return `Rapport du ${format(new Date(filters.selectedDate), 'd MMMM yyyy', { locale: fr })}`;
+        return "Période non spécifiée";
+    };
 
-    const punctualityKpi = analysis.generalKpis.find(k => k.title.includes('Ponctualité'));
-    const ratingKpi = analysis.generalKpis.find(k => k.title.includes('Notation'));
-
-    const isPunctualityOk = punctualityKpi ? parseFloat(punctualityKpi.value) >= 95 : true;
-    const isRatingOk = ratingKpi ? parseFloat(ratingKpi.value) >= 4.8 : true;
+    const workloadByHourData = (analysis.workloadByHour || []).filter(d => {
+        const hour = parseInt(d.hour.split(':')[0]);
+        return hour >= 5 && hour <= 23;
+    });
 
     return (
         <div className="max-w-4xl mx-auto p-4 sm:p-8 bg-white print:shadow-none font-sans text-gray-800">
             <header className="flex justify-between items-center pb-4 border-b-2 border-black">
-                 <div className="flex items-center gap-6">
+                <div className="flex items-center gap-6">
                     <Logo className="h-12 w-auto" />
-                    <Image src="/carrefour-logo.svg" alt="Carrefour Logo" width={120} height={40} className="object-contain" />
+                    <Image src="/carrefour-logo.svg" alt="Carrefour Logo" width={120} height={40} />
                 </div>
-                 <div className="text-right">
+                <div className="text-right">
                     <h1 className="text-2xl font-bold">{ai.title}</h1>
-                    <p className="text-sm text-gray-500">
-                        Période : {getFilterValue(filters.dateRange ? 'dateRange' : 'selectedDate', filters.dateRange || filters.selectedDate)}
-                    </p>
+                    <p className="text-sm text-gray-500">{renderDateFilter()}</p>
                 </div>
             </header>
 
-            <main className="mt-6 space-y-8">
-                 {/* Print Button */}
+            <main className="mt-6 space-y-10">
                 <div className="no-print flex justify-end">
-                    <Button onClick={handlePrint}>
-                        <Printer className="mr-2 h-4 w-4" />
-                        Imprimer / Exporter en PDF
-                    </Button>
+                    <Button onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Imprimer / PDF</Button>
                 </div>
 
-                {/* Executive Summary */}
                 <Card className="bg-blue-50 border-blue-200 print:shadow-none print:border-none">
-                    <CardHeader>
-                        <CardTitle className="text-lg text-blue-900 flex items-center gap-2"><FileText /> Synthèse Managériale</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-gray-700 leading-relaxed">{ai.executiveSummary}</p>
-                    </CardContent>
+                    <CardHeader><CardTitle className="text-lg text-blue-900 flex items-center gap-2"><FileText /> Synthèse Managériale</CardTitle></CardHeader>
+                    <CardContent><p className="text-gray-700 leading-relaxed">{ai.executiveSummary}</p></CardContent>
                 </Card>
 
-                {/* Main KPIs Section */}
-                <section>
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Target/> Analyse des Indicateurs Clés (KPIs)</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <Card className={`print:shadow-none ${isPunctualityOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Ponctualité</CardTitle></CardHeader>
-                            <CardContent>
-                                <p className="text-3xl font-bold">{punctualityKpi?.value}</p>
-                                <p className="text-xs text-muted-foreground">Objectif: 95%</p>
-                            </CardContent>
-                        </Card>
-                        <Card className={`print:shadow-none ${isRatingOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Notation Client</CardTitle></CardHeader>
-                            <CardContent>
-                                <p className="text-3xl font-bold">{ratingKpi?.value}</p>
-                                <p className="text-xs text-muted-foreground">Objectif: 4.8/5</p>
-                            </CardContent>
-                        </Card>
-                         <KpiCard {...analysis.generalKpis.find(k=>k.title.includes('Retard'))!} />
-                         <KpiCard {...analysis.generalKpis.find(k=>k.title.includes('Avance'))!} />
+                <ReportBlock title="Indicateurs Clés (KPIs)" icon={Target} aiComment={`${ai.kpiComments.punctuality} ${ai.kpiComments.rating}`}>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <KpiCard {...(analysis.generalKpis || []).find(k=>k.title.includes('Ponctualité'))!} />
+                        <KpiCard {...extra.negativeReviewsKpi} />
+                        <KpiCard {...(analysis.generalKpis || []).find(k=>k.title.includes('Retard'))!} />
                     </div>
-                    <div className="mt-4 bg-gray-50 p-4 rounded-lg border">
-                        <p className="text-sm leading-relaxed"><span className="font-semibold text-gray-700">Analyse :</span> {ai.kpiAnalysis.punctuality} {ai.kpiAnalysis.rating} {ai.kpiAnalysis.delays}</p>
+                </ReportBlock>
+
+                <ReportBlock title="Écarts Planifié vs. Réalisé" icon={BarChart2}>
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {(analysis.discrepancyKpis || []).filter(k=>!k.title.toLowerCase().includes('distance')).map(kpi => <ComparisonKpiCard key={kpi.title} {...kpi} />)}
                     </div>
-                </section>
+                </ReportBlock>
                 
                 <Separator/>
 
-                {/* Anomalies Section */}
-                <section>
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Search/> Analyse des Anomalies Opérationnelles</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                             <KpiCard icon="AlertTriangle" title="Tournées en Surcharge" value={analysis.overloadedTours.length.toString()} description="Dépassement de poids ou volume"/>
-                             {ai.anomaliesAnalysis.overload && <p className="text-sm mt-2 p-2 bg-gray-50 rounded border">{ai.anomaliesAnalysis.overload}</p>}
-                        </div>
-                        <div>
-                             <KpiCard icon="Route" title="Anomalies de Planification" value={analysis.lateStartAnomalies.length.toString()} description="Parties à l'heure, livrées en retard"/>
-                             {ai.anomaliesAnalysis.planning && <p className="text-sm mt-2 p-2 bg-gray-50 rounded border">{ai.anomaliesAnalysis.planning}</p>}
-                        </div>
-                    </div>
-                </section>
+                <ReportBlock title="Analyse de la Charge de Travail" icon={Clock} aiComment={ai.chartsInsights.workloadAnalysis}>
+                    <Card className="print:shadow-none"><CardHeader><CardTitle className="text-base">Charge & Retards par Heure</CardTitle></CardHeader><CardContent>
+                        <ResponsiveContainer width="100%" height={250}>
+                             <ComposedChart data={workloadByHourData}>
+                               <XAxis dataKey="hour" fontSize={10} /><YAxis yAxisId="left" fontSize={10}/><YAxis yAxisId="right" orientation="right" fontSize={10} /><Tooltip/><Legend/>
+                               <Area yAxisId="left" type="monotone" dataKey="planned" name="Planifié" stroke="#a1a1aa" fill="#a1a1aa" fillOpacity={0.3} />
+                               <Area yAxisId="left" type="monotone" dataKey="real" name="Réalisé" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
+                               <Line yAxisId="right" type="monotone" dataKey="delays" name="Retards" stroke="#ef4444" dot={false} strokeWidth={2}/>
+                             </ComposedChart>
+                        </ResponsiveContainer>
+                    </CardContent></Card>
+                </ReportBlock>
 
                 <Separator/>
 
-                {/* Geo & Driver Analysis */}
-                <section>
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><MapPin/> Analyse Géographique et par Livreur</h2>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <h3 className="font-semibold mb-2">Performance par Ville</h3>
-                            <Card className="print:shadow-none">
-                                <CardContent className="pt-4">
-                                     <ResponsiveContainer width="100%" height={200}>
-                                        <BarChart data={analysis.delaysByCity.slice(0,5).reverse()} layout="vertical" margin={{ left: 80, right: 20 }}>
-                                            <XAxis type="number" fontSize={10} />
-                                            <YAxis dataKey="key" type="category" fontSize={10} tickLine={false} axisLine={false} />
-                                            <Tooltip />
-                                            <Bar dataKey="count" name="Retards" barSize={15} fill={'#E4002B'} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </CardContent>
-                            </Card>
-                            {ai.geoDriverAnalysis.city && <p className="text-sm mt-2 p-2 bg-gray-50 rounded border">{ai.geoDriverAnalysis.city}</p>}
-                        </div>
-                         <div>
-                            <h3 className="font-semibold mb-2">Performance par Livreur</h3>
-                            <p className="text-sm p-2 bg-gray-50 rounded border">{ai.geoDriverAnalysis.driver || "Aucune anomalie majeure par livreur."}</p>
-                        </div>
-                    </div>
-                </section>
+                <ReportBlock title="Analyse des Anomalies de Tournées" icon={Search}>
+                    <ScrollArea className="h-[400px] space-y-6 pr-4">
+                        <Card className="print:shadow-none"><CardHeader>
+                            <CardTitle className="text-base flex items-center justify-between"><span><AlertTriangle className="inline mr-2"/>Dépassements de Charge</span> <span className="font-bold text-lg text-red-600">{extra.overloadedToursPercentage.toFixed(1)}%</span></CardTitle>
+                            <CardDescription>{ai.anomaliesComments.overloaded}</CardDescription></CardHeader><CardContent>
+                            <Table><TableHeader><TableRow><TableHead>Tournée</TableHead><TableHead>Livreur</TableHead><TableHead>% Dépassement</TableHead></TableRow></TableHeader>
+                            <TableBody>{(extra.top10Overloaded || []).map((t:any,i:number)=>(<TableRow key={i}><TableCell>{t.nom}</TableCell><TableCell>{t.livreur}</TableCell><TableCell className="font-bold text-red-600">+{t.tauxDepassementPoids.toFixed(1)}%</TableCell></TableRow>))}</TableBody></Table>
+                        </CardContent></Card>
 
-                <Separator/>
+                        <Card className="print:shadow-none mt-6"><CardHeader>
+                             <CardTitle className="text-base flex items-center justify-between"><span><Timer className="inline mr-2"/>Écarts de Durée de Service</span><span className="font-bold text-lg text-red-600">{extra.durationDiscrepancyPercentage.toFixed(1)}%</span></CardTitle>
+                            <CardDescription>{ai.anomaliesComments.duration}</CardDescription></CardHeader><CardContent>
+                             <Table><TableHeader><TableRow><TableHead>Tournée</TableHead><TableHead>Prévu</TableHead><TableHead>Réalisé</TableHead><TableHead>Écart</TableHead></TableRow></TableHeader>
+                             <TableBody>{(extra.top10PositiveDuration || []).map((t:any, i:number)=>(<TableRow key={i}><TableCell>{t.nom}</TableCell><TableCell>{formatSecondsToClock(t.dureeEstimee)}</TableCell><TableCell>{formatSecondsToClock(t.dureeReelle)}</TableCell><TableCell className="font-bold text-red-600">+{formatSecondsToClock(t.ecart)}</TableCell></TableRow>))}</TableBody></Table>
+                        </CardContent></Card>
 
-                {/* Customer Impact */}
-                <section>
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><TrendingDown/> Impact sur la Qualité Client</h2>
-                     <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200">
-                        <p className="text-sm leading-relaxed">{ai.customerImpactAnalysis.mainReason}</p>
-                     </div>
-                </section>
+                         <Card className="print:shadow-none mt-6"><CardHeader>
+                            <CardTitle className="text-base flex items-center justify-between"><span><Route className="inline mr-2"/>Anomalies de Planification</span><span className="font-bold text-lg text-red-600">{extra.planningAnomalyPercentage.toFixed(1)}%</span></CardTitle>
+                            <CardDescription>{ai.anomaliesComments.planning}</CardDescription></CardHeader><CardContent>
+                             <Table><TableHeader><TableRow><TableHead>Tournée</TableHead><TableHead>Départ Prévu</TableHead><TableHead>Départ Réel</TableHead><TableHead># Tâches en Retard</TableHead></TableRow></TableHeader>
+                            <TableBody>{(extra.top10Anomalies || []).map((t:any, i:number)=>(<TableRow key={i}><TableCell>{t.nom}</TableCell><TableCell>{formatSecondsToClock(t.heureDepartPrevue)}</TableCell><TableCell className="text-blue-600 font-semibold">{formatSecondsToClock(t.heureDepartReelle)}</TableCell><TableCell className="font-bold">{t.tasksInDelay}</TableCell></TableRow>))}</TableBody></Table>
+                        </CardContent></Card>
+                    </ScrollArea>
+                </ReportBlock>
                 
                 <Separator/>
 
-                {/* Conclusion & Recommendations */}
-                <section>
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Lightbulb/> Conclusion et Recommandations</h2>
-                    <Card className="print:shadow-none bg-gray-50/50">
-                        <CardHeader>
-                            <CardTitle className="text-base">Problèmes Principaux Identifiés</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                             <p className="text-sm">{ai.conclusion.summary}</p>
-                        </CardContent>
-                    </Card>
-                     <Card className="mt-4 print:shadow-none bg-green-50/50 border-green-200">
-                        <CardHeader>
-                            <CardTitle className="text-base">Plan d'Action Recommandé</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <ul className="list-disc pl-5 space-y-2 text-sm">
-                                {ai.conclusion.recommendations.map((rec, i) => <li key={i}>{rec}</li>)}
-                            </ul>
-                        </CardContent>
-                    </Card>
-                </section>
+                <ReportBlock title="Analyse Géographique & Humaine" icon={MapPin}>
+                     <div className="space-y-6">
+                        <Card className="print:shadow-none"><CardHeader><CardTitle className="text-base flex items-center gap-2"><Warehouse/>Performance par Entrepôt</CardTitle><CardDescription>{ai.geoDriverComments.warehouse}</CardDescription></CardHeader><CardContent>
+                           <ResponsiveContainer width="100%" height={200}><BarChart data={(analysis.delaysByWarehouse || []).slice(0,5).reverse()} layout="vertical" margin={{ left: 80, right: 20 }}><XAxis type="number" fontSize={10} /><YAxis dataKey="key" type="category" fontSize={10} width={100}/><Tooltip /><Bar dataKey="count" name="Retards" barSize={15} fill={'hsl(var(--primary))'} /></BarChart></ResponsiveContainer>
+                        </CardContent></Card>
+                        
+                        <Card className="print:shadow-none"><CardHeader><CardTitle className="text-base flex items-center gap-2"><MapPin/>Performance par Ville</CardTitle><CardDescription>{ai.geoDriverComments.city}</CardDescription></CardHeader><CardContent>
+                           <ResponsiveContainer width="100%" height={200}><BarChart data={(analysis.delaysByCity || []).slice(0,5).reverse()} layout="vertical" margin={{ left: 80, right: 20 }}><XAxis type="number" fontSize={10} /><YAxis dataKey="key" type="category" fontSize={10}/><Tooltip /><Bar dataKey="count" name="Retards" barSize={15} fill={'hsl(var(--primary))'} /></BarChart></ResponsiveContainer>
+                        </CardContent></Card>
+
+                         <Card className="print:shadow-none"><CardHeader><CardTitle className="text-base flex items-center gap-2"><Award/>Livreurs Exemplaires (Performants malgré la surcharge)</CardTitle><CardDescription>{ai.geoDriverComments.driver}</CardDescription></CardHeader><CardContent>
+                            <Table><TableHeader><TableRow><TableHead>Livreur</TableHead><TableHead>Ponctualité</TableHead><TableHead>Nb. Tournées Surchargées</TableHead></TableRow></TableHeader>
+                             <TableBody>{(extra.exemplaryDrivers || []).map((d:any, i:number)=>(<TableRow key={i}><TableCell>{d.key}</TableCell><TableCell className="font-bold text-green-600">{d.punctualityRate.toFixed(1)}%</TableCell><TableCell>{d.overweightToursCount}</TableCell></TableRow>))}</TableBody></Table>
+                        </CardContent></Card>
+                    </div>
+                </ReportBlock>
 
             </main>
             <footer className="text-center text-xs text-gray-400 mt-8 pt-4 border-t">

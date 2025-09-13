@@ -3,8 +3,8 @@ import Image from 'next/image';
 
 export const Logo = ({ className }: { className?: string }) => (
     <Image 
-        src="/logo.png" 
-        alt="ID Logistics Logo" 
+        src="/logo-crf.png" 
+        alt="Logo de l'application" 
         width={140} 
         height={40} 
         className={cn(className, "object-contain")}
