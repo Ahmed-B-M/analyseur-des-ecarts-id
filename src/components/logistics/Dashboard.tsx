@@ -11,6 +11,7 @@ import { Logo } from '@/components/logistics/Logo';
 import { analyzeData } from '@/lib/dataAnalyzer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, AlertCircle, BarChart2, Calendar, List } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 type State = {
   tourneesFile: File | null;
@@ -45,13 +46,13 @@ function reducer(state: State, action: Action): State {
     case 'START_PROCESSING':
       return { ...state, isLoading: true, error: null };
     case 'PROCESSING_SUCCESS':
-      return { ...state, isLoading: false, data: action.data };
+      return { ...state, isLoading: false, data: action.data, error: null };
     case 'PROCESSING_ERROR':
       return { ...state, isLoading: false, error: action.error };
     case 'SET_FILTERS':
       return { ...state, filters: action.filters };
     case 'RESET':
-      return initialState;
+      return {...initialState, worker: state.worker};
     default:
       return state;
   }
@@ -69,30 +70,34 @@ export default function Dashboard() {
     newWorker.onmessage = (event) => {
       const { type, data, error } = event.data;
       if (type === 'success') {
-        dispatch({ type: 'PROCESSING_SUCCESS', data });
+        if(data.tournees.length === 0 || data.taches.length === 0) {
+            dispatch({ type: 'PROCESSING_ERROR', error: 'Un des fichiers est vide ou n\'a pas pu être lu. Veuillez vérifier les fichiers et les en-têtes.' });
+        } else {
+            dispatch({ type: 'PROCESSING_SUCCESS', data });
+        }
       } else {
         dispatch({ type: 'PROCESSING_ERROR', error });
       }
     };
 
     newWorker.onerror = (error) => {
-      dispatch({ type: 'PROCESSING_ERROR', error: error.message });
+      dispatch({ type: 'PROCESSING_ERROR', error: `Erreur du worker: ${error.message}` });
     };
 
     return () => {
       newWorker.terminate();
     };
   }, []);
-
-  useEffect(() => {
-    if (state.tourneesFile && state.tachesFile && worker) {
-      dispatch({ type: 'START_PROCESSING' });
-      worker.postMessage({
-        tourneesFile: state.tourneesFile,
-        tachesFile: state.tachesFile,
-      });
+  
+  const handleProcess = () => {
+      if (state.tourneesFile && state.tachesFile && worker) {
+        dispatch({ type: 'START_PROCESSING' });
+        worker.postMessage({
+            tourneesFile: state.tourneesFile,
+            tachesFile: state.tachesFile,
+        });
     }
-  }, [state.tourneesFile, state.tachesFile, worker]);
+  }
 
   const mergedData: MergedData[] = useMemo(() => {
     if (!state.data) return [];
@@ -167,35 +172,48 @@ export default function Dashboard() {
           </div>
         </div>
          {state.data && (
-           <button onClick={() => dispatch({type: 'RESET'})} className="text-sm text-muted-foreground hover:text-foreground">Réinitialiser</button>
+           <Button onClick={() => dispatch({type: 'RESET'})} variant="outline" size="sm">Réinitialiser</Button>
          )}
       </header>
       <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
-        {!state.data && !state.isLoading && (
-          <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
-            <FileUpload
-              title="Fichier Tournées"
-              onFileSelect={(file) => handleSetFile('tournees', file)}
-              file={state.tourneesFile}
-            />
-            <FileUpload
-              title="Fichier Tâches"
-              onFileSelect={(file) => handleSetFile('taches', file)}
-              file={state.tachesFile}
-            />
-            {state.error && (
-              <div className="md:col-span-2 flex items-center gap-2 text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
-                <AlertCircle className="h-5 w-5" />
-                <p><strong>Erreur :</strong> {state.error}</p>
-              </div>
-            )}
+        {!state.data && (
+          <div className="max-w-4xl mx-auto space-y-8">
+            <div className="grid md:grid-cols-2 gap-8">
+                <FileUpload
+                title="1. Fichier Tournées"
+                onFileSelect={(file) => handleSetFile('tournees', file)}
+                file={state.tourneesFile}
+                />
+                <FileUpload
+                title="2. Fichier Tâches"
+                onFileSelect={(file) => handleSetFile('taches', file)}
+                file={state.tachesFile}
+                />
+            </div>
+            <div className="flex flex-col items-center gap-4">
+                <Button onClick={handleProcess} disabled={!state.tourneesFile || !state.tachesFile || state.isLoading} size="lg">
+                     {state.isLoading ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Analyse en cours...
+                        </>
+                    ) : 'Lancer l\'analyse'}
+                </Button>
+                {state.error && (
+                <div className="md:col-span-2 flex items-center gap-2 text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                    <AlertCircle className="h-5 w-5" />
+                    <p><strong>Erreur :</strong> {state.error}</p>
+                </div>
+                )}
+            </div>
           </div>
         )}
-
-        {state.isLoading && (
+        
+        {state.isLoading && !state.data && (
           <div className="flex flex-col items-center justify-center h-64 gap-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="text-lg text-muted-foreground">Analyse des données en cours...</p>
+            <p className="text-sm text-muted-foreground">Cela peut prendre quelques instants.</p>
           </div>
         )}
 

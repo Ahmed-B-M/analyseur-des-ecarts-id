@@ -1,11 +1,11 @@
 'use client';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
 import type { AnalysisData, MergedData } from '@/lib/types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, Info, Package, Weight } from 'lucide-react';
 
 interface AnalysisDashboardProps {
   analysisData: AnalysisData | null;
@@ -31,16 +31,14 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       const payload = data.activePayload[0].payload;
       if(payload.warehouse) {
         onFilterAndSwitch({ entrepot: payload.warehouse });
-      } else if (payload.city) {
-         onFilterAndSwitch({ city: payload.city });
+      } else if (payload.key && analysisData.performanceByCity.some(c => c.key === payload.key)) {
+         onFilterAndSwitch({ city: payload.key });
       }
     }
   };
 
-
   return (
     <div className="space-y-6">
-      {/* KPIs */}
       <section>
         <h2 className="text-2xl font-bold mb-4">KPIs Généraux</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -48,19 +46,17 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
         </div>
       </section>
 
-      {/* Discrepancies */}
       <section>
-        <h2 className="text-2xl font-bold mb-4">Écarts Principaux (Réalisé vs. Prévu)</h2>
+        <h2 className="text-2xl font-bold mb-4">Comparaison Planifié vs. Réel</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {analysisData.discrepancyKpis.map(kpi => <ComparisonKpiCard key={kpi.title} {...kpi} />)}
         </div>
       </section>
 
-      {/* Quality & AI */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Impact Qualité</CardTitle>
+            <CardTitle>Qualité & Avis Clients</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {analysisData.qualityKpis.map(kpi => <KpiCard variant="inline" key={kpi.title} {...kpi} />)}
@@ -71,22 +67,22 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
         </div>
       </div>
       
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
          <Card>
             <CardHeader>
-              <CardTitle>Top 5 Villes par Nombre de Retards</CardTitle>
+              <CardTitle>Top 5 Villes par Nombre de Tâches</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={analysisData.performanceByCity.slice(0, 5)} onClick={handleBarClick}>
+                <BarChart data={analysisData.performanceByCity.slice(0, 5)} onClick={handleBarClick} className="cursor-pointer">
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="key" />
-                  <YAxis />
+                  <YAxis yAxisId="left" orientation="left" stroke="var(--color-chart-1)" />
+                  <YAxis yAxisId="right" orientation="right" stroke="var(--color-chart-2)" />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="totalTasks" fill="var(--color-chart-1)" name="Tâches" />
-                  <Bar dataKey="avgDelay" fill="var(--color-chart-2)" name="Retard moyen (min)" />
+                  <Bar yAxisId="left" dataKey="totalTasks" fill="hsl(var(--chart-1))" name="Nb. Tâches" />
+                  <Bar yAxisId="right" dataKey="avgDelay" fill="hsl(var(--chart-2))" name="Retard moyen (min)" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -97,12 +93,12 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                 <BarChart data={analysisData.delaysByWarehouse} layout="vertical" onClick={handleBarClick}>
+                 <BarChart data={analysisData.delaysByWarehouse} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" />
-                    <YAxis dataKey="warehouse" type="category" width={80} />
+                    <YAxis dataKey="warehouse" type="category" width={80} tick={{fontSize: 12}} />
                     <Tooltip />
-                    <Bar dataKey="count" name="Nombre de retards" className="cursor-pointer">
+                    <Bar dataKey="count" name="Nombre de retards">
                         {analysisData.delaysByWarehouse.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
@@ -113,14 +109,16 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
           </Card>
       </div>
 
-      {/* Overloaded Tours */}
       {analysisData.overloadedTours.length > 0 && (
           <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <AlertTriangle className="text-amber-500"/>
-                    Tournées en Surcharge
+                    Tournées en Surcharge de Poids
                 </CardTitle>
+                <CardDescription>
+                    Tournées dont le poids réel des tâches dépasse la capacité maximale du véhicule.
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>
@@ -128,9 +126,9 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                         <TableRow>
                             <TableHead>Tournée</TableHead>
                             <TableHead>Livreur</TableHead>
-                            <TableHead>Entrepôt</TableHead>
-                            <TableHead>Poids Prévu (kg)</TableHead>
+                            <TableHead>Capacité (kg)</TableHead>
                             <TableHead>Poids Réel (kg)</TableHead>
+                            <TableHead>Dépassement</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -138,10 +136,12 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                             <TableRow key={tour.uniqueId}>
                                 <TableCell>{tour.nom}</TableCell>
                                 <TableCell>{tour.livreur}</TableCell>
-                                <TableCell>{tour.entrepot}</TableCell>
-                                <TableCell>{tour.poidsPrevu.toFixed(2)}</TableCell>
+                                <TableCell>{tour.capacitePoids.toFixed(2)}</TableCell>
                                 <TableCell className="font-bold text-destructive">
-                                    {tour.poidsReel?.toFixed(2)}
+                                    {tour.poidsReel.toFixed(2)}
+                                </TableCell>
+                                <TableCell className="font-semibold">
+                                    +{tour.depassementPoids.toFixed(2)} kg ({tour.tauxDepassementPoids.toFixed(1)}%)
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -151,9 +151,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
           </Card>
       )}
 
-      {/* Driver Performance */}
       <Card>
-          <CardHeader><CardTitle>Performance par Livreur</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Performance par Livreur (Top 10)</CardTitle></CardHeader>
           <CardContent>
                <Table>
                     <TableHeader>
@@ -162,11 +161,11 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                             <TableHead>Taux de Ponctualité</TableHead>
                             <TableHead>Retard Moyen (min)</TableHead>
                             <TableHead>Notation Moyenne</TableHead>
-                            <TableHead>Nb Tournées</TableHead>
+                            <TableHead>Nb Tâches</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {analysisData.performanceByDriver.map(driver => (
+                        {analysisData.performanceByDriver.slice(0, 10).map(driver => (
                             <TableRow key={driver.key}>
                                 <TableCell>{driver.key}</TableCell>
                                 <TableCell>{driver.punctualityRate.toFixed(1)}%</TableCell>

@@ -7,12 +7,19 @@ export type Tournee = {
   date: string; // YYYY-MM-DD
   entrepot: string;
   livreur: string;
-  poidsPrevu: number;
-  poidsReel?: number; // Optional, calculated field
-  bacsPrevus: number;
-  kmPrevus: number;
+  distancePrevue: number; // in meters
+  distanceReelle: number; // in meters
   dureePrevue: number; // in seconds
+  dureeReelle: number; // in seconds
   heureDepartPrevue: number; // in seconds from midnight
+  heureFinPrevue: number; // in seconds from midnight
+  heureDepartReelle: number; // in seconds from midnight
+  heureFinReelle: number; // in seconds from midnight
+  capaciteBacs: number;
+  bacsPrevus: number;
+  capacitePoids: number; // in kg
+  poidsPrevu: number; // in kg
+  poidsReel?: number; // Calculated field
 };
 
 export type Tache = {
@@ -20,14 +27,20 @@ export type Tache = {
   nomTournee: string;
   date: string; // YYYY-MM-DD
   entrepot: string;
-  heurePrevue: number; // in seconds from midnight
-  heureRealisee: number; // in seconds from midnight
-  poidsReal: number;
-  ville: string;
+  livreur: string;
+  sequence: number;
+  items: number; // bacs
   codePostal: string;
+  heureDebutCreneau: number; // in seconds from midnight
+  heureFinCreneau: number; // in seconds from midnight
+  heureArriveeApprox: number; // in seconds from midnight
+  heureCloture: number; // in seconds from midnight
+  tempsServiceReel: number; // in seconds
+  retard: number; // in seconds
+  poids: number; // in kg
+  ville: string;
   notation: number | null;
   commentaire: string | null;
-  statut: 'complete' | 'incomplete';
 };
 
 export type MergedData = Tache & { tournee: Tournee | null };
@@ -58,23 +71,20 @@ export type PerformanceBy<T> = {
   avgRating?: number;
 };
 
-export type TimeSlotAnalysis = {
-  timeSlot: string;
-  plannedTasks: number;
-  completedTasks: number;
+export type OverloadedTourInfo = Tournee & {
+    poidsReel: number;
+    depassementPoids: number;
+    tauxDepassementPoids: number;
 };
 
 export type AnalysisData = {
   generalKpis: Kpi[];
   discrepancyKpis: ComparisonKpi[];
   qualityKpis: Kpi[];
-  overloadedTours: Tournee[];
+  overloadedTours: OverloadedTourInfo[];
   performanceByDriver: PerformanceBy<string>[];
   performanceByCity: PerformanceBy<string>[];
-  performanceByPostalCode: PerformanceBy<string>[];
   delaysByWarehouse: { warehouse: string; count: number }[];
-  delaysByTimeSlot: { timeSlot: string; count: number }[];
-  timeSlotAnalysis: TimeSlotAnalysis[];
   aiAnalysisResults?: {
     totalNegative: number;
     relatedToTiming: number;
