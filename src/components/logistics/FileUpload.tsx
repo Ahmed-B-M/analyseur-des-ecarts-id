@@ -71,7 +71,7 @@ export default function FileUpload({ title, onFileSelect, file }: FileUploadProp
             ) : (
               <p>Glissez-déposez ou <span className="font-semibold text-primary">cliquez pour choisir</span></p>
             )}
-            <p className="text-xs mt-1">Fichier .XLSX uniquement</p>
+            <p className="text-xs mt-1">Fichier .XLSX ou .CSV</p>
           </div>
         )}
       </div>

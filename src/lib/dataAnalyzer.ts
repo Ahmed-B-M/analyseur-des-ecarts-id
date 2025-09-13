@@ -1,5 +1,5 @@
 import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi } from './types';
-import { Truck, Clock, Star, AlertTriangle, Smile, Frown, Package, UserCheck, BarChart, Hash, Users, Sigma } from 'lucide-react';
+import { Truck, Clock, Star, AlertTriangle, Smile, Frown, PackageCheck, Route, BarChart, Hash, Users, Sigma } from 'lucide-react';
 
 export function analyzeData(data: MergedData[], filters: Record<string, any>): AnalysisData {
     
@@ -13,7 +13,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         // Realized delay
         const isLate = task.retard > toleranceSeconds;
         const isEarly = task.retard < -toleranceSeconds;
-        task.retard = isLate || isEarly ? task.retard : 0;
+        task.retardStatus = isLate ? 'late' : isEarly ? 'early' : 'onTime';
         
         // Predicted delay
         let predictedRetard = 0;
@@ -66,14 +66,14 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const uniqueTournees = uniqueTourneesWithTasks.map(t => t.tour);
     
     // --- KPI Calculations ---
-    const tasksOnTime = allTasks.filter(t => t.retard === 0);
-    const lateTasks = allTasks.filter(t => t.retard > 0);
-    const earlyTasks = allTasks.filter(t => t.retard < 0);
+    const tasksOnTime = allTasks.filter(t => t.retardStatus === 'onTime');
+    const lateTasks = allTasks.filter(t => t.retardStatus === 'late');
+    const earlyTasks = allTasks.filter(t => t.retardStatus === 'early');
     const outOfTimeTasks = lateTasks.length + earlyTasks.length;
 
     const predictedTasksOnTime = allTasks.filter(t => t.retardPrevisionnelS === 0);
     const predictedLateTasks = allTasks.filter(t => t.retardPrevisionnelS! > 0);
-    const predictedOutOfTimeTasks = allTasks.filter(t => t.retardPrevisionnelS !== 0).length;
+    const predictedOutOfTimeTasks = allTasks.length - predictedTasksOnTime.length;
 
     const punctualityRate = allTasks.length > 0 ? (tasksOnTime.length / allTasks.length) * 100 : 100;
     const predictedPunctualityRate = allTasks.length > 0 ? (predictedTasksOnTime.length / allTasks.length) * 100 : 100;
@@ -82,19 +82,15 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const avgRating = avgRatingData.length > 0 ? avgRatingData.reduce((acc, t) => acc + t.notation!, 0) / avgRatingData.length : 0;
     
     const negativeReviews = allTasks.filter(t => t.notation != null && t.notation <= 3);
-    const negativeReviewsOnLateTasks = negativeReviews.filter(t => t.retard > 0);
-    const negativeReviewsOnEarlyTasks = negativeReviews.filter(t => t.retard < 0);
+    const negativeReviewsOnLateTasks = negativeReviews.filter(t => t.retardStatus === 'late');
+    const negativeReviewsOnEarlyTasks = negativeReviews.filter(t => t.retardStatus === 'early');
 
 
     const generalKpis: Kpi[] = [
-        { title: 'Taux de Ponctualité (Réalisé)', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil: ${toleranceMinutes} min`, icon: Clock },
-        { title: 'Tâches en Retard', value: lateTasks.length.toString(), description: `Sur ${allTasks.length} tâches`, icon: AlertTriangle },
-        { title: 'Tâches en Avance', value: earlyTasks.length.toString(), description: `Sur ${allTasks.length} tâches`, icon: Smile },
-        { title: 'Tâches Prévues en Retard', value: predictedLateTasks.length.toString(), description: `Retards anticipés par le système`, icon: UserCheck },
-        { title: 'Notation Moyenne', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis`, icon: Star },
-        { title: 'Total Avis Négatifs (≤ 3)', value: negativeReviews.length.toString(), icon: Frown },
-        { title: 'Avis Négatifs sur Tâches en Retard', value: negativeReviewsOnLateTasks.length.toString(), icon: Clock },
-        { title: 'Avis Négatifs sur Tâches en Avance', value: negativeReviewsOnEarlyTasks.length.toString(), icon: Clock },
+        { title: 'Taux de Ponctualité (Réalisé)', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${toleranceMinutes} min`, icon: Clock },
+        { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${toleranceMinutes} min après le créneau`, icon: Frown },
+        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `> ${toleranceMinutes} min avant le créneau`, icon: Smile },
+        { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis`, icon: Star },
     ];
     
     // --- Discrepancy KPIs ---
@@ -146,7 +142,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const lateStartAnomalies: LateStartAnomaly[] = uniqueTourneesWithTasks
         .map(({tour, tasks}) => ({ 
             tour, 
-            tasksInDelay: tasks.filter(t => t.retard > 0).length,
+            tasksInDelay: tasks.filter(t => t.retardStatus === 'late').length,
             ecartDepart: tour.heureDepartReelle - tour.heureDepartPrevue
         }))
         .filter(({ tour, tasksInDelay, ecartDepart }) => ecartDepart <= 0 && tasksInDelay > 0)
@@ -166,7 +162,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const qualityKpis: Kpi[] = [
         { title: 'Corrélation Retards / Avis Négatifs', value: `${correlationDelays.toFixed(1)}%`, icon: BarChart },
         { title: 'Corrélation Surcharge / Avis Négatifs', value: `${correlationOverload.toFixed(1)}%`, icon: Hash },
-        { title: 'Anomalies "Partie à l\'heure"', value: lateStartAnomalies.length.toString(), icon: UserCheck },
+        { title: 'Anomalies en Tournée', value: lateStartAnomalies.length.toString(), icon: Route },
     ];
     
     // --- Performance & Context Analysis ---
@@ -312,8 +308,8 @@ function calculatePerformanceByDriver(toursWithTasks: { tour: Tournee, tasks: Me
     return Array.from(driverGroups.entries()).map(([driverName, data]) => {
         const allTasks = data.tasks;
         const totalTasks = allTasks.length;
-        const onTimeTasks = allTasks.filter(t => t.retard === 0).length;
-        const lateTasks = allTasks.filter(t => t.retard > 0);
+        const onTimeTasks = allTasks.filter(t => t.retardStatus === 'onTime').length;
+        const lateTasks = allTasks.filter(t => t.retardStatus === 'late');
         const sumOfDelays = lateTasks.reduce((sum, task) => sum + task.retard, 0);
         
         const ratedTasks = allTasks.filter(t => t.notation != null);
@@ -342,7 +338,7 @@ function calculatePerformanceByGeo(tasks: MergedData[], key: 'ville' | 'codePost
         }
         const group = geoGroups.get(geoKey)!;
         group.totalTasks++;
-        if (task.retard > 0) {
+        if (task.retardStatus === 'late') {
             group.lateTasks.push(task);
         }
     });

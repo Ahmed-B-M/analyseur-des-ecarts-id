@@ -1,11 +1,11 @@
 'use client';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
 import type { AnalysisData, MergedData } from '@/lib/types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Weight, Smile } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -30,7 +30,7 @@ function formatSecondsToTime(seconds: number): string {
 }
 
 export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData }: AnalysisDashboardProps) {
-  const [activeTab, setActiveTab] = useState('poids');
+  const [activeTab, setActiveTab] = useState('ville');
 
   if (!analysisData) {
     return (
@@ -62,21 +62,18 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       }
     }
   };
-  
-  const overloadedByWeight = analysisData.overloadedTours.filter(t => t.depassementPoids > 0);
-  const overloadedByBins = analysisData.overloadedTours.filter(t => t.depassementBacs > 0);
 
   return (
     <div className="space-y-6">
       <section>
-        <h2 className="text-2xl font-bold mb-4">KPIs Généraux</h2>
+        <h2 className="text-2xl font-bold mb-4">KPIs Généraux & Satisfaction Client</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
           {analysisData.generalKpis.map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
         </div>
       </section>
 
       <section>
-        <h2 className="text-2xl font-bold mb-4">Synthèse des Écarts Principaux : Planifié vs. Réalisé</h2>
+        <h2 className="text-2xl font-bold mb-4">Synthèse des Écarts : Planifié vs. Réalisé</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {analysisData.discrepancyKpis.map(kpi => <ComparisonKpiCard key={kpi.title} {...kpi} />)}
         </div>
@@ -85,7 +82,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Impact sur la Qualité de Service</CardTitle>
+            <CardTitle>Impact des Écarts sur la Qualité</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {analysisData.qualityKpis.map(kpi => <KpiCard variant="inline" key={kpi.title} {...kpi} />)}
@@ -101,10 +98,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <AlertTriangle className="text-amber-500"/>
-                    Dépassements de Poids / Bacs
+                    Analyse des Dépassements de Charge
                 </CardTitle>
                 <CardDescription>
-                    Tournées dont la charge réelle dépasse la capacité maximale du véhicule.
+                    Tournées dont la charge réelle (poids ou volume) dépasse la capacité maximale du véhicule.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -153,10 +150,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <Timer className="text-blue-500"/>
-                    Analyse des Écarts de Durée (Calculée vs. Estimée)
+                    Analyse des Écarts de Durée (Estimée vs. Réelle)
                 </CardTitle>
                 <CardDescription>
-                    Comparaison entre la durée opérationnelle estimée et la durée réelle mesurée sur le terrain.
+                    Comparaison entre la durée opérationnelle estimée (via Urbantz) et la durée réelle mesurée sur le terrain.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -192,11 +189,11 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
           <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    <UserCheck className="text-violet-500"/>
+                    <Route className="text-violet-500"/>
                     Anomalie : Parties à l'Heure, Livrées en Retard
                 </CardTitle>
                 <CardDescription>
-                    Tournées qui ont démarré à l'heure prévue (ou en avance) mais qui ont accumulé des retards pendant la livraison.
+                    Tournées qui ont démarré à l'heure prévue mais qui ont accumulé des retards pendant la livraison, indiquant des problèmes sur la route.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -208,7 +205,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                             <TableHead>Départ Prévu</TableHead>
                             <TableHead>Départ Réel</TableHead>
                             <TableHead>Écart au Départ</TableHead>
-                            <TableHead>Tâches en Retard</TableHead>
+                            <TableHead># Tâches en Retard</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -231,7 +228,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       )}
 
       <Card>
-          <CardHeader><CardTitle>Synthèse par Livreur (Top 10)</CardTitle></CardHeader>
+          <CardHeader>
+              <CardTitle>Synthèse par Livreur</CardTitle>
+              <CardDescription>Performances individuelles pour identifier les top-performers et les axes d'accompagnement.</CardDescription>
+          </CardHeader>
           <CardContent>
                <Table>
                     <TableHeader>
@@ -262,7 +262,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
 
        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
            <Card>
-            <CardHeader><CardTitle>Analyse Comparative Géographique</CardTitle></CardHeader>
+            <CardHeader>
+                <CardTitle>Analyse Comparative Géographique</CardTitle>
+                <CardDescription>Performances par secteur pour identifier les zones à problèmes.</CardDescription>
+            </CardHeader>
             <CardContent>
                 <div className="flex justify-center mb-4">
                     <button onClick={() => setActiveTab('ville')} className={cn("px-4 py-2 text-sm font-medium", activeTab === 'ville' ? "border-b-2 border-primary text-primary" : "text-muted-foreground")}>Par Ville</button>
@@ -295,6 +298,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
            <Card>
             <CardHeader>
               <CardTitle>Charge de Travail par Heure</CardTitle>
+              <CardDescription>Comparaison du volume de tâches planifiées et réalisées au fil de la journée.</CardDescription>
             </CardHeader>
             <CardContent>
                <ResponsiveContainer width="100%" height={320}>
@@ -312,7 +316,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
           </Card>
            <Card>
             <CardHeader>
-              <CardTitle>Charge Moyenne par Livreur par Heure</CardTitle>
+              <CardTitle>Intensité du Travail par Heure</CardTitle>
+               <CardDescription>Nombre moyen de tâches gérées par livreur à chaque heure.</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={320}>
@@ -328,7 +333,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
           </Card>
            <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Clock />Répartition des Retards par Heure</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Frown style={{color: PRIMARY_COLOR}} />Répartition des Retards par Heure</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={320}>

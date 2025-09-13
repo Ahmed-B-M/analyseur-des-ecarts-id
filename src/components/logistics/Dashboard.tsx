@@ -37,7 +37,7 @@ const initialState: State = {
   isLoading: false,
   error: null,
   data: null,
-  filters: { },
+  filters: { punctualityThreshold: 15 },
 };
 
 function reducer(state: State, action: Action): State {
@@ -115,13 +115,13 @@ export default function Dashboard() {
         if (!item.tournee) return false;
 
         // Date filters
-        if (state.filters.dateRange) {
+        if (state.filters.selectedDate) {
+           if (item.date !== state.filters.selectedDate) return false;
+        } else if (state.filters.dateRange) {
           const { from, to } = state.filters.dateRange as DateRange;
           const itemDate = new Date(item.date);
           if (from && itemDate < from) return false;
           if (to && itemDate > to) return false;
-        } else if (state.filters.selectedDate) {
-           if (item.date !== state.filters.selectedDate) return false;
         }
 
         if (state.filters.depot && !item.tournee.entrepot.includes(state.filters.depot)) return false;
@@ -180,8 +180,8 @@ export default function Dashboard() {
         <div className="flex items-center gap-3">
           <Logo className="h-10 w-auto" />
           <div>
-            <h1 className="text-xl font-bold text-primary">Analyseur d'Écarts Logistiques</h1>
-            <p className="text-sm text-muted-foreground">Importez vos données pour visualiser les performances de livraison.</p>
+            <h1 className="text-xl font-bold text-primary">Analyse de la Performance Logistique</h1>
+            <p className="text-sm text-muted-foreground">Analyse des écarts de livraison pour Carrefour</p>
           </div>
         </div>
          {state.data && (
@@ -193,12 +193,12 @@ export default function Dashboard() {
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="grid md:grid-cols-2 gap-8">
                 <FileUpload
-                title="1. Fichier Tournées"
+                title="1. Fichier Tournées (Planifié)"
                 onFileSelect={(file) => handleSetFile('tournees', file)}
                 file={state.tourneesFile}
                 />
                 <FileUpload
-                title="2. Fichier Tâches"
+                title="2. Fichier Tâches (Réalisé)"
                 onFileSelect={(file) => handleSetFile('taches', file)}
                 file={state.tachesFile}
                 />
@@ -208,7 +208,7 @@ export default function Dashboard() {
                      {state.isLoading ? (
                         <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Analyse en cours...
+                            Traitement des données...
                         </>
                     ) : 'Lancer l\'analyse'}
                 </Button>

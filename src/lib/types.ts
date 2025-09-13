@@ -49,6 +49,7 @@ export type Tache = {
   tempsServiceReel?: number; // in seconds
   retard: number; // in seconds
   retardPrevisionnelS?: number; // in seconds
+  retardStatus?: 'late' | 'early' | 'onTime';
   poids: number; // in kg
   ville: string;
   notation: number | null;
