@@ -62,7 +62,14 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
   };
   
   const sortedData = useMemo(() => {
-    if (!analysisData) return {};
+    if (!analysisData) return {
+      overloadedTours: [],
+      durationDiscrepancies: [],
+      lateStartAnomalies: [],
+      performanceByDriver: [],
+      performanceByCity: [],
+      performanceByPostalCode: [],
+    };
     
     const sortFn = <T,>(data: T[], config: SortConfig<T>): T[] => {
         if (!config) return data;
@@ -503,3 +510,5 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     </div>
   );
 }
+
+    

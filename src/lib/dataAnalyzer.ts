@@ -95,7 +95,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     
     // --- Discrepancy KPIs ---
     const totals = uniqueTournees.reduce((acc, tour) => {
-        acc.dureePrevue += tour.dureePrevue || 0;
+        acc.dureePrevue += tour.dureeEstimeeOperationnelle || 0;
         acc.dureeReelleCalculee += tour.dureeReelleCalculee || 0;
         acc.poidsPrevu += tour.poidsPrevu || 0;
         acc.poidsReel += tour.poidsReel || 0;
@@ -364,3 +364,14 @@ function formatSeconds(seconds: number): string {
     const m = Math.floor((seconds % 3600) / 60);
     return `${h}h ${m < 10 ? '0' : ''}${m}m`;
 }
+
+function formatSecondsToTime(seconds: number): string {
+    const isNegative = seconds < 0;
+    seconds = Math.abs(seconds);
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.round(seconds % 60);
+    return `${isNegative ? '-' : ''}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+    
