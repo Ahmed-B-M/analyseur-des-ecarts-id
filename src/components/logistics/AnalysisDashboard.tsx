@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Weight } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Weight, Smile } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -18,6 +18,7 @@ interface AnalysisDashboardProps {
 
 const ACCENT_COLOR = "hsl(var(--accent))";
 const PRIMARY_COLOR = "hsl(var(--primary))";
+const ADVANCE_COLOR = "hsl(210 100% 56%)"; // A distinct blue for "advance"
 
 function formatSecondsToTime(seconds: number): string {
     const isNegative = seconds < 0;
@@ -69,7 +70,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     <div className="space-y-6">
       <section>
         <h2 className="text-2xl font-bold mb-4">KPIs Généraux</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
           {analysisData.generalKpis.map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
         </div>
       </section>
@@ -325,6 +326,22 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               </ResponsiveContainer>
             </CardContent>
           </Card>
+           <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Clock />Répartition des Retards par Heure</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={analysisData.delaysByHour} onClick={(e) => handleBarClick(e, 'heure')}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="hour" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill={PRIMARY_COLOR} name="Nb. Retards" className="cursor-pointer" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><MapPin/>Répartition des Retards par Entrepôt</CardTitle>
@@ -341,22 +358,6 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     </BarChart>
                   </ResponsiveContainer>
                 </ScrollArea>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Clock />Répartition des Retards par Heure</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={analysisData.delaysByHour} onClick={(e) => handleBarClick(e, 'heure')}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill={PRIMARY_COLOR} name="Nb. Retards" className="cursor-pointer" />
-                </BarChart>
-              </ResponsiveContainer>
             </CardContent>
           </Card>
           <Card>
@@ -389,6 +390,40 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     </Bar>
                 </BarChart>
               </ResponsiveContainer>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Smile style={{color: ADVANCE_COLOR}} />Répartition des Avances par Heure</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={analysisData.advancesByHour}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="hour" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill={ADVANCE_COLOR} name="Nb. Avances" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+           <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><MapPin/>Répartition des Avances par Entrepôt</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ScrollArea className="h-80">
+                  <ResponsiveContainer width="100%" height={analysisData.advancesByWarehouse.length * 30}>
+                    <BarChart data={analysisData.advancesByWarehouse} layout="vertical" margin={{ left: 80 }}>
+                        <XAxis type="number" />
+                        <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
+                        <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
+                        <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR}>
+                        </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ScrollArea>
             </CardContent>
           </Card>
       </div>

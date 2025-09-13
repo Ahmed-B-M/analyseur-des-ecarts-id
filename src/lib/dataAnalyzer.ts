@@ -61,6 +61,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     // --- KPI Calculations ---
     const tasksOnTime = allTasks.filter(t => Math.abs(t.retard) <= toleranceSeconds);
     const lateTasks = allTasks.filter(t => t.retard > toleranceSeconds);
+    const earlyTasks = allTasks.filter(t => t.retard < -toleranceSeconds);
     const plannedLateTasks = allTasks.filter(t => t.retardPrevisionnelS && t.retardPrevisionnelS > 0);
 
     const punctualityRate = allTasks.length > 0 ? (tasksOnTime.length / allTasks.length) * 100 : 100;
@@ -70,14 +71,18 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     
     const negativeReviews = allTasks.filter(t => t.notation != null && t.notation <= 3);
     const negativeReviewsOnLateTasks = negativeReviews.filter(t => t.retard > toleranceSeconds);
+    const negativeReviewsOnEarlyTasks = negativeReviews.filter(t => t.retard < -toleranceSeconds);
+
 
     const generalKpis: Kpi[] = [
         { title: 'Taux de Ponctualité (Réalisé)', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil: ${toleranceMinutes} min`, icon: Clock },
-        { title: 'Tâches en Retard (Réalisé)', value: lateTasks.length.toString(), description: `Sur ${allTasks.length} tâches`, icon: AlertTriangle },
+        { title: 'Tâches en Retard', value: lateTasks.length.toString(), description: `Sur ${allTasks.length} tâches`, icon: AlertTriangle },
+        { title: 'Tâches en Avance', value: earlyTasks.length.toString(), description: `Sur ${allTasks.length} tâches`, icon: Smile },
         { title: 'Tâches Prévues en Retard', value: plannedLateTasks.length.toString(), description: `Retards anticipés par le système`, icon: UserCheck },
         { title: 'Notation Moyenne', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis`, icon: Star },
         { title: 'Total Avis Négatifs (≤ 3)', value: negativeReviews.length.toString(), icon: Frown },
         { title: 'Avis Négatifs sur Tâches en Retard', value: negativeReviewsOnLateTasks.length.toString(), icon: Clock },
+        { title: 'Avis Négatifs sur Tâches en Avance', value: negativeReviewsOnEarlyTasks.length.toString(), icon: Clock },
     ];
     
     // --- Discrepancy KPIs ---
@@ -158,17 +163,12 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const delaysByWarehouse = countItemsBy(lateTasks, (t) => t.tournee!.entrepot);
     const delaysByCity = countItemsBy(lateTasks, (t) => t.ville);
     const delaysByPostalCode = countItemsBy(lateTasks, (t) => t.codePostal);
+    const advancesByWarehouse = countItemsBy(earlyTasks, (t) => t.tournee!.entrepot);
+    const advancesByCity = countItemsBy(earlyTasks, (t) => t.ville);
+    const advancesByPostalCode = countItemsBy(earlyTasks, (t) => t.codePostal);
     
-    const delaysByHour = lateTasks.reduce((acc, task) => {
-        const hour = new Date(task.heureCloture * 1000).getUTCHours();
-        const hourString = `${String(hour).padStart(2, '0')}:00`;
-        acc[hourString] = (acc[hourString] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-    
-    const sortedDelaysByHour: DelayByHour[] = Object.entries(delaysByHour)
-      .map(([hour, count]) => ({ hour, count }))
-      .sort((a, b) => a.hour.localeCompare(b.hour));
+    const delaysByHour = countByHour(lateTasks);
+    const advancesByHour = countByHour(earlyTasks);
       
     // --- Workload Charts ---
     const workloadByHour: WorkloadByHour[] = [];
@@ -213,7 +213,11 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         delaysByWarehouse,
         delaysByCity,
         delaysByPostalCode,
-        delaysByHour: sortedDelaysByHour,
+        delaysByHour,
+        advancesByWarehouse,
+        advancesByCity,
+        advancesByPostalCode,
+        advancesByHour,
         workloadByHour,
         avgWorkloadByDriverByHour: avgWorkloadByHour
     };
@@ -235,6 +239,10 @@ function createEmptyAnalysisData(): AnalysisData {
         delaysByCity: [],
         delaysByPostalCode: [],
         delaysByHour: [],
+        advancesByWarehouse: [],
+        advancesByCity: [],
+        advancesByPostalCode: [],
+        advancesByHour: [],
         workloadByHour: [],
         avgWorkloadByDriverByHour: []
     };
@@ -252,6 +260,19 @@ function countItemsBy(tasks: MergedData[], keyGetter: (task: MergedData) => stri
     return Object.entries(counts)
         .map(([key, count]) => ({ key, count }))
         .sort((a, b) => b.count - a.count);
+}
+
+function countByHour(tasks: MergedData[]): DelayByHour[] {
+    const counts = tasks.reduce((acc, task) => {
+        const hour = new Date(task.heureCloture * 1000).getUTCHours();
+        const hourString = `${String(hour).padStart(2, '0')}:00`;
+        acc[hourString] = (acc[hourString] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
+    
+    return Object.entries(counts)
+      .map(([hour, count]) => ({ hour, count }))
+      .sort((a, b) => a.hour.localeCompare(b.hour));
 }
 
 function calculatePerformanceByDriver(toursWithTasks: { tour: Tournee, tasks: MergedData[] }[], toleranceSeconds: number): PerformanceByDriver[] {

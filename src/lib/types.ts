@@ -146,6 +146,10 @@ export type AnalysisData = {
   delaysByHour: DelayByHour[];
   delaysByCity: DelayCount[];
   delaysByPostalCode: DelayCount[];
+  advancesByWarehouse: DelayCount[];
+  advancesByHour: DelayByHour[];
+  advancesByCity: DelayCount[];
+  advancesByPostalCode: DelayCount[];
   workloadByHour: WorkloadByHour[];
   avgWorkloadByDriverByHour: AvgWorkloadByHour[];
   aiAnalysisResults?: {
