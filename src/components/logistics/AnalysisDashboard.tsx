@@ -17,6 +17,7 @@ interface AnalysisDashboardProps {
   analysisData: AnalysisData | null;
   onFilterAndSwitch: (filter: Record<string, any>) => void;
   allData: MergedData[];
+  filters: Record<string, any>;
 }
 
 const ACCENT_COLOR = "hsl(var(--accent))";
@@ -56,7 +57,7 @@ type SortConfig<T> = {
     direction: 'asc' | 'desc';
 } | null;
 
-export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData }: AnalysisDashboardProps) {
+export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData, filters }: AnalysisDashboardProps) {
   const [activeTab, setActiveTab] = useState('ville');
   const [sorts, setSorts] = useState<{ [key: string]: SortConfig<any> }>({
       overloaded: { key: 'tauxDepassementPoids', direction: 'desc' },
@@ -184,7 +185,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       </section>
       
       <section>
-        <AiReportGenerator analysisData={analysisData} />
+        <AiReportGenerator analysisData={analysisData} filters={filters} />
       </section>
 
       <section>

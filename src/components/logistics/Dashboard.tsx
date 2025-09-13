@@ -263,6 +263,7 @@ export default function Dashboard() {
                   analysisData={analysisData}
                   onFilterAndSwitch={applyFilterAndSwitchTab}
                   allData={mergedData}
+                  filters={state.filters}
                 />
               </TabsContent>
               <TabsContent value="calendar" className="mt-6">

@@ -10,7 +10,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-// Define a simplified schema for the input to keep the prompt clean and focused.
 const ReportInputSchema = z.object({
   totalTours: z.number().describe("Nombre total de tournées analysées."),
   totalTasks: z.number().describe("Nombre total de livraisons (tâches) analysées."),
@@ -27,7 +26,18 @@ const ReportInputSchema = z.object({
 export type GenerateLogisticsReportInput = z.infer<typeof ReportInputSchema>;
 
 
-export async function generateLogisticsReport(input: GenerateLogisticsReportInput): Promise<string> {
+const ReportOutputSchema = z.object({
+  title: z.string().describe("Un titre dynamique et concis pour le rapport. Par exemple: 'Rapport de Performance Logistique - Semaine 24'."),
+  synthesis: z.string().describe("Une synthèse de 2 phrases maximum qui compare la performance globale aux objectifs (95% ponctualité, 4.8/5 note)."),
+  keyInsights: z.array(z.object({
+    icon: z.enum(['Clock', 'MapPin', 'Users', 'Truck', 'BarChart2', 'AlertTriangle']).describe("L'icône la plus pertinente pour l'insight."),
+    text: z.string().describe("Un insight actionnable et concis (1 phrase) sur un point clé de l'analyse (dégradation, cause, anomalie).")
+  })).describe("Une liste de 3 à 4 insights clés et percutants, chacun avec une icône et un texte court.")
+});
+export type GenerateLogisticsReportOutput = z.infer<typeof ReportOutputSchema>;
+
+
+export async function generateLogisticsReport(input: GenerateLogisticsReportInput): Promise<GenerateLogisticsReportOutput> {
   const report = await generateLogisticsReportFlow(input);
   return report;
 }
@@ -35,54 +45,37 @@ export async function generateLogisticsReport(input: GenerateLogisticsReportInpu
 const prompt = ai.definePrompt({
   name: 'generateLogisticsReportPrompt',
   input: { schema: ReportInputSchema },
-  output: { format: 'text' },
+  output: { schema: ReportOutputSchema },
   prompt: `
-    En tant qu'expert en analyse de données logistiques, tu dois rédiger un rapport de performance basé sur les données suivantes pour le client Carrefour.
-    L'objectif principal est de comparer la performance réalisée aux objectifs fixés (95% de ponctualité, 4.8/5 de note moyenne), d'identifier si les objectifs étaient initialement réalisables, de mettre en évidence les indicateurs en forte dégradation et d'en trouver les causes principales. Ne propose PAS de recommandations ou de plan d'action.
+    En tant qu'expert en analyse de données logistiques, tu dois générer les éléments pour un rapport de performance visuel destiné au client Carrefour.
+    L'objectif est d'identifier les points les plus importants, les dégradations et leurs causes probables. Sois extrêmement concis et percutant.
 
-    Données d'analyse pour la période :
+    ## Données d'analyse pour la période :
     - Nombre total de tournées: {{{totalTours}}}
     - Nombre total de livraisons: {{{totalTasks}}}
-    - Taux de ponctualité global: {{{punctualityRate}}}%
-    - Note moyenne des clients: {{{avgRating}}}/5
+    - Taux de ponctualité global: {{{punctualityRate}}}% (Objectif: 95%)
+    - Note moyenne des clients: {{{avgRating}}}/5 (Objectif: 4.8)
     - Total livraisons en retard: {{{totalLateTasks}}}
     - Total livraisons en avance: {{{totalEarlyTasks}}}
     - Nombre de tournées en surcharge: {{{overloadedToursCount}}}
-    - Nombre d'anomalies (départ à l'heure, arrivée en retard): {{{lateStartAnomaliesCount}}}
+    - Anomalies (départ à l'heure, arrivée en retard): {{{lateStartAnomaliesCount}}}
     {{#if topLateDriver}}- Livreur le plus souvent en retard: {{{topLateDriver}}}{{/if}}
     {{#if topLateCity}}- Ville la plus impactée par les retards: {{{topLateCity}}}{{/if}}
-    {{#if mainReasonForNegativeFeedback}}- Cause principale des avis négatifs (IA): {{{mainReasonForNegativeFeedback}}}{{/if}}
 
-    Rédige le rapport en suivant IMPÉRATIVEMENT la structure ci-dessous, en utilisant des titres Markdown (##):
+    ## Tes tâches :
+    1.  **Titre (title)**: Génère un titre court et informatif pour le rapport. Exemple : "Rapport de Performance Logistique - Semaine 24".
+    2.  **Synthèse (synthesis)**: Rédige une synthèse de 1 à 2 phrases MAXIMUM qui compare la performance réalisée aux objectifs de 95% de ponctualité et 4.8/5 de note moyenne. Va droit au but.
+    3.  **Insights Clés (keyInsights)**: Identifie 3 ou 4 points d'analyse les plus CRITIQUES et pertinents. Pour chaque point, fournis :
+        *   Un insight sous forme de phrase courte et directe.
+        *   L'icône la plus appropriée parmi la liste fournie ('Clock', 'MapPin', 'Users', 'Truck', 'BarChart2', 'AlertTriangle').
 
-    # Rapport de Performance Logistique - Carrefour
+    ## Exemples d'insights attendus :
+    - "Les retards sont principalement concentrés sur la ville de {{{topLateCity}}}, suggérant un problème géographique ou de planification locale." (Icône: 'MapPin')
+    - "{{{overloadedToursCount}}} tournées en surcharge ont directement impacté la ponctualité, créant un risque opérationnel." (Icône: 'AlertTriangle')
+    - "L'objectif de 95% de ponctualité semble irréalisable en raison d'une sous-estimation structurelle des temps de parcours ({{{lateStartAnomaliesCount}}} anomalies)." (Icône: 'BarChart2')
+    - "Le livreur {{{topLateDriver}}} est responsable d'une part significative des retards, indiquant un besoin de suivi individuel." (Icône: 'Users')
 
-    ## Synthèse de Performance vs. Objectifs
-    Commence par une ou deux phrases qui comparent la performance aux objectifs.
-    Exemple: "La performance de la période est en dessous des objectifs, avec un taux de ponctualité de {{{punctualityRate}}}% (cible: 95%) et une note moyenne de {{{avgRating}}}/5 (cible: 4.8)."
-    Mets en évidence l'écart le plus significatif.
-
-    ## Analyse de la Faisabilité des Objectifs
-    Analyse si les objectifs étaient réalisables compte tenu de la planification.
-    Par exemple, si de nombreuses tournées étaient déjà en retard sur le papier (via les données prévisionnelles), l'objectif de 95% de ponctualité n'était pas atteignable. Utilise les anomalies comme 'départ à l'heure, arrivée en retard' ({{{lateStartAnomaliesCount}}} cas) pour argumenter.
-    Exemple: "Les {{{lateStartAnomaliesCount}}} cas de tournées parties à l'heure mais arrivées en retard suggèrent une sous-estimation structurelle des temps de parcours, rendant l'objectif de 95% de ponctualité difficilement atteignable sans une révision de la planification."
-
-    ## Indicateurs en Dégradation et Écarts Clés
-    Liste les 2 à 3 points les plus critiques où la performance s'est dégradée ou montre un écart important avec le prévisionnel. Sois factuel.
-    Utilise les données fournies pour identifier ces points.
-    Par exemple:
-    - "Le principal point de dégradation est le taux de ponctualité, avec {{{totalLateTasks}}} livraisons en retard."
-    - "{{{overloadedToursCount}}} tournées ont été effectuées en surcharge, ce qui représente un risque opérationnel."
-
-    ## Analyse des Causes Principales
-    Identifie et détaille les causes qui expliquent les dégradations listées ci-dessus. Fais des liens entre les différentes données.
-    Par exemple:
-    - "La cause majeure des retards semble être géographique, concentrée sur la ville de {{{topLateCity}}}."
-    - "Les problèmes de surcharge ({{{overloadedToursCount}}} cas) sont un facteur aggravant, impactant potentiellement les temps de trajet et la ponctualité des livreurs concernés."
-    - "L'analyse des retours clients (si disponible) confirme que les retards sont la principale source d'insatisfaction."
-    - Mentionne le livreur problématique s'il représente un point de focalisation.
-
-    Le ton doit être analytique, factuel et se concentrer uniquement sur le diagnostic basé sur les chiffres.
+    Le ton doit être analytique, factuel et se concentrer uniquement sur le diagnostic basé sur les chiffres fournis.
     `,
 });
 
@@ -90,10 +83,10 @@ const generateLogisticsReportFlow = ai.defineFlow(
   {
     name: 'generateLogisticsReportFlow',
     inputSchema: ReportInputSchema,
-    outputSchema: z.string(),
+    outputSchema: ReportOutputSchema,
   },
   async (input) => {
-    const { text } = await prompt(input);
-    return text;
+    const { output } = await prompt(input);
+    return output!;
   }
 );

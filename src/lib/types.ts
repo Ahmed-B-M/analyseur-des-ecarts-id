@@ -1,5 +1,6 @@
 import type { LucideProps } from "lucide-react";
 import type { ForwardRefExoticComponent, RefAttributes } from "react";
+import type { GenerateLogisticsReportOutput } from "@/ai/flows/generate-logistics-report";
 
 export type Tournee = {
   uniqueId: string;
@@ -198,13 +199,14 @@ export type AnalysisData = {
   performanceByTimeSlot: PerformanceByTimeSlot[];
   delayHistogram: DelayHistogramBin[];
   cities: string[];
-  aiAnalysisResults?: {
-    totalNegative: number;
-    relatedToTiming: number;
-    breakdown: { reason: string; count: number }[];
-  };
 };
 
 export type AiAnalysisResult = {
   reason: 'Retard' | 'Avance' | 'Autre';
+};
+
+export type VisualReportData = {
+  analysis: AnalysisData;
+  ai: GenerateLogisticsReportOutput;
+  filters: Record<string, any>;
 };
