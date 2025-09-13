@@ -572,5 +572,3 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     </div>
   );
 }
-
-    
