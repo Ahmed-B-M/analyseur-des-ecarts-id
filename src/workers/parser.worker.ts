@@ -202,6 +202,9 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
     }
 
     if (fileType === 'tournees') {
+        if (newRow.nom && String(newRow.nom).toUpperCase().startsWith('R')) {
+            continue; // Skip backup tours starting with 'R'
+        }
         if (!newRow.heureDepartReelle && newRow.demarre) {
             newRow.heureDepartReelle = newRow.demarre;
         }
