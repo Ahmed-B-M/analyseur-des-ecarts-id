@@ -13,9 +13,8 @@ export default function ReportLayout({
 }>) {
   return (
     <>
-      <head>
-        {/* Les liens de polices sont déjà dans le layout principal, pas besoin de les répéter */}
-        <style>
+      {/* Les styles d'impression sont placés ici pour être valides dans la structure HTML */}
+      <style>
           {`
             @media print {
               body {
@@ -27,8 +26,7 @@ export default function ReportLayout({
               }
             }
           `}
-        </style>
-      </head>
+      </style>
       {/* Le <body> est déjà fourni par le layout racine, on injecte juste le contenu */}
       {children}
     </>
