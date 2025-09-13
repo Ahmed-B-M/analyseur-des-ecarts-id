@@ -38,6 +38,17 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       </g>
     );
   };
+  
+  const handleBarClick = (data: any, filterKey: string) => {
+    if (data && data.activePayload && data.activePayload.length > 0) {
+      const payload = data.activePayload[0].payload;
+      if (payload.key) {
+        onFilterAndSwitch({ [filterKey]: payload.key });
+      } else if (filterKey === 'heure' && payload.hour) {
+        onFilterAndSwitch({ [filterKey]: parseInt(payload.hour.split(':')[0]) });
+      }
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -229,11 +240,11 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             <CardContent>
                 <ScrollArea className="h-80">
                   <ResponsiveContainer width="100%" height={analysisData.delaysByWarehouse.length * 30}>
-                    <BarChart data={analysisData.delaysByWarehouse} layout="vertical" margin={{ left: 80 }}>
+                    <BarChart data={analysisData.delaysByWarehouse} layout="vertical" margin={{ left: 80 }} onClick={(e) => handleBarClick(e, 'entrepot')}>
                         <XAxis type="number" />
                         <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
                         <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
-                        <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR}>
+                        <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
                         </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -246,12 +257,12 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={analysisData.delaysByHour}>
+                <BarChart data={analysisData.delaysByHour} onClick={(e) => handleBarClick(e, 'heure')}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="hour" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="count" fill={PRIMARY_COLOR} name="Nb. Retards" />
+                  <Bar dataKey="count" fill={PRIMARY_COLOR} name="Nb. Retards" className="cursor-pointer" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -262,11 +273,11 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={320}>
-                 <BarChart data={analysisData.delaysByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }}>
+                 <BarChart data={analysisData.delaysByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }} onClick={(e) => handleBarClick(e, 'city')}>
                     <XAxis type="number" />
                     <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
                     <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                    <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR}>
+                    <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
                     </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -278,11 +289,11 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={320}>
-                 <BarChart data={analysisData.delaysByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }}>
+                 <BarChart data={analysisData.delaysByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }} onClick={(e) => handleBarClick(e, 'codePostal')}>
                     <XAxis type="number" />
                     <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
                     <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                    <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR}>
+                    <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
                     </Bar>
                 </BarChart>
               </ResponsiveContainer>

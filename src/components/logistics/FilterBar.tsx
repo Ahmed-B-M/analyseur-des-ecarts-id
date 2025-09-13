@@ -9,7 +9,10 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 interface FilterBarProps {
   filters: Record<string, any>;
@@ -23,13 +26,19 @@ const ALL_ITEMS_VALUE = '__ALL__';
 export default function FilterBar({ filters, setFilters, depots, warehouses }: FilterBarProps) {
 
   const handleFilterChange = (key: string, value: any) => {
-    if (value === ALL_ITEMS_VALUE) {
-        const newFilters = { ...filters };
+    const newFilters = { ...filters };
+    if (value === ALL_ITEMS_VALUE || value === '') {
         delete newFilters[key];
-        setFilters(newFilters);
     } else {
-        setFilters({ ...filters, [key]: value });
+        newFilters[key] = value;
     }
+    
+    // When changing period, remove selectedDate
+    if (key === 'period' && newFilters.selectedDate) {
+        delete newFilters.selectedDate;
+    }
+    
+    setFilters(newFilters);
   };
   
   const clearFilter = (key: string) => {
@@ -37,8 +46,43 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
     delete newFilters[key];
     setFilters(newFilters);
   }
+  
+  const clearAllFilters = () => {
+    const persistentFilters = ['period', 'punctualityThreshold', 'maxWeightThreshold'];
+    const newFilters: Record<string, any> = {};
+    persistentFilters.forEach(key => {
+        if(filters[key]) {
+            newFilters[key] = filters[key];
+        }
+    });
+    setFilters(newFilters);
+  }
 
-  const activeFilters = Object.keys(filters).filter(key => key !== 'period' && filters[key]);
+  const activeFilters = Object.keys(filters).filter(key => 
+    !['period', 'punctualityThreshold', 'maxWeightThreshold'].includes(key) && filters[key]
+  );
+  
+  const getFilterLabel = (key: string) => {
+      switch(key) {
+          case 'depot': return 'Dépôt';
+          case 'entrepot': return 'Entrepôt';
+          case 'selectedDate': return 'Date';
+          case 'city': return 'Ville';
+          case 'codePostal': return 'Code Postal';
+          case 'heure': return 'Heure';
+          default: return key;
+      }
+  }
+  
+  const getFilterValue = (key: string, value: any) => {
+      if (key === 'selectedDate') {
+          return format(new Date(value), 'd MMMM yyyy', { locale: fr });
+      }
+       if (key === 'heure') {
+          return `${value}h - ${parseInt(value) + 1}h`;
+      }
+      return value;
+  }
 
   return (
     <div className="p-4 bg-card rounded-lg border shadow-sm space-y-4">
@@ -48,6 +92,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
           <Select
             value={filters.period || 'all'}
             onValueChange={(value) => handleFilterChange('period', value)}
+            disabled={!!filters.selectedDate}
           >
             <SelectTrigger id="period-select">
               <SelectValue placeholder="Sélectionner une période" />
@@ -118,14 +163,14 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
          <div className="flex items-center gap-2 pt-2 flex-wrap">
             <span className="text-sm font-medium">Filtres actifs:</span>
             {activeFilters.map(key => (
-                 <div key={key} className="flex items-center gap-1 bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded-full">
-                    <span>{key}: {filters[key]}</span>
-                    <button onClick={() => clearFilter(key)} className="rounded-full hover:bg-primary/20">
+                 <Badge key={key} variant="secondary" className="flex items-center gap-1.5">
+                    <span>{getFilterLabel(key)}: {getFilterValue(key, filters[key])}</span>
+                    <button onClick={() => clearFilter(key)} className="rounded-full hover:bg-black/10 dark:hover:bg-white/10">
                         <X className="h-3 w-3" />
                     </button>
-                 </div>
+                 </Badge>
             ))}
-            <button onClick={() => setFilters({ period: filters.period })} className="text-sm text-muted-foreground hover:text-foreground underline">
+            <button onClick={clearAllFilters} className="text-sm text-muted-foreground hover:text-foreground underline">
                 Tout effacer
             </button>
          </div>

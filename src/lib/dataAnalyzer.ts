@@ -5,6 +5,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     
     const toleranceMinutes = filters.punctualityThreshold || 15;
     const toleranceSeconds = toleranceMinutes * 60;
+    const maxWeightThreshold = filters.maxWeightThreshold; // Can be undefined
 
     const allTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée');
     
@@ -56,7 +57,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     // --- KPI Calculations ---
     const tasksOnTime = allTasks.filter(t => Math.abs(t.retard) <= toleranceSeconds);
     const lateTasks = allTasks.filter(t => t.retard > toleranceSeconds);
-    const plannedLateTasks = allTasks.filter(t => t.retardPrevisionnelS && Math.abs(t.retardPrevisionnelS) > 0);
+    const plannedLateTasks = allTasks.filter(t => t.retardPrevisionnelS && t.retardPrevisionnelS > 0);
 
     const punctualityRate = allTasks.length > 0 ? (tasksOnTime.length / allTasks.length) * 100 : 100;
     
@@ -94,15 +95,25 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     
     // --- Quality Impact ---
     const overloadedToursInfos: OverloadedTourInfo[] = uniqueTournees.map(tour => {
-        const isOverloaded = (tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids) || (tour.capaciteBacs > 0 && tour.bacsReels > tour.capaciteBacs);
-        const depassementPoids = tour.poidsReel - tour.capacitePoids;
-        const tauxDepassementPoids = tour.capacitePoids > 0 ? (depassementPoids / tour.capacitePoids) * 100 : Infinity;
+        const capacity = maxWeightThreshold !== undefined ? maxWeightThreshold : tour.capacitePoids;
+        const isOverloadedByWeight = capacity > 0 && tour.poidsReel > capacity;
+        const isOverloadedByBins = tour.capaciteBacs > 0 && tour.bacsReels > tour.capaciteBacs;
+
+        const depassementPoids = tour.poidsReel - capacity;
+        const tauxDepassementPoids = capacity > 0 ? (depassementPoids / capacity) * 100 : Infinity;
         const depassementBacs = tour.bacsReels - tour.capaciteBacs;
         const tauxDepassementBacs = tour.capaciteBacs > 0 ? (depassementBacs / tour.capaciteBacs) * 100 : Infinity;
+        
         return {
-            ...tour, isOverloaded, depassementPoids, tauxDepassementPoids, depassementBacs, tauxDepassementBacs
+            ...tour, 
+            isOverloaded: isOverloadedByWeight || isOverloadedByBins,
+            depassementPoids: isOverloadedByWeight ? depassementPoids : 0,
+            tauxDepassementPoids: isOverloadedByWeight ? tauxDepassementPoids : 0,
+            depassementBacs: isOverloadedByBins ? depassementBacs : 0,
+            tauxDepassementBacs: isOverloadedByBins ? tauxDepassementBacs : 0,
         };
     });
+
     const overloadedTours = overloadedToursInfos.filter(t => t.isOverloaded);
     const overloadedToursIds = new Set(overloadedTours.map(t => t.uniqueId));
     const negativeReviewsOnOverloadedTours = negativeReviews.filter(t => t.tournee && overloadedToursIds.has(t.tournee.uniqueId));
@@ -221,7 +232,7 @@ function countItemsBy(tasks: MergedData[], keyGetter: (task: MergedData) => stri
 
 function calculatePerformanceBy(data: MergedData[], key: 'livreur' | 'ville', toleranceSeconds: number): PerformanceBy<string>[] {
     const groups = data.reduce((acc, t) => {
-        const groupKey = key === 'livreur' ? t.tournee?.livreur : t[key];
+        const groupKey = key === 'livreur' ? t.livreur : t[key];
         if (!groupKey) return acc;
         if (!acc[groupKey]) {
             acc[groupKey] = { tasks: [], lateTasks: [], totalRating: 0, ratingCount: 0 };

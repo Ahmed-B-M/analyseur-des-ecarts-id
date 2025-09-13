@@ -113,25 +113,28 @@ export default function Dashboard() {
     return mergedData.filter(item => {
         if (!item.tournee) return false;
 
-        // Date filters
+        // Date filters - selectedDate has priority
         if (state.filters.selectedDate) {
             if (item.date !== state.filters.selectedDate) return false;
-        }
-
-        // Period filter
-        if (state.filters.period && state.filters.period !== 'all') {
+        } else if (state.filters.period && state.filters.period !== 'all') {
             const today = new Date();
             const itemDate = new Date(item.date);
             const days = parseInt(state.filters.period);
             const pastDate = new Date();
             pastDate.setDate(today.getDate() - days);
+            // Reset hours to compare dates only
+            today.setHours(23, 59, 59, 999);
+            pastDate.setHours(0, 0, 0, 0);
             if (itemDate < pastDate || itemDate > today) return false;
         }
         
-        if (state.filters.depot && item.tournee.entrepot !== state.filters.depot) return false;
+        if (state.filters.depot && !item.tournee.entrepot.includes(state.filters.depot)) return false;
         if (state.filters.entrepot && item.tournee.entrepot !== state.filters.entrepot) return false;
         if (state.filters.city && item.ville !== state.filters.city) return false;
-        
+        if (state.filters.codePostal && item.codePostal !== state.filters.codePostal) return false;
+        if (state.filters.heure && new Date(item.heureCloture * 1000).getUTCHours() !== parseInt(state.filters.heure)) return false;
+
+
         return true;
     });
   }, [mergedData, state.filters, state.data]);
@@ -146,7 +149,15 @@ export default function Dashboard() {
   };
   
   const setFilters = (newFilters: Partial<typeof state.filters>) => {
-    dispatch({ type: 'SET_FILTERS', filters: { ...state.filters, ...newFilters } });
+    // When setting a date, remove the period filter and vice-versa
+    const filtersToApply = { ...state.filters, ...newFilters };
+    if (newFilters.selectedDate) {
+        delete filtersToApply.period;
+    }
+    if (newFilters.period) {
+        delete filtersToApply.selectedDate;
+    }
+    dispatch({ type: 'SET_FILTERS', filters: filtersToApply });
   }
 
   const applyFilterAndSwitchTab = useCallback((filter: Record<string, any>) => {
@@ -155,6 +166,18 @@ export default function Dashboard() {
   }, []);
 
   const depots = useMemo(() => {
+    if (!state.data) return [];
+    // Example logic: Extract depot from warehouse name (e.g., "Depot Name - Specific Warehouse")
+    // This is a placeholder; you might need a more robust way to define depots.
+    const depotNames = state.data.tournees.map(t => {
+      // Assuming depot is the first part of the warehouse name if separated by " - "
+      const parts = t.entrepot.split(' - ');
+      return parts[0];
+    });
+    return [...new Set(depotNames)];
+  }, [state.data]);
+
+  const warehouses = useMemo(() => {
     if (!state.data) return [];
     return [...new Set(state.data.tournees.map(t => t.entrepot))];
   }, [state.data]);
@@ -218,7 +241,7 @@ export default function Dashboard() {
 
         {state.data && (
           <div className="space-y-6">
-            <FilterBar filters={state.filters} setFilters={setFilters} depots={depots} warehouses={depots} />
+            <FilterBar filters={state.filters} setFilters={setFilters} depots={depots} warehouses={warehouses} />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 max-w-lg mx-auto">
                 <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
