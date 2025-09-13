@@ -184,13 +184,6 @@ self.addEventListener('message', async (event: MessageEvent) => {
     const rawTournees = normalizeData(tourneesJson, 'tournees');
     const rawTaches = normalizeData(tachesJson, 'taches');
     
-    if (rawTournees.length === 0) {
-        throw new Error("Aucune donnée de tournée n'a pu être lue. Vérifiez le fichier des tournées et ses en-têtes.");
-    }
-    if (rawTaches.length === 0) {
-        throw new Error("Aucune donnée de tâche n'a pu être lue. Vérifiez le fichier des tâches et ses en-têtes.");
-    }
-    
     const tournees: Tournee[] = rawTournees.map((t: any) => ({
       ...t,
       uniqueId: `${t.nom}|${t.date}|${t.entrepot}`
@@ -200,6 +193,13 @@ self.addEventListener('message', async (event: MessageEvent) => {
       ...t,
       tourneeUniqueId: `${t.nomTournee}|${t.date}|${t.entrepot}`
     }));
+
+    if (tournees.length === 0) {
+        throw new Error("Aucune donnée de tournée n'a pu être lue. Vérifiez le fichier des tournées et ses en-têtes.");
+    }
+    if (taches.length === 0) {
+        throw new Error("Aucune donnée de tâche n'a pu être lue. Vérifiez le fichier des tâches et ses en-têtes.");
+    }
 
     self.postMessage({ type: 'success', data: { tournees, taches } });
 
