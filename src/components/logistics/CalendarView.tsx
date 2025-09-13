@@ -14,7 +14,7 @@ interface CalendarViewProps {
 }
 
 export default function CalendarView({ data, onDateSelect, onWeekSelect }: CalendarViewProps) {
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [date, setDate] = useState<Date | undefined>();
   const [week, setWeek] = useState<DateRange | undefined>();
 
   const toursByDay = data.reduce((acc, item) => {
@@ -59,7 +59,7 @@ export default function CalendarView({ data, onDateSelect, onWeekSelect }: Calen
 
   return (
     <Card>
-      <CardContent className="p-2 md:p-6 flex justify-center">
+      <CardContent className="p-2 md:p-4 flex justify-center">
         <Calendar
           mode="single"
           selected={date}
@@ -70,7 +70,7 @@ export default function CalendarView({ data, onDateSelect, onWeekSelect }: Calen
           locale={fr}
           showOutsideDays
           components={{
-            DayContent: ({ date: calendarDate, ...props }) => {
+            DayContent: ({ date: calendarDate }) => {
                 const dayStr = format(calendarDate, 'yyyy-MM-dd');
                 const toursCount = toursByDay[dayStr]?.size || 0;
                 return (

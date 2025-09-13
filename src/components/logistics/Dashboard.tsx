@@ -15,6 +15,7 @@ import { DateRange } from 'react-day-picker';
 import { DateRangePicker } from './DateRangePicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { subDays, startOfMonth, endOfMonth } from 'date-fns';
+import CalendarView from './CalendarView';
 
 type State = {
   tourneesFile: File | null;
@@ -274,21 +275,36 @@ export default function Dashboard() {
                 />
               </TabsContent>
               <TabsContent value="calendar" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Analyse par Période</CardTitle>
-                    <CardDescription>
-                      Sélectionnez une plage de dates pour mettre à jour l'ensemble du tableau de bord.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                      <DateRangePicker 
-                          className="max-w-sm"
-                          onDateChange={(range) => setFilters({ ...state.filters, dateRange: range, selectedDate: undefined })}
-                          date={state.filters.dateRange}
-                       />
-                  </CardContent>
-                </Card>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-1">
+                         <CalendarView 
+                            data={mergedData}
+                            onDateSelect={(date) => {
+                                setFilters({ ...state.filters, selectedDate: date, dateRange: undefined });
+                            }}
+                            onWeekSelect={(week) => {
+                                setFilters({ ...state.filters, dateRange: week, selectedDate: undefined });
+                            }}
+                        />
+                    </div>
+                    <div className="md:col-span-2">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Analyse par Période Personnalisée</CardTitle>
+                                <CardDescription>
+                                Sélectionnez une plage de dates pour mettre à jour l'ensemble du tableau de bord.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <DateRangePicker 
+                                    className="max-w-sm"
+                                    onDateChange={(range) => setFilters({ ...state.filters, dateRange: range, selectedDate: undefined })}
+                                    date={state.filters.dateRange}
+                                />
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
               </TabsContent>
               <TabsContent value="data" className="mt-6">
                 <DetailedDataView data={filteredData} />
