@@ -12,6 +12,7 @@ import { analyzeData } from '@/lib/dataAnalyzer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, AlertCircle, BarChart2, Calendar, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DateRange } from 'react-day-picker';
 
 type State = {
   tourneesFile: File | null;
@@ -36,7 +37,7 @@ const initialState: State = {
   isLoading: false,
   error: null,
   data: null,
-  filters: { period: 'all' },
+  filters: { },
 };
 
 function reducer(state: State, action: Action): State {
@@ -113,27 +114,21 @@ export default function Dashboard() {
     return mergedData.filter(item => {
         if (!item.tournee) return false;
 
-        // Date filters - selectedDate has priority
-        if (state.filters.selectedDate) {
-            if (item.date !== state.filters.selectedDate) return false;
-        } else if (state.filters.period && state.filters.period !== 'all') {
-            const today = new Date();
-            const itemDate = new Date(item.date);
-            const days = parseInt(state.filters.period);
-            const pastDate = new Date();
-            pastDate.setDate(today.getDate() - days);
-            // Reset hours to compare dates only
-            today.setHours(23, 59, 59, 999);
-            pastDate.setHours(0, 0, 0, 0);
-            if (itemDate < pastDate || itemDate > today) return false;
+        // Date filters
+        if (state.filters.dateRange) {
+          const { from, to } = state.filters.dateRange as DateRange;
+          const itemDate = new Date(item.date);
+          if (from && itemDate < from) return false;
+          if (to && itemDate > to) return false;
+        } else if (state.filters.selectedDate) {
+           if (item.date !== state.filters.selectedDate) return false;
         }
-        
+
         if (state.filters.depot && !item.tournee.entrepot.includes(state.filters.depot)) return false;
         if (state.filters.entrepot && item.tournee.entrepot !== state.filters.entrepot) return false;
         if (state.filters.city && item.ville !== state.filters.city) return false;
         if (state.filters.codePostal && item.codePostal !== state.filters.codePostal) return false;
         if (state.filters.heure && new Date(item.heureCloture * 1000).getUTCHours() !== parseInt(state.filters.heure)) return false;
-
 
         return true;
     });
@@ -149,12 +144,11 @@ export default function Dashboard() {
   };
   
   const setFilters = (newFilters: Partial<typeof state.filters>) => {
-    // When setting a date, remove the period filter and vice-versa
     const filtersToApply = { ...state.filters, ...newFilters };
     if (newFilters.selectedDate) {
-        delete filtersToApply.period;
+        delete filtersToApply.dateRange;
     }
-    if (newFilters.period) {
+    if (newFilters.dateRange) {
         delete filtersToApply.selectedDate;
     }
     dispatch({ type: 'SET_FILTERS', filters: filtersToApply });
@@ -167,10 +161,7 @@ export default function Dashboard() {
 
   const depots = useMemo(() => {
     if (!state.data) return [];
-    // Example logic: Extract depot from warehouse name (e.g., "Depot Name - Specific Warehouse")
-    // This is a placeholder; you might need a more robust way to define depots.
     const depotNames = state.data.tournees.map(t => {
-      // Assuming depot is the first part of the warehouse name if separated by " - "
       const parts = t.entrepot.split(' - ');
       return parts[0];
     });

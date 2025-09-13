@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { DateRangePicker } from './DateRangePicker';
+import { DateRange } from 'react-day-picker';
 
 interface FilterBarProps {
   filters: Record<string, any>;
@@ -33,8 +35,8 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
         newFilters[key] = value;
     }
     
-    // When changing period, remove selectedDate
-    if (key === 'period' && newFilters.selectedDate) {
+    // When changing date range, remove selectedDate
+    if (key === 'dateRange' && newFilters.selectedDate) {
         delete newFilters.selectedDate;
     }
     
@@ -48,7 +50,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
   }
   
   const clearAllFilters = () => {
-    const persistentFilters = ['period', 'punctualityThreshold'];
+    const persistentFilters = ['punctualityThreshold'];
     const newFilters: Record<string, any> = {};
     persistentFilters.forEach(key => {
         if(filters[key]) {
@@ -59,7 +61,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
   }
 
   const activeFilters = Object.keys(filters).filter(key => 
-    !['period', 'punctualityThreshold'].includes(key) && filters[key]
+    !['punctualityThreshold'].includes(key) && filters[key]
   );
   
   const getFilterLabel = (key: string) => {
@@ -67,6 +69,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
           case 'depot': return 'Dépôt';
           case 'entrepot': return 'Entrepôt';
           case 'selectedDate': return 'Date';
+          case 'dateRange': return 'Période';
           case 'city': return 'Ville';
           case 'codePostal': return 'Code Postal';
           case 'heure': return 'Heure';
@@ -81,28 +84,30 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
        if (key === 'heure') {
           return `${value}h - ${parseInt(value) + 1}h`;
       }
+      if (key === 'dateRange' && value.from && value.to) {
+         if (value.from.getTime() === value.to.getTime()) {
+            return format(value.from, 'd MMMM yyyy', { locale: fr });
+         }
+        return `${format(value.from, 'd MMM', { locale: fr })} - ${format(value.to, 'd MMM yyyy', { locale: fr })}`;
+      }
+      if (key === 'dateRange' && value.from) {
+        return `Depuis le ${format(value.from, 'd MMMM yyyy', { locale: fr })}`;
+      }
+       if (key === 'dateRange' && value.to) {
+        return `Jusqu'au ${format(value.to, 'd MMMM yyyy', { locale: fr })}`;
+      }
       return value;
   }
 
   return (
     <div className="p-4 bg-card rounded-lg border shadow-sm space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 items-end">
         <div>
-          <Label htmlFor="period-select">Période</Label>
-          <Select
-            value={filters.period || 'all'}
-            onValueChange={(value) => handleFilterChange('period', value)}
+          <Label>Période d'Analyse</Label>
+          <DateRangePicker 
+            onDateChange={(range) => handleFilterChange('dateRange', range)}
             disabled={!!filters.selectedDate}
-          >
-            <SelectTrigger id="period-select">
-              <SelectValue placeholder="Sélectionner une période" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tout</SelectItem>
-              <SelectItem value="7">7 derniers jours</SelectItem>
-              <SelectItem value="30">30 derniers jours</SelectItem>
-            </SelectContent>
-          </Select>
+          />
         </div>
         <div>
           <Label htmlFor="depot-select">Dépôt</Label>
