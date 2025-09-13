@@ -38,13 +38,13 @@ const prompt = ai.definePrompt({
   output: { format: 'text' },
   prompt: `
     En tant qu'expert en analyse de données logistiques, tu dois rédiger un rapport de performance basé sur les données suivantes.
-    L'objectif principal est de comparer la performance réalisée aux objectifs fixés (95% de ponctualité, 4.8 de note moyenne), de mettre en évidence les écarts significatifs par rapport au prévisionnel, d'identifier les indicateurs en forte dégradation et d'en trouver les causes principales. Ne propose PAS de recommandations ou de plan d'action.
+    L'objectif principal est de comparer la performance réalisée aux objectifs fixés (95% de ponctualité, 4.8/5 de note moyenne), d'identifier si les objectifs étaient initialement réalisables, de mettre en évidence les indicateurs en forte dégradation et d'en trouver les causes principales. Ne propose PAS de recommandations ou de plan d'action.
 
     Données d'analyse pour la période :
     - Nombre total de tournées: {{{totalTours}}}
     - Nombre total de livraisons: {{{totalTasks}}}
     - Taux de ponctualité global: {{{punctualityRate}}}%
-    - Note moyenne des clients: {{{avgRating}}}/10
+    - Note moyenne des clients: {{{avgRating}}}/5
     - Total livraisons en retard: {{{totalLateTasks}}}
     - Total livraisons en avance: {{{totalEarlyTasks}}}
     - Nombre de tournées en surcharge: {{{overloadedToursCount}}}
@@ -57,8 +57,13 @@ const prompt = ai.definePrompt({
 
     ## Synthèse de Performance vs. Objectifs
     Commence par une ou deux phrases qui comparent la performance aux objectifs.
-    Exemple: "La performance de la période est en dessous des objectifs, avec un taux de ponctualité de {{{punctualityRate}}}% (cible: 95%) et une note moyenne de {{{avgRating}}}/10 (cible: 4.8)."
+    Exemple: "La performance de la période est en dessous des objectifs, avec un taux de ponctualité de {{{punctualityRate}}}% (cible: 95%) et une note moyenne de {{{avgRating}}}/5 (cible: 4.8)."
     Mets en évidence l'écart le plus significatif.
+
+    ## Analyse de la Faisabilité des Objectifs
+    Analyse si les objectifs étaient réalisables compte tenu de la planification.
+    Par exemple, si de nombreuses tournées étaient déjà en retard sur le papier (via les données prévisionnelles), l'objectif de 95% de ponctualité n'était pas atteignable. Utilise les anomalies comme 'départ à l'heure, arrivée en retard' ({{{lateStartAnomaliesCount}}} cas) pour argumenter.
+    Exemple: "Les {{{lateStartAnomaliesCount}}} cas de tournées parties à l'heure mais arrivées en retard suggèrent une sous-estimation structurelle des temps de parcours, rendant l'objectif de 95% de ponctualité difficilement atteignable sans une révision de la planification."
 
     ## Indicateurs en Dégradation et Écarts Clés
     Liste les 2 à 3 points les plus critiques où la performance s'est dégradée ou montre un écart important avec le prévisionnel. Sois factuel.
@@ -66,7 +71,6 @@ const prompt = ai.definePrompt({
     Par exemple:
     - "Le principal point de dégradation est le taux de ponctualité, avec {{{totalLateTasks}}} livraisons en retard."
     - "{{{overloadedToursCount}}} tournées ont été effectuées en surcharge, ce qui représente un risque opérationnel."
-    - "Les anomalies de type 'départ à l'heure, arrivée en retard' ({{{lateStartAnomaliesCount}}} cas) montrent une sous-estimation des temps de parcours."
 
     ## Analyse des Causes Principales
     Identifie et détaille les causes qui expliquent les dégradations listées ci-dessus. Fais des liens entre les différentes données.

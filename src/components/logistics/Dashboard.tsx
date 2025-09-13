@@ -63,7 +63,7 @@ function reducer(state: State, action: Action): State {
     case 'PROCESSING_ERROR':
       return { ...state, isLoading: false, error: action.error };
     case 'SET_FILTERS':
-      return { ...state, filters: action.filters };
+       return { ...state, filters: action.filters };
     case 'RESET':
       return {...initialState};
     default:
@@ -166,24 +166,15 @@ export default function Dashboard() {
   }, []);
 
   const applyFilterAndSwitchTab = useCallback((filter: Record<string, any>) => {
-    setFilters({...state.filters, ...filter});
+    setFilters({...state.filters, ...filter, selectedDate: undefined, dateRange: undefined});
     setActiveTab('data');
   }, [setFilters, state.filters]);
 
   const depots = useMemo(() => {
     if (!state.data) return [];
     
-    const specialCases: Record<string, string> = {
-        "Solo Antibes": "Solo Antibes"
-    };
-
     const depotNames = state.data.tournees.map(t => {
         const entrepot = t.entrepot || "";
-        for (const specialCase in specialCases) {
-            if (entrepot.startsWith(specialCase)) {
-                return specialCases[specialCase];
-            }
-        }
         return entrepot.split(' ')[0];
     });
 
@@ -259,7 +250,7 @@ export default function Dashboard() {
               setFilters={setFilters} 
               depots={depots} 
               warehouses={warehouses}
-              cities={analysisData?.cities || []}
+              cities={(analysisData?.delaysByCity.map(c => c.key) || [])}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 max-w-lg mx-auto">
