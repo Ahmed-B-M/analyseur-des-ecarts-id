@@ -31,28 +31,34 @@ const headerAliases: Record<string, Record<string, string[]>> = {
 
 function findHeader(header: string, fileType: 'tournees' | 'taches'): string | null {
     for (const key in headerAliases[fileType]) {
-        if (headerAliases[fileType][key].includes(header.toLowerCase().trim())) {
+        if (headerAliases[fileType][key].map(h => h.toLowerCase().trim()).includes(header.toLowerCase().trim())) {
             return key;
         }
     }
     return null;
 }
 
-function normalizeData(data: any[], fileType: 'tournees' | 'taches'): any[] {
-  const normalized = [];
-  const headerRow = data[0];
-  const headerMap: Record<string, string> = {};
-  for (const h in headerRow) {
-      const foundKey = findHeader(h, fileType);
-      if (foundKey) headerMap[h] = foundKey;
+function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
+  if (data.length < 2) return [];
+
+  const headers = data[0];
+  const headerMap: Record<number, string> = {};
+  for (let i = 0; i < headers.length; i++) {
+      const foundKey = findHeader(String(headers[i]), fileType);
+      if (foundKey) {
+        headerMap[i] = foundKey;
+      }
   }
 
-  for (let i = 0; i < data.length; i++) {
+  const normalized = [];
+  for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const newRow: any = {};
-    for (const h in headerMap) {
-      const key = headerMap[h];
-      let value = row[h];
+    let hasData = false;
+    for (const colIndex in headerMap) {
+      const key = headerMap[colIndex];
+      let value = row[colIndex];
+      hasData = hasData || (value !== null && value !== undefined && value !== '');
       
       if (['date', 'heurePrevue', 'heureRealisee', 'heureDepartPrevue'].includes(key)) {
           if (typeof value === 'number') { // Excel date/time format
@@ -69,18 +75,20 @@ function normalizeData(data: any[], fileType: 'tournees' | 'taches'): any[] {
               } else if (value.match(/\d{2}:\d{2}:\d{2}/) || value.match(/\d{2}:\d{2}/)) {
                   const parts = value.split(':').map(Number);
                   newRow[key] = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+              } else {
+                 newRow[key] = value;
               }
           }
       } else if (['poidsPrevu', 'bacsPrevus', 'kmPrevus', 'dureePrevue', 'poidsReal', 'notation'].includes(key)) {
           newRow[key] = parseFloat(value) || (key === 'notation' ? null : 0);
-          if (key === 'dureePrevue' && newRow[key] < 1000) { // Assume it's in hours if small number
+          if (key === 'dureePrevue' && newRow[key] > 0 && newRow[key] < 100) { // Assume it's in hours if small number
               newRow[key] *= 3600;
           }
       } else {
           newRow[key] = value ? String(value).trim() : (key === 'commentaire' ? null : '');
       }
     }
-    if (Object.keys(newRow).length > 2) {
+    if (hasData) {
       normalized.push(newRow);
     }
   }
@@ -102,8 +110,8 @@ self.addEventListener('message', async (event: MessageEvent) => {
     const tourneesSheet = tourneesWb.Sheets[tourneesWb.SheetNames[0]];
     const tachesSheet = tachesWb.Sheets[tachesWb.SheetNames[0]];
 
-    const tourneesJson = XLSX.utils.sheet_to_json(tourneesSheet, { raw: false, defval: null });
-    const tachesJson = XLSX.utils.sheet_to_json(tachesSheet, { raw: false, defval: null });
+    const tourneesJson = XLSX.utils.sheet_to_json(tourneesSheet, { header: 1, defval: null });
+    const tachesJson = XLSX.utils.sheet_to_json(tachesSheet, { header: 1, defval: null });
 
     const rawTournees = normalizeData(tourneesJson, 'tournees');
     const rawTaches = normalizeData(tachesJson, 'taches');
