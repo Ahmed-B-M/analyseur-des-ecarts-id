@@ -69,9 +69,13 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
                   newRow[key] = Math.round(value * 24 * 60 * 60); // to seconds
               }
           } else if (typeof value === 'string') {
-              if (key === 'date' && value.match(/\d{2}\/\d{2}\/\d{4}/)) {
-                  const parts = value.split('/');
-                  newRow[key] = `${parts[2]}-${parts[1]}-${parts[0]}`;
+              if (key === 'date' && (value.match(/\d{2}\/\d{2}\/\d{4}/) || value.match(/\d{4}-\d{2}-\d{2}/) )) {
+                  if (value.includes('/')) {
+                    const parts = value.split('/');
+                    newRow[key] = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                  } else {
+                    newRow[key] = value;
+                  }
               } else if (value.match(/\d{2}:\d{2}:\d{2}/) || value.match(/\d{2}:\d{2}/)) {
                   const parts = value.split(':').map(Number);
                   newRow[key] = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
@@ -80,7 +84,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
               }
           }
       } else if (['poidsPrevu', 'bacsPrevus', 'kmPrevus', 'dureePrevue', 'poidsReal', 'notation'].includes(key)) {
-          newRow[key] = parseFloat(value) || (key === 'notation' ? null : 0);
+          newRow[key] = parseFloat(String(value).replace(',', '.')) || (key === 'notation' ? null : 0);
           if (key === 'dureePrevue' && newRow[key] > 0 && newRow[key] < 100) { // Assume it's in hours if small number
               newRow[key] *= 3600;
           }
