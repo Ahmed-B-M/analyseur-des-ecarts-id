@@ -64,8 +64,9 @@ const prompt = ai.definePrompt({
     - Total livraisons en avance: {{{totalEarlyTasks}}}
     - Nombre de tournées en surcharge (poids/volume): {{{overloadedToursCount}}}
     - Anomalies de planification (parties à l'heure, arrivées en retard): {{{lateStartAnomaliesCount}}}
-    {{#if topLateDriver}}- Livreur le plus en retard: {{{topLateDriver}}}{{#if}}
-    {{#if topLateCity}}- Ville la plus impactée par les retards: {{{topLateCity}}}{{#if}}
+    {{#if topLateDriver}}- Livreur le plus en retard: {{{topLateDriver}}}{{/if}}
+    {{#if topLateCity}}- Ville la plus impactée par les retards: {{{topLateCity}}}{{/if}}
+    {{#if mainReasonForNegativeFeedback}}- Raison principale des avis négatifs: {{{mainReasonForNegativeFeedback}}}{{/if}}
 
     ## Comment raisonner pour générer les insights :
 
@@ -79,7 +80,7 @@ const prompt = ai.definePrompt({
 
     ### C. Impact sur la Qualité Client
     - Fais le lien entre la ponctualité et la note. Si la ponctualité est basse ET la note est basse, c'est un insight crucial. Exemple : "La chute du taux de ponctualité à {{{punctualityRate}}}% coïncide avec une note moyenne faible de {{{avgRating}}}/5, confirmant l'impact direct des retards sur la satisfaction." (Icône: 'Clock')
-    - Utilise le motif principal des retours négatifs si disponible.
+    - Utilise le motif principal des retours négatifs si disponible. Par exemple, si la raison principale est 'Retard', l'insight pourrait être "Les retards de livraison sont la cause principale de l'insatisfaction client, affectant directement la note moyenne de {{{avgRating}}}/5."
 
     **Instructions finales :**
     - Choisis les 3-4 insights les plus percutants basés sur l'ampleur des chiffres.

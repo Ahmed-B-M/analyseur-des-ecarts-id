@@ -250,7 +250,7 @@ export default function Dashboard() {
               setFilters={setFilters} 
               depots={depots} 
               warehouses={warehouses}
-              cities={(analysisData?.delaysByCity.map(c => c.key) || [])}
+              cities={(analysisData?.cities || [])}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 max-w-lg mx-auto">
@@ -275,7 +275,8 @@ export default function Dashboard() {
                                 setFilters({ ...state.filters, selectedDate: date, dateRange: undefined });
                             }}
                             onWeekSelect={(week) => {
-                                setFilters({ ...state.filters, dateRange: week, selectedDate: undefined });
+                                // This now only visually selects the week, it does not filter.
+                                // Filtering is handled by DateRangePicker or day click.
                             }}
                         />
                     </div>

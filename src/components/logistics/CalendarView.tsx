@@ -32,16 +32,15 @@ export default function CalendarView({ data, onDateSelect, onWeekSelect }: Calen
     setDate(day);
     onDateSelect(day ? format(day, 'yyyy-MM-dd') : undefined);
     
+    // Also update the visual week selection when a day is clicked
     if (day) {
         const start = startOfWeek(day, { weekStartsOn: 1 }); // Monday
         const end = endOfWeek(day, { weekStartsOn: 1 });
-        const newWeek = { from: start, to: end };
-        setWeek(newWeek);
-        onWeekSelect(newWeek);
+        setWeek({ from: start, to: end });
     } else {
         setWeek(undefined);
-        onWeekSelect(undefined);
     }
+    // onWeekSelect is not called from here anymore to avoid filter conflicts
   };
   
   useEffect(() => {
@@ -51,7 +50,6 @@ export default function CalendarView({ data, onDateSelect, onWeekSelect }: Calen
     const end = endOfWeek(today, { weekStartsOn: 1 });
     const currentWeek = { from: start, to: end };
     setWeek(currentWeek);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

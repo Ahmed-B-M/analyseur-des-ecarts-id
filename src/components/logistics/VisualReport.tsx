@@ -40,15 +40,11 @@ export default function VisualReport() {
         }
     }, []);
 
-    useEffect(() => {
-        if (reportData && !isLoading) {
-            // Use a timeout to ensure the page is fully rendered before printing
-            const timer = setTimeout(() => {
-                window.print();
-            }, 500);
-            return () => clearTimeout(timer);
-        }
-    }, [reportData, isLoading]);
+    const handlePrint = () => {
+        window.print();
+    };
+    
+    // Removed automatic printing to allow user interaction first
 
     if (isLoading) {
         return (
@@ -113,7 +109,7 @@ export default function VisualReport() {
             <main className="mt-6 space-y-6">
                  {/* Print Button */}
                 <div className="no-print flex justify-end">
-                    <Button onClick={() => window.print()}>
+                    <Button onClick={handlePrint}>
                         <Printer className="mr-2 h-4 w-4" />
                         Imprimer / Exporter en PDF
                     </Button>
