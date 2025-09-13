@@ -100,6 +100,18 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             
             if (aValue == null) return 1;
             if (bValue == null) return -1;
+            
+            // Specific sort for 'ecart' in durationDiscrepancies
+            if (config.key === 'ecart') {
+                if (aValue > bValue) {
+                    return -1;
+                }
+                if (aValue < bValue) {
+                    return 1;
+                }
+                return 0;
+            }
+
 
             if (aValue < bValue) {
                 return -1;
@@ -201,44 +213,46 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'date')}>Date {renderSortIcon('overloaded', 'date')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'nom')}>Tournée {renderSortIcon('overloaded', 'nom')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'livreur')}>Livreur {renderSortIcon('overloaded', 'livreur')}</TableHead>
-                            <TableHead>Capacité Poids</TableHead>
-                            <TableHead>Poids Réel</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementPoids')}>Dépassement Poids {renderSortIcon('overloaded', 'tauxDepassementPoids')}</TableHead>
-                            <TableHead>Capacité Bacs</TableHead>
-                            <TableHead>Bacs Réels</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementBacs')}>Dépassement Bacs {renderSortIcon('overloaded', 'tauxDepassementBacs')}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {sortedData.overloadedTours?.slice(0,10).map(tour => (
-                            <TableRow key={tour.uniqueId}>
-                                <TableCell>{formatDate(tour.date)}</TableCell>
-                                <TableCell>{tour.nom}</TableCell>
-                                <TableCell>{tour.livreur}</TableCell>
-                                <TableCell>{tour.capacitePoids.toFixed(2)} kg</TableCell>
-                                <TableCell className={cn(tour.depassementPoids > 0 && "font-bold text-destructive")}>
-                                    {tour.poidsReel.toFixed(2)} kg
-                                </TableCell>
-                                <TableCell className={cn(tour.depassementPoids > 0 && "font-semibold")}>
-                                    {tour.depassementPoids > 0 ? `+${tour.depassementPoids.toFixed(2)} kg (${tour.tauxDepassementPoids.toFixed(1)}%)` : '-'}
-                                </TableCell>
-                                <TableCell>{tour.capaciteBacs} bacs</TableCell>
-                                 <TableCell className={cn(tour.depassementBacs > 0 && "font-bold text-destructive")}>
-                                    {tour.bacsReels} bacs
-                                </TableCell>
-                                <TableCell className={cn(tour.depassementBacs > 0 && "font-semibold")}>
-                                    {tour.depassementBacs > 0 ? `+${tour.depassementBacs} bacs (${tour.tauxDepassementBacs.toFixed(1)}%)` : '-'}
-                                </TableCell>
+                <ScrollArea className="h-72">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'date')}>Date {renderSortIcon('overloaded', 'date')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'nom')}>Tournée {renderSortIcon('overloaded', 'nom')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'livreur')}>Livreur {renderSortIcon('overloaded', 'livreur')}</TableHead>
+                                <TableHead>Capacité Poids</TableHead>
+                                <TableHead>Poids Réel</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementPoids')}>Dépassement Poids {renderSortIcon('overloaded', 'tauxDepassementPoids')}</TableHead>
+                                <TableHead>Capacité Bacs</TableHead>
+                                <TableHead>Bacs Réels</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementBacs')}>Dépassement Bacs {renderSortIcon('overloaded', 'tauxDepassementBacs')}</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {sortedData.overloadedTours?.map(tour => (
+                                <TableRow key={tour.uniqueId}>
+                                    <TableCell>{formatDate(tour.date)}</TableCell>
+                                    <TableCell>{tour.nom}</TableCell>
+                                    <TableCell>{tour.livreur}</TableCell>
+                                    <TableCell>{tour.capacitePoids.toFixed(2)} kg</TableCell>
+                                    <TableCell className={cn(tour.depassementPoids > 0 && "font-bold text-destructive")}>
+                                        {tour.poidsReel.toFixed(2)} kg
+                                    </TableCell>
+                                    <TableCell className={cn(tour.depassementPoids > 0 && "font-semibold")}>
+                                        {tour.depassementPoids > 0 ? `+${tour.depassementPoids.toFixed(2)} kg (${tour.tauxDepassementPoids.toFixed(1)}%)` : '-'}
+                                    </TableCell>
+                                    <TableCell>{tour.capaciteBacs} bacs</TableCell>
+                                     <TableCell className={cn(tour.depassementBacs > 0 && "font-bold text-destructive")}>
+                                        {tour.bacsReels} bacs
+                                    </TableCell>
+                                    <TableCell className={cn(tour.depassementBacs > 0 && "font-semibold")}>
+                                        {tour.depassementBacs > 0 ? `+${tour.depassementBacs} bacs (${tour.tauxDepassementBacs.toFixed(1)}%)` : '-'}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
             </CardContent>
           </Card>
       )}
@@ -255,36 +269,38 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'nom')}>Tournée {renderSortIcon('duration', 'nom')}</TableHead>
-                            <TableHead className="text-center">1ère Livraison (Prévue / Réelle)</TableHead>
-                            <TableHead className="text-center">Dernière Livraison (Prévue / Réelle)</TableHead>
-                            <TableHead className="text-center">Durée Estimée</TableHead>
-                            <TableHead className="text-center">Durée Réelle</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'ecart')}>Écart {renderSortIcon('duration', 'ecart')}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {sortedData.durationDiscrepancies?.slice(0,10).map(tour => (
-                            <TableRow key={tour.uniqueId}>
-                                <TableCell>
-                                    <div className="font-medium">{tour.nom}</div>
-                                    <div className="text-xs text-muted-foreground">{formatDate(tour.date)}</div>
-                                    <div className="text-xs text-muted-foreground">{tour.livreur}</div>
-                                </TableCell>
-                                <TableCell className="text-center">{formatSecondsToClock(tour.heurePremiereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heurePremiereLivraisonReelle)}</span></TableCell>
-                                <TableCell className="text-center">{formatSecondsToClock(tour.heureDerniereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heureDerniereLivraisonReelle)}</span></TableCell>
-                                <TableCell className="text-center">{formatSecondsToTime(tour.dureeEstimee)}</TableCell>
-                                <TableCell className="text-center">{formatSecondsToTime(tour.dureeReelle)}</TableCell>
-                                <TableCell className={cn(tour.ecart > 300 ? "text-destructive font-semibold" : tour.ecart < -300 ? "text-blue-500 font-semibold" : "")}>
-                                    {tour.ecart > 0 ? '+' : ''}{formatSecondsToTime(tour.ecart)}
-                                </TableCell>
+                <ScrollArea className="h-72">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'nom')}>Tournée {renderSortIcon('duration', 'nom')}</TableHead>
+                                <TableHead className="text-center">1ère Livraison (Prévue / Réelle)</TableHead>
+                                <TableHead className="text-center">Dernière Livraison (Prévue / Réelle)</TableHead>
+                                <TableHead className="text-center">Durée Estimée</TableHead>
+                                <TableHead className="text-center">Durée Réelle</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'ecart')}>Écart {renderSortIcon('duration', 'ecart')}</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {sortedData.durationDiscrepancies?.map(tour => (
+                                <TableRow key={tour.uniqueId}>
+                                    <TableCell>
+                                        <div className="font-medium">{tour.nom}</div>
+                                        <div className="text-xs text-muted-foreground">{formatDate(tour.date)}</div>
+                                        <div className="text-xs text-muted-foreground">{tour.livreur}</div>
+                                    </TableCell>
+                                    <TableCell className="text-center">{formatSecondsToClock(tour.heurePremiereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heurePremiereLivraisonReelle)}</span></TableCell>
+                                    <TableCell className="text-center">{formatSecondsToClock(tour.heureDerniereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heureDerniereLivraisonReelle)}</span></TableCell>
+                                    <TableCell className="text-center">{formatSecondsToTime(tour.dureeEstimee)}</TableCell>
+                                    <TableCell className="text-center">{formatSecondsToTime(tour.dureeReelle)}</TableCell>
+                                    <TableCell className={cn(tour.ecart > 300 ? "text-destructive font-semibold" : tour.ecart < -300 ? "text-blue-500 font-semibold" : "")}>
+                                        {tour.ecart > 0 ? '+' : ''}{formatSecondsToTime(tour.ecart)}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
             </CardContent>
           </Card>
       )}
@@ -301,34 +317,36 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'date')}>Date {renderSortIcon('anomaly', 'date')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'nom')}>Tournée {renderSortIcon('anomaly', 'nom')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'livreur')}>Livreur {renderSortIcon('anomaly', 'livreur')}</TableHead>
-                            <TableHead>Départ Prévu</TableHead>
-                            <TableHead>Départ Réel</TableHead>
-                            <TableHead>Écart au Départ</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'tasksInDelay')}># Tâches en Retard {renderSortIcon('anomaly', 'tasksInDelay')}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {sortedData.lateStartAnomalies?.slice(0,5).map(tour => (
-                            <TableRow key={tour.uniqueId}>
-                                <TableCell>{formatDate(tour.date)}</TableCell>
-                                <TableCell>{tour.nom}</TableCell>
-                                <TableCell>{tour.livreur}</TableCell>
-                                <TableCell>{new Date(tour.heureDepartPrevue * 1000).toISOString().substr(11, 8)}</TableCell>
-                                <TableCell>{new Date(tour.heureDepartReelle * 1000).toISOString().substr(11, 8)}</TableCell>
-                                <TableCell className="text-green-600 font-semibold">
-                                    {formatSecondsToTime(tour.ecartDepart)}
-                                </TableCell>
-                                <TableCell className="font-bold">{tour.tasksInDelay}</TableCell>
+                <ScrollArea className="h-72">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'date')}>Date {renderSortIcon('anomaly', 'date')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'nom')}>Tournée {renderSortIcon('anomaly', 'nom')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'livreur')}>Livreur {renderSortIcon('anomaly', 'livreur')}</TableHead>
+                                <TableHead>Départ Prévu</TableHead>
+                                <TableHead>Départ Réel</TableHead>
+                                <TableHead>Écart au Départ</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'tasksInDelay')}># Tâches en Retard {renderSortIcon('anomaly', 'tasksInDelay')}</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {sortedData.lateStartAnomalies?.map(tour => (
+                                <TableRow key={tour.uniqueId}>
+                                    <TableCell>{formatDate(tour.date)}</TableCell>
+                                    <TableCell>{tour.nom}</TableCell>
+                                    <TableCell>{tour.livreur}</TableCell>
+                                    <TableCell>{new Date(tour.heureDepartPrevue * 1000).toISOString().substr(11, 8)}</TableCell>
+                                    <TableCell>{new Date(tour.heureDepartReelle * 1000).toISOString().substr(11, 8)}</TableCell>
+                                    <TableCell className="text-green-600 font-semibold">
+                                        {formatSecondsToTime(tour.ecartDepart)}
+                                    </TableCell>
+                                    <TableCell className="font-bold">{tour.tasksInDelay}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
             </CardContent>
           </Card>
       )}
@@ -339,30 +357,32 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               <CardDescription>Performances individuelles pour identifier les top-performers et les axes d'accompagnement.</CardDescription>
           </CardHeader>
           <CardContent>
-               <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'key')}>Livreur {renderSortIcon('driver', 'key')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'totalTours')}>Nb. Tournées {renderSortIcon('driver', 'totalTours')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'punctualityRate')}>Ponctualité {renderSortIcon('driver', 'punctualityRate')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('driver', 'avgDelay')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'overweightToursCount')}>Dépassements Poids {renderSortIcon('driver', 'overweightToursCount')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgRating')}>Notation Moy. {renderSortIcon('driver', 'avgRating')}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {sortedData.performanceByDriver?.slice(0, 10).map(driver => (
-                            <TableRow key={driver.key}>
-                                <TableCell>{driver.key}</TableCell>
-                                <TableCell>{driver.totalTours}</TableCell>
-                                <TableCell>{driver.punctualityRate.toFixed(1)}%</TableCell>
-                                <TableCell>{driver.avgDelay.toFixed(1)}</TableCell>
-                                <TableCell>{driver.overweightToursCount}</TableCell>
-                                <TableCell>{driver.avgRating?.toFixed(2) || 'N/A'}</TableCell>
+               <ScrollArea className="h-72">
+                   <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'key')}>Livreur {renderSortIcon('driver', 'key')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'totalTours')}>Nb. Tournées {renderSortIcon('driver', 'totalTours')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'punctualityRate')}>Ponctualité {renderSortIcon('driver', 'punctualityRate')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('driver', 'avgDelay')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'overweightToursCount')}>Dépassements Poids {renderSortIcon('driver', 'overweightToursCount')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgRating')}>Notation Moy. {renderSortIcon('driver', 'avgRating')}</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {sortedData.performanceByDriver?.map(driver => (
+                                <TableRow key={driver.key}>
+                                    <TableCell>{driver.key}</TableCell>
+                                    <TableCell>{driver.totalTours}</TableCell>
+                                    <TableCell>{driver.punctualityRate.toFixed(1)}%</TableCell>
+                                    <TableCell>{driver.avgDelay.toFixed(1)}</TableCell>
+                                    <TableCell>{driver.overweightToursCount}</TableCell>
+                                    <TableCell>{driver.avgRating?.toFixed(2) || 'N/A'}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+               </ScrollArea>
           </CardContent>
       </Card>
 
@@ -377,28 +397,30 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     <button onClick={() => setActiveTab('ville')} className={cn("px-4 py-2 text-sm font-medium", activeTab === 'ville' ? "border-b-2 border-primary text-primary" : "text-muted-foreground")}>Par Ville</button>
                     <button onClick={() => setActiveTab('codePostal')} className={cn("px-4 py-2 text-sm font-medium", activeTab === 'codePostal' ? "border-b-2 border-primary text-primary" : "text-muted-foreground")}>Par Code Postal</button>
                 </div>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'key')}>Secteur {renderSortIcon('geo', 'key')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalTasks')}>Tâches Totales {renderSortIcon('geo', 'totalTasks')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'punctualityRate')}>Taux Ponctualité {renderSortIcon('geo', 'punctualityRate')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalDelays')}>Nb. Retards {renderSortIcon('geo', 'totalDelays')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('geo', 'avgDelay')}</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {geoDataToDisplay?.slice(0, 10).map(item => (
-                            <TableRow key={item.key}>
-                                <TableCell>{item.key}</TableCell>
-                                <TableCell>{item.totalTasks}</TableCell>
-                                <TableCell>{item.punctualityRate.toFixed(1)}%</TableCell>
-                                <TableCell>{item.totalDelays}</TableCell>
-                                <TableCell>{item.avgDelay.toFixed(1)}</TableCell>
+                <ScrollArea className="h-72">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'key')}>Secteur {renderSortIcon('geo', 'key')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalTasks')}>Tâches Totales {renderSortIcon('geo', 'totalTasks')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'punctualityRate')}>Taux Ponctualité {renderSortIcon('geo', 'punctualityRate')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalDelays')}>Nb. Retards {renderSortIcon('geo', 'totalDelays')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('geo', 'avgDelay')}</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {geoDataToDisplay?.map(item => (
+                                <TableRow key={item.key}>
+                                    <TableCell>{item.key}</TableCell>
+                                    <TableCell>{item.totalTasks}</TableCell>
+                                    <TableCell>{item.punctualityRate.toFixed(1)}%</TableCell>
+                                    <TableCell>{item.totalDelays}</TableCell>
+                                    <TableCell>{item.avgDelay.toFixed(1)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </ScrollArea>
             </CardContent>
            </Card>
            <Card>
