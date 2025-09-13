@@ -115,11 +115,14 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
       }
   }
 
-  // Check for missing mandatory headers
-  const allHeaders = Object.keys(headerAliases[fileType]);
-  const missingHeaders = allHeaders.filter(h => !foundHeaders.has(h));
-  if (missingHeaders.length > 0) {
-      throw new Error(`En-têtes manquants dans le fichier ${fileType}: ${missingHeaders.join(', ')}. Veuillez vérifier le fichier.`);
+  const mandatoryHeaders = {
+    tournees: ['nom', 'date', 'entrepot'],
+    taches: ['nomTournee', 'date', 'entrepot']
+  };
+
+  const missingMandatoryHeaders = mandatoryHeaders[fileType].filter(h => !foundHeaders.has(h));
+  if (missingMandatoryHeaders.length > 0) {
+      throw new Error(`En-têtes obligatoires manquants dans le fichier ${fileType}: ${missingMandatoryHeaders.join(', ')}. Veuillez vérifier le fichier.`);
   }
 
   const numericKeys = [
@@ -138,12 +141,11 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const newRow: any = {};
-    let hasData = false;
+    let hasMandatoryData = true;
     
     for (const colIndex in headerMap) {
       const key = headerMap[colIndex];
       let value = row[colIndex];
-      if (value !== null && value !== undefined && value !== '') hasData = true;
 
       if (key === 'date') {
           newRow[key] = parseDate(value);
@@ -156,7 +158,14 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
           newRow[key] = value ? String(value).trim() : (key === 'commentaire' ? null : '');
       }
     }
-    if (hasData && newRow.date) {
+    
+    mandatoryHeaders[fileType].forEach(header => {
+        if (!newRow[header]) {
+            hasMandatoryData = false;
+        }
+    });
+
+    if (hasMandatoryData) {
       normalized.push(newRow);
     }
   }
