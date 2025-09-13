@@ -9,6 +9,8 @@ import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, Pac
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 interface AnalysisDashboardProps {
   analysisData: AnalysisData | null;
@@ -35,6 +37,16 @@ function formatSecondsToClock(seconds: number): string {
     const h = Math.floor(seconds / 3600) % 24;
     const m = Math.floor((seconds % 3600) / 60);
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function formatDate(dateString: string): string {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        return format(date, 'dd/MM/yyyy', { locale: fr });
+    } catch {
+        return dateString;
+    }
 }
 
 
@@ -201,6 +213,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'date')}>Date {renderSortIcon('overloaded', 'date')}</TableHead>
                             <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'nom')}>Tournée {renderSortIcon('overloaded', 'nom')}</TableHead>
                             <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'livreur')}>Livreur {renderSortIcon('overloaded', 'livreur')}</TableHead>
                             <TableHead>Capacité Poids</TableHead>
@@ -214,6 +227,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     <TableBody>
                         {sortedData.overloadedTours?.slice(0,10).map(tour => (
                             <TableRow key={tour.uniqueId}>
+                                <TableCell>{formatDate(tour.date)}</TableCell>
                                 <TableCell>{tour.nom}</TableCell>
                                 <TableCell>{tour.livreur}</TableCell>
                                 <TableCell>{tour.capacitePoids.toFixed(2)} kg</TableCell>
@@ -266,6 +280,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                             <TableRow key={tour.uniqueId}>
                                 <TableCell>
                                     <div className="font-medium">{tour.nom}</div>
+                                    <div className="text-xs text-muted-foreground">{formatDate(tour.date)}</div>
                                     <div className="text-xs text-muted-foreground">{tour.livreur}</div>
                                 </TableCell>
                                 <TableCell className="text-center">{formatSecondsToClock(tour.heurePremiereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heurePremiereLivraisonReelle)}</span></TableCell>
@@ -298,6 +313,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'date')}>Date {renderSortIcon('anomaly', 'date')}</TableHead>
                             <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'nom')}>Tournée {renderSortIcon('anomaly', 'nom')}</TableHead>
                             <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'livreur')}>Livreur {renderSortIcon('anomaly', 'livreur')}</TableHead>
                             <TableHead>Départ Prévu</TableHead>
@@ -309,6 +325,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     <TableBody>
                         {sortedData.lateStartAnomalies?.slice(0,5).map(tour => (
                             <TableRow key={tour.uniqueId}>
+                                <TableCell>{formatDate(tour.date)}</TableCell>
                                 <TableCell>{tour.nom}</TableCell>
                                 <TableCell>{tour.livreur}</TableCell>
                                 <TableCell>{new Date(tour.heureDepartPrevue * 1000).toISOString().substr(11, 8)}</TableCell>
