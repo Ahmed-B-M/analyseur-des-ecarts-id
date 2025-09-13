@@ -12,9 +12,10 @@ import { useRouter } from 'next/navigation';
 interface AiReportGeneratorProps {
   analysisData: AnalysisData;
   filters: Record<string, any>;
+  aiFeedbackAnalysis: { reason: string; count: number }[] | null;
 }
 
-export default function AiReportGenerator({ analysisData, filters }: AiReportGeneratorProps) {
+export default function AiReportGenerator({ analysisData, filters, aiFeedbackAnalysis }: AiReportGeneratorProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -28,6 +29,10 @@ export default function AiReportGenerator({ analysisData, filters }: AiReportGen
       const lateTasksKpi = analysisData.generalKpis.find(k => k.title.includes('en Retard'));
       const earlyTasksKpi = analysisData.generalKpis.find(k => k.title.includes('en Avance'));
 
+      const mainReasonForNegativeFeedback = aiFeedbackAnalysis && aiFeedbackAnalysis.length > 0 
+        ? [...aiFeedbackAnalysis].sort((a,b) => b.count - a.count)[0].reason
+        : undefined;
+
       const input: GenerateLogisticsReportInput = {
         totalTours: analysisData.generalKpis.find(k => k.title.includes('Tournées'))?.value ? parseInt(analysisData.generalKpis.find(k => k.title.includes('Tournées'))!.value) : 0,
         totalTasks: analysisData.generalKpis.find(k => k.title.includes('Livraisons'))?.value ? parseInt(analysisData.generalKpis.find(k => k.title.includes('Livraisons'))!.value) : 0,
@@ -39,6 +44,7 @@ export default function AiReportGenerator({ analysisData, filters }: AiReportGen
         lateStartAnomaliesCount: analysisData.lateStartAnomalies.length,
         topLateDriver: analysisData.performanceByDriver.sort((a,b) => b.avgDelay - a.avgDelay)[0]?.key,
         topLateCity: analysisData.delaysByCity[0]?.key,
+        mainReasonForNegativeFeedback: mainReasonForNegativeFeedback
       };
 
       const generatedReport: GenerateLogisticsReportOutput = await generateLogisticsReport(input);

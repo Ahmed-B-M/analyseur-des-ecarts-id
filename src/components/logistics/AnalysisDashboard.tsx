@@ -59,6 +59,7 @@ type SortConfig<T> = {
 
 export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData, filters }: AnalysisDashboardProps) {
   const [activeTab, setActiveTab] = useState('ville');
+  const [feedbackAnalysisResult, setFeedbackAnalysisResult] = useState<{ reason: string; count: number }[] | null>(null);
   const [sorts, setSorts] = useState<{ [key: string]: SortConfig<any> }>({
       overloaded: { key: 'tauxDepassementPoids', direction: 'desc' },
       duration: { key: 'ecart', direction: 'desc' },
@@ -185,7 +186,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       </section>
       
       <section>
-        <AiReportGenerator analysisData={analysisData} filters={filters} />
+        <AiReportGenerator analysisData={analysisData} filters={filters} aiFeedbackAnalysis={feedbackAnalysisResult} />
       </section>
 
       <section>
@@ -206,7 +207,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardContent>
           </Card>
           <div className="lg:col-span-2">
-              <AiAnalysis allData={allData} />
+              <AiAnalysis allData={allData} onAnalysisComplete={setFeedbackAnalysisResult}/>
           </div>
         </div>
       </section>

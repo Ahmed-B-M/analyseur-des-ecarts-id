@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo } from 'react';
-import type { MergedData, AiAnalysisResult } from '@/lib/types';
+import type { MergedData } from '@/lib/types';
 import { analyzeCustomerFeedback } from '@/ai/flows/analyze-customer-feedback-for-delivery-issues';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,12 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 
 const COLORS = { 'Retard': '#E4002B', 'Avance': '#00C49F', 'Autre': '#FFBB28' };
 
-export default function AiAnalysis({ allData }: { allData: MergedData[] }) {
+interface AiAnalysisProps {
+    allData: MergedData[];
+    onAnalysisComplete: (result: { reason: string; count: number }[] | null) => void;
+}
+
+export default function AiAnalysis({ allData, onAnalysisComplete }: AiAnalysisProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<{ reason: string; count: number }[] | null>(null);
   const { toast } = useToast();
@@ -23,6 +28,7 @@ export default function AiAnalysis({ allData }: { allData: MergedData[] }) {
     if (negativeFeedback.length === 0) return;
     setIsLoading(true);
     setAnalysisResult(null);
+    onAnalysisComplete(null);
 
     try {
       const results = await Promise.all(
@@ -34,7 +40,10 @@ export default function AiAnalysis({ allData }: { allData: MergedData[] }) {
         return acc;
       }, {} as Record<string, number>);
 
-      setAnalysisResult(Object.entries(breakdown).map(([reason, count]) => ({ reason, count })));
+      const resultData = Object.entries(breakdown).map(([reason, count]) => ({ reason, count }));
+      setAnalysisResult(resultData);
+      onAnalysisComplete(resultData);
+
       toast({
         title: "Analyse IA terminée",
         description: `${results.length} commentaires analysés avec succès.`,
