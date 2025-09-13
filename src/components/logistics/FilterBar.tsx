@@ -21,11 +21,12 @@ interface FilterBarProps {
   setFilters: (filters: Record<string, any>) => void;
   depots: string[];
   warehouses: string[];
+  cities: string[];
 }
 
 const ALL_ITEMS_VALUE = '__ALL__';
 
-export default function FilterBar({ filters, setFilters, depots, warehouses }: FilterBarProps) {
+export default function FilterBar({ filters, setFilters, depots, warehouses, cities }: FilterBarProps) {
 
   const handleFilterChange = (key: string, value: any) => {
     const newFilters = { ...filters };
@@ -104,7 +105,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
 
   return (
     <div className="p-4 bg-card rounded-lg border shadow-sm space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 lg:grid-cols-5 gap-4 items-end">
         <div>
           <Label>Période d'Analyse</Label>
           <DateRangePicker 
@@ -143,6 +144,23 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
               <SelectItem value={ALL_ITEMS_VALUE}>Tous les entrepôts</SelectItem>
               {warehouses.map(warehouse => (
                 <SelectItem key={warehouse} value={warehouse}>{warehouse}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="city-select">Ville</Label>
+           <Select
+            value={filters.city || ALL_ITEMS_VALUE}
+            onValueChange={(value) => handleFilterChange('city', value)}
+          >
+            <SelectTrigger id="city-select">
+              <SelectValue placeholder="Toutes les villes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_ITEMS_VALUE}>Toutes les villes</SelectItem>
+              {cities.map(city => (
+                <SelectItem key={city} value={city}>{city}</SelectItem>
               ))}
             </SelectContent>
           </Select>

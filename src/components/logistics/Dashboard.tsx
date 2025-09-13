@@ -256,7 +256,13 @@ export default function Dashboard() {
 
         {state.data && (
           <div className="space-y-6">
-            <FilterBar filters={state.filters} setFilters={setFilters} depots={depots} warehouses={warehouses} />
+            <FilterBar 
+              filters={state.filters} 
+              setFilters={setFilters} 
+              depots={depots} 
+              warehouses={warehouses}
+              cities={analysisData?.cities || []}
+            />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 max-w-lg mx-auto">
                 <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>

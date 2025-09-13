@@ -170,6 +170,7 @@ export type AnalysisData = {
   workloadByHour: WorkloadByHour[];
   avgWorkloadByDriverByHour: AvgWorkloadByHour[];
   avgWorkload: AvgWorkload;
+  cities: string[];
   aiAnalysisResults?: {
     totalNegative: number;
     relatedToTiming: number;

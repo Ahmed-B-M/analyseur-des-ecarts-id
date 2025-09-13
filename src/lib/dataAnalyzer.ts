@@ -276,7 +276,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         advancesByHour,
         workloadByHour,
         avgWorkloadByDriverByHour: avgWorkloadByHour,
-        avgWorkload
+        avgWorkload,
+        cities: delaysByCity.map(c => c.key)
     };
 }
 
@@ -302,7 +303,8 @@ function createEmptyAnalysisData(): AnalysisData {
         advancesByHour: [],
         workloadByHour: [],
         avgWorkloadByDriverByHour: [],
-        avgWorkload: { avgPlanned: 0, avgReal: 0 }
+        avgWorkload: { avgPlanned: 0, avgReal: 0 },
+        cities: []
     };
 }
 
