@@ -97,7 +97,6 @@ export default function VisualReport() {
             <header className="flex justify-between items-center pb-4 border-b-2 border-black">
                 <div className="flex items-center gap-6">
                     <Logo className="h-12 w-auto" />
-                    <Image src="/carrefour-logo.svg" alt="Carrefour Logo" width={120} height={40} />
                 </div>
                 <div className="text-right">
                     <h1 className="text-2xl font-bold">{ai.title}</h1>
