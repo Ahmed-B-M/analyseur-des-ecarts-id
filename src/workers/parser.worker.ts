@@ -214,6 +214,14 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
             newRow.heureCloture += 24 * 3600; // Add 24 hours in seconds
         }
     }
+    
+    // Also handle overnight for real arrival time vs slot start
+     if (fileType === 'taches' && newRow.heureArriveeReelle > 0 && newRow.heureDebutCreneau > 0 && newRow.heureArriveeReelle < newRow.heureDebutCreneau) {
+        const twelveHoursInSeconds = 12 * 3600;
+        if (newRow.heureDebutCreneau - newRow.heureArriveeReelle > twelveHoursInSeconds) {
+            newRow.heureArriveeReelle += 24 * 3600; // Add 24 hours in seconds
+        }
+    }
 
     normalized.push(newRow);
   }

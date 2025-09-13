@@ -82,26 +82,35 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     
     const sortFn = <T,>(data: T[], config: SortConfig<T>): T[] => {
         if (!config) return data;
-        return [...data].sort((a, b) => {
-            const aValue = a[config.key];
-            const bValue = b[config.key];
+        const sorted = [...data].sort((a, b) => {
+            let aValue: any;
+            let bValue: any;
+            
+            // Handle special case for duration discrepancy absolute value sort
+            if (config.key === 'ecart') {
+                aValue = Math.abs(a[config.key] as number);
+                bValue = Math.abs(b[config.key] as number);
+            } else {
+                aValue = a[config.key];
+                bValue = b[config.key];
+            }
+            
             if (aValue == null) return 1;
             if (bValue == null) return -1;
 
-            let comparison = 0;
-            if (typeof aValue === 'number' && typeof bValue === 'number') {
-                comparison = aValue - bValue;
-            } else {
-                comparison = String(aValue).localeCompare(String(bValue));
+            if (aValue < bValue) {
+                return -1;
             }
-            
-            // For duration discrepancy, sort by absolute value
-            if (config.key === 'ecart') {
-                comparison = Math.abs(bValue as number) - Math.abs(aValue as number);
+            if (aValue > bValue) {
+                return 1;
             }
-
-            return config.direction === 'asc' ? comparison : -comparison;
+            return 0;
         });
+
+        if (config.direction === 'desc') {
+            sorted.reverse();
+        }
+        return sorted;
     }
     
     return {

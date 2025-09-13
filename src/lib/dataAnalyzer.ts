@@ -50,23 +50,29 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         tour.bacsReels = tasks.reduce((sum, t) => sum + t.items, 0);
         
         if (tasks.length > 0) {
-            tasks.sort((a,b) => a.heureArriveeApprox - b.heureArriveeApprox);
-            const firstTaskByApproxArrival = tasks[0];
-            const lastTaskByApproxArrival = tasks[tasks.length - 1];
+            // Sort by sequence if available, otherwise by approximate arrival time
+            const sortedTasksByPlan = tasks[0].sequence != null
+                ? [...tasks].sort((a,b) => a.sequence! - b.sequence!)
+                : [...tasks].sort((a,b) => a.heureArriveeApprox - b.heureArriveeApprox);
 
-            tasks.sort((a,b) => a.heureArriveeReelle - b.heureArriveeReelle);
-            const firstTaskByRealArrival = tasks[0];
-
-            tasks.sort((a,b) => a.heureCloture - b.heureCloture);
-            const lastTaskByRealCloture = tasks[tasks.length - 1];
-
-            tour.dureeReelleCalculee = lastTaskByRealCloture.heureCloture - firstTaskByRealArrival.heureArriveeReelle;
-            tour.dureeEstimeeOperationnelle = lastTaskByApproxArrival.heureArriveeApprox - firstTaskByApproxArrival.heureArriveeApprox;
+            const firstPlannedTask = sortedTasksByPlan[0];
+            const lastPlannedTask = sortedTasksByPlan[sortedTasksByPlan.length - 1];
             
-            tour.heurePremiereLivraisonPrevue = firstTaskByApproxArrival.heureArriveeApprox;
-            tour.heurePremiereLivraisonReelle = firstTaskByRealArrival.heureArriveeReelle;
-            tour.heureDerniereLivraisonPrevue = lastTaskByApproxArrival.heureArriveeApprox;
-            tour.heureDerniereLivraisonReelle = lastTaskByRealCloture.heureCloture;
+            // Sort by sequence if available, otherwise by real cloture time
+            const sortedTasksByReal = tasks[0].sequence != null
+                ? [...tasks].sort((a,b) => a.sequence! - b.sequence!)
+                : [...tasks].sort((a,b) => a.heureCloture - b.heureCloture);
+            
+            const firstRealTask = sortedTasksByReal[0];
+            const lastRealTask = sortedTasksByReal[sortedTasksByReal.length - 1];
+
+            tour.dureeEstimeeOperationnelle = lastPlannedTask.heureArriveeApprox - firstPlannedTask.heureArriveeApprox;
+            tour.dureeReelleCalculee = lastRealTask.heureCloture - firstRealTask.heureArriveeReelle;
+            
+            tour.heurePremiereLivraisonPrevue = firstPlannedTask.heureArriveeApprox;
+            tour.heurePremiereLivraisonReelle = firstRealTask.heureArriveeReelle;
+            tour.heureDerniereLivraisonPrevue = lastPlannedTask.heureArriveeApprox;
+            tour.heureDerniereLivraisonReelle = lastRealTask.heureCloture;
 
         } else {
             tour.dureeReelleCalculee = 0;
