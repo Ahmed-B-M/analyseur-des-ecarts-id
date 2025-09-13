@@ -5,15 +5,15 @@ import type { Tournee, Tache, MergedData, AnalysisData } from '@/lib/types';
 import FileUpload from '@/components/logistics/FileUpload';
 import FilterBar from '@/components/logistics/FilterBar';
 import AnalysisDashboard from '@/components/logistics/AnalysisDashboard';
-import CalendarView from '@/components/logistics/CalendarView';
-import WeeklySummary from '@/components/logistics/WeeklySummary';
-import DetailedDataView from '@/components/logistics/DetailedDataView';
 import { Logo } from '@/components/logistics/Logo';
 import { analyzeData } from '@/lib/dataAnalyzer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, AlertCircle, BarChart2, Calendar, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
+import { DateRangePicker } from './DateRangePicker';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { subDays, startOfMonth, endOfMonth } from 'date-fns';
 
 type State = {
   tourneesFile: File | null;
@@ -38,7 +38,13 @@ const initialState: State = {
   isLoading: false,
   error: null,
   data: null,
-  filters: { punctualityThreshold: 15 },
+  filters: { 
+    punctualityThreshold: 15,
+    dateRange: { 
+      from: startOfMonth(new Date()), 
+      to: endOfMonth(new Date()) 
+    } 
+  },
 };
 
 function reducer(state: State, action: Action): State {
@@ -154,17 +160,7 @@ export default function Dashboard() {
   };
   
   const setFilters = useCallback((newFilters: Record<string, any>) => {
-    const filtersToApply = { ...newFilters };
-
-    if ('selectedDate' in filtersToApply && 'dateRange' in filtersToApply) {
-        if(filtersToApply.selectedDate) {
-            delete filtersToApply.dateRange;
-        } else {
-            delete filtersToApply.selectedDate;
-        }
-    }
-    
-    dispatch({ type: 'SET_FILTERS', filters: filtersToApply });
+    dispatch({ type: 'SET_FILTERS', filters: newFilters });
   }, []);
 
   const applyFilterAndSwitchTab = useCallback((filter: Record<string, any>) => {
@@ -266,7 +262,7 @@ export default function Dashboard() {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 max-w-lg mx-auto">
                 <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
-                <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Calendrier</TabsTrigger>
+                <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Analyse par Période</TabsTrigger>
                 <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
               </TabsList>
               <TabsContent value="dashboard" className="mt-6">
@@ -277,18 +273,21 @@ export default function Dashboard() {
                 />
               </TabsContent>
               <TabsContent value="calendar" className="mt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-1">
-                        <CalendarView 
-                            data={mergedData} 
-                            onDateSelect={(date) => setFilters({ ...state.filters, selectedDate: date, dateRange: undefined })}
-                            onWeekSelect={(range) => setFilters({ ...state.filters, dateRange: range, selectedDate: undefined })}
-                        />
-                    </div>
-                    <div className="md:col-span-2">
-                        <WeeklySummary analysisData={analysisData} filters={state.filters} />
-                    </div>
-                </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Analyse par Période</CardTitle>
+                    <CardDescription>
+                      Sélectionnez une plage de dates pour mettre à jour l'ensemble du tableau de bord.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <DateRangePicker 
+                          className="max-w-sm"
+                          onDateChange={(range) => setFilters({ ...state.filters, dateRange: range, selectedDate: undefined })}
+                          date={state.filters.dateRange}
+                       />
+                  </CardContent>
+                </Card>
               </TabsContent>
               <TabsContent value="data" className="mt-6">
                 <DetailedDataView data={filteredData} />
