@@ -37,6 +37,16 @@ export default function VisualReport() {
         }
     }, []);
 
+    useEffect(() => {
+        if (reportData && !isLoading) {
+            // Use a timeout to ensure the page is fully rendered before printing
+            const timer = setTimeout(() => {
+                window.print();
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [reportData, isLoading]);
+
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen text-center p-8">
