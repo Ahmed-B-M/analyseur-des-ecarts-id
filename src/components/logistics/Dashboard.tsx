@@ -14,8 +14,8 @@ import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
 import { DateRangePicker } from './DateRangePicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { subDays, startOfMonth, endOfMonth } from 'date-fns';
 import CalendarView from './CalendarView';
+import ApiKeySettings from './ApiKeySettings';
 
 type State = {
   tourneesFile: File | null;
@@ -42,10 +42,6 @@ const initialState: State = {
   data: null,
   filters: { 
     punctualityThreshold: 15,
-    dateRange: { 
-      from: startOfMonth(new Date()), 
-      to: endOfMonth(new Date()) 
-    } 
   },
 };
 
@@ -75,6 +71,7 @@ export default function Dashboard() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [worker, setWorker] = useState<Worker | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [apiKey, setApiKey] = useState<string | null>(null);
 
   useEffect(() => {
     const newWorker = new Worker(new URL('../../workers/parser.worker.ts', import.meta.url));
@@ -92,6 +89,21 @@ export default function Dashboard() {
     newWorker.onerror = (error) => {
       dispatch({ type: 'PROCESSING_ERROR', error: `Erreur du worker: ${error.message}` });
     };
+
+    // Set initial date range for the current week
+    const today = new Date();
+    const start = new Date(today.setDate(today.getDate() - today.getDay() + 1));
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+
+    const initialFilters = { 
+        punctualityThreshold: 15,
+        dateRange: { 
+          from: start, 
+          to: end 
+        } 
+    };
+    dispatch({ type: 'SET_FILTERS', filters: initialFilters });
 
     return () => {
       newWorker.terminate();
@@ -197,9 +209,12 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground">Analyse des écarts de livraison pour Carrefour</p>
           </div>
         </div>
-         {state.data && (
-           <Button onClick={() => dispatch({type: 'RESET'})} variant="outline" size="sm">Réinitialiser</Button>
-         )}
+         <div className="flex items-center gap-2">
+            <ApiKeySettings />
+            {state.data && (
+            <Button onClick={() => dispatch({type: 'RESET'})} variant="outline" size="sm">Réinitialiser</Button>
+            )}
+         </div>
       </header>
       <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
         {!state.data && (
@@ -308,3 +323,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
