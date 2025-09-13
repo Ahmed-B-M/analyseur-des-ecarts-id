@@ -200,6 +200,12 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
           newRow[key] = String(value).trim();
       }
     }
+
+    if (fileType === 'tournees') {
+        if (!newRow.heureDepartReelle && newRow.demarre) {
+            newRow.heureDepartReelle = newRow.demarre;
+        }
+    }
     
     // Handle overnight tasks
     if (fileType === 'taches' && newRow.heureCloture > 0 && newRow.heureDebutCreneau > 0 && newRow.heureCloture < newRow.heureDebutCreneau) {
