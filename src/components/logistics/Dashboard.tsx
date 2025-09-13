@@ -15,7 +15,6 @@ import { DateRange } from 'react-day-picker';
 import { DateRangePicker } from './DateRangePicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import CalendarView from './CalendarView';
-import ApiKeySettings from './ApiKeySettings';
 
 type State = {
   tourneesFile: File | null;
@@ -56,25 +55,7 @@ function reducer(state: State, action: Action): State {
             return { ...state, isLoading: false, error: "Aucune donnée valide n'a été extraite des fichiers. Veuillez vérifier les en-têtes et le contenu." };
         }
         
-        // Set initial date range for the current week, AFTER data is loaded.
-        const today = new Date();
-        const start = new Date(today);
-        start.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)); // Handle Sunday
-        start.setHours(0,0,0,0);
-        
-        const end = new Date(start);
-        end.setDate(start.getDate() + 6);
-        end.setHours(23,59,59,999);
-
-        const initialFilters = { 
-            ...state.filters,
-            dateRange: { 
-              from: start, 
-              to: end 
-            } 
-        };
-
-        return { ...state, isLoading: false, data: action.data, error: null, filters: initialFilters };
+        return { ...state, isLoading: false, data: action.data, error: null };
     }
     case 'PROCESSING_ERROR':
       return { ...state, isLoading: false, error: action.error };
@@ -91,7 +72,6 @@ export default function Dashboard() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [worker, setWorker] = useState<Worker | null>(null);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [apiKey, setApiKey] = useState<string | null>(null);
 
   useEffect(() => {
     const newWorker = new Worker(new URL('../../workers/parser.worker.ts', import.meta.url));
@@ -154,7 +134,7 @@ export default function Dashboard() {
           }
           if (to) {
             const toDate = new Date(to);
-            toDate.setHours(0,0,0,0); // Normalize to date
+            toDate.setHours(23,59,59,999); // Include the end date
             if (itemDate > toDate) return false;
           }
         }

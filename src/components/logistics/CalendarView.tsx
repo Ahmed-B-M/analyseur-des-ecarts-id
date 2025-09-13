@@ -45,15 +45,12 @@ export default function CalendarView({ data, onDateSelect, onWeekSelect }: Calen
   };
   
   useEffect(() => {
-    // Select current week on initial load
+    // Select current week visually on initial load, but don't apply filter
     const today = new Date();
     const start = startOfWeek(today, { weekStartsOn: 1 });
     const end = endOfWeek(today, { weekStartsOn: 1 });
     const currentWeek = { from: start, to: end };
     setWeek(currentWeek);
-    onWeekSelect(currentWeek);
-    setDate(undefined);
-    onDateSelect(undefined);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
