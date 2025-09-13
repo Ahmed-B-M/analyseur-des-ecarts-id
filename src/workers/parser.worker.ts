@@ -14,16 +14,24 @@ const headerAliases: Record<string, Record<string, string[]>> = {
     bacsPrevus: ['bac (bacs)'],
     capacitePoids: ['capacité poids (kg)'],
     poidsPrevu: ['poids (kg)'],
-    distancePrevue: ['kilométrage (km)'],
+    distancePrevue: ['kilométrage (km)', 'distance (m)'], // Added 'distance (m)'
     distanceReelle: ['kilométrage réel (km)'],
     heureDepartPrevue: ['départ'],
+    heureFinPrevue: ['fin'], // Added 'fin'
     heureDepartReelle: ['heure de départ réelle du livreur'],
     demarre: ['démarré'],
+    termine: ['terminé'],
+    tempsPreparationLivreur: ['temps de préparation livreur (s)'],
+    tempsService: ['temps de service (s)'],
+    tempsParcours: ['temps de parcours (s)'],
+    codePostalMajoritaire: ['code postal majoritaire']
   },
   taches: {
     nomTournee: ['Tournée', 'tournée', 'tournee'],
     date: ['Date', 'date', 'jour'],
     entrepot: ['Entrepôt', 'entrepot'],
+    livreur: ['Livreur', 'livreur'],
+    sequence: ['Séquence', 'séquence'],
     avancement: ['Avancement', 'avancement'],
     poids: ['Poids', 'poids', 'poids (kg)'],
     items: ['Items', 'items'],
@@ -32,6 +40,8 @@ const headerAliases: Record<string, Record<string, string[]>> = {
     heureArriveeApprox: ['Arrivée approximative'],
     heureArriveeReelle: ["Heure d'arrivée sur site", "heure d'arrivee sur site"],
     heureCloture: ['Heure de clôture', 'heure de clôture'],
+    tempsService: ['temps de service', 'temps de service (s)'],
+    tempsServiceReel: ['temps de service réel'],
     retard: ['Retard (s)', 'retard (s)'],
     ville: ['Ville', 'ville'],
     codePostal: ['Code postal', 'code postal'],
@@ -183,6 +193,9 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
       } else if (numericKeys.includes(key)) {
           const num = parseFloat(String(value).replace(',', '.'));
           newRow[key] = isNaN(num) ? (isOptionalNullable ? null : 0) : num;
+           if (key === 'distancePrevue') {
+              newRow[key] = newRow[key] / 1000; // Convert meters to km
+           }
       } else {
           newRow[key] = String(value).trim();
       }

@@ -1,11 +1,11 @@
 'use client';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
 import type { AnalysisData, MergedData } from '@/lib/types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
-import { AlertTriangle, Info, Clock, MapPin } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +16,7 @@ interface AnalysisDashboardProps {
 }
 
 const ACCENT_COLOR = "hsl(var(--accent))";
+const PRIMARY_COLOR = "hsl(var(--primary))";
 
 export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData }: AnalysisDashboardProps) {
   if (!analysisData) {
@@ -42,13 +43,13 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     <div className="space-y-6">
       <section>
         <h2 className="text-2xl font-bold mb-4">KPIs Généraux</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {analysisData.generalKpis.map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
         </div>
       </section>
 
       <section>
-        <h2 className="text-2xl font-bold mb-4">Comparaison Planifié vs. Réel</h2>
+        <h2 className="text-2xl font-bold mb-4">Synthèse des Écarts Principaux : Planifié vs. Réalisé</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {analysisData.discrepancyKpis.map(kpi => <ComparisonKpiCard key={kpi.title} {...kpi} />)}
         </div>
@@ -57,7 +58,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Qualité & Avis Clients</CardTitle>
+            <CardTitle>Impact sur la Qualité de Service</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {analysisData.qualityKpis.map(kpi => <KpiCard variant="inline" key={kpi.title} {...kpi} />)}
@@ -67,82 +68,13 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             <AiAnalysis allData={allData} />
         </div>
       </div>
-
-       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MapPin/>Répartition des Retards par Entrepôt</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <ScrollArea className="h-80">
-                  <ResponsiveContainer width="100%" height={analysisData.delaysByWarehouse.length * 30}>
-                    <BarChart data={analysisData.delaysByWarehouse} layout="vertical" margin={{ left: 80 }}>
-                        <XAxis type="number" />
-                        <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
-                        <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
-                        <Bar dataKey="count" name="Retards" barSize={20} fill="hsl(var(--primary))">
-                        </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ScrollArea>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Clock />Répartition des Retards par Heure</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={analysisData.delaysByHour}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="hsl(var(--primary))" name="Nb. Retards" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Villes avec le Plus de Retards</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                 <BarChart data={analysisData.delaysByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }}>
-                    <XAxis type="number" />
-                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
-                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                    <Bar dataKey="count" name="Retards" barSize={20} fill="hsl(var(--primary))">
-                    </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Codes Postaux avec le Plus de Retards</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                 <BarChart data={analysisData.delaysByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }}>
-                    <XAxis type="number" />
-                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
-                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                    <Bar dataKey="count" name="Retards" barSize={20} fill="hsl(var(--primary))">
-                    </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-      </div>
-      
+       
       {analysisData.overloadedTours.length > 0 && (
           <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <AlertTriangle className="text-amber-500"/>
-                    Tournées en Surcharge
+                    Dépassements de Poids / Bacs
                 </CardTitle>
                 <CardDescription>
                     Tournées dont le poids réel ou le nombre de bacs dépasse la capacité maximale du véhicule.
@@ -189,8 +121,46 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
           </Card>
       )}
 
+      {analysisData.lateStartAnomalies.length > 0 && (
+          <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <UserCheck className="text-blue-500"/>
+                    Anomalie : Parties à l'Heure, Livrées en Retard
+                </CardTitle>
+                <CardDescription>
+                    Tournées qui ont démarré à l'heure prévue mais qui ont accumulé des retards pendant la livraison.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Tournée</TableHead>
+                            <TableHead>Livreur</TableHead>
+                            <TableHead>Départ Prévu</TableHead>
+                            <TableHead>Départ Réel</TableHead>
+                            <TableHead>Tâches en Retard</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {analysisData.lateStartAnomalies.slice(0,5).map(tour => (
+                            <TableRow key={tour.uniqueId}>
+                                <TableCell>{tour.nom}</TableCell>
+                                <TableCell>{tour.livreur}</TableCell>
+                                <TableCell>{new Date(tour.heureDepartPrevue * 1000).toISOString().substr(11, 5)}</TableCell>
+                                <TableCell>{new Date(tour.heureDepartReelle * 1000).toISOString().substr(11, 5)}</TableCell>
+                                <TableCell className="font-bold">{tour.tasksInDelay}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+          </Card>
+      )}
+
       <Card>
-          <CardHeader><CardTitle>Performance par Livreur (Top 10)</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Synthèse par Livreur (Top 10)</CardTitle></CardHeader>
           <CardContent>
                <Table>
                     <TableHeader>
@@ -216,7 +186,109 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 </Table>
           </CardContent>
       </Card>
-
+      
+       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Charge de Travail par Heure</CardTitle>
+            </CardHeader>
+            <CardContent>
+               <ResponsiveContainer width="100%" height={320}>
+                  <AreaChart data={analysisData.workloadByHour}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="hour" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="planned" name="Planifié" stroke={ACCENT_COLOR} fill={ACCENT_COLOR} fillOpacity={0.3} />
+                    <Area type="monotone" dataKey="real" name="Réalisé" stroke={PRIMARY_COLOR} fill={PRIMARY_COLOR} fillOpacity={0.3} />
+                  </AreaChart>
+               </ResponsiveContainer>
+            </CardContent>
+          </Card>
+           <Card>
+            <CardHeader>
+              <CardTitle>Charge Moyenne par Livreur par Heure</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={analysisData.avgWorkloadByDriverByHour}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="hour" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="avgLoad" fill={PRIMARY_COLOR} name="Tâches / Livreur" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><MapPin/>Répartition des Retards par Entrepôt</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <ScrollArea className="h-80">
+                  <ResponsiveContainer width="100%" height={analysisData.delaysByWarehouse.length * 30}>
+                    <BarChart data={analysisData.delaysByWarehouse} layout="vertical" margin={{ left: 80 }}>
+                        <XAxis type="number" />
+                        <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
+                        <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
+                        <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR}>
+                        </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ScrollArea>
+            </CardContent>
+          </Card>
+           <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Clock />Répartition des Retards par Heure</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={analysisData.delaysByHour}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="hour" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill={PRIMARY_COLOR} name="Nb. Retards" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Villes avec le Plus de Retards</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                 <BarChart data={analysisData.delaysByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }}>
+                    <XAxis type="number" />
+                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
+                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
+                    <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR}>
+                    </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Codes Postaux avec le Plus de Retards</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                 <BarChart data={analysisData.delaysByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }}>
+                    <XAxis type="number" />
+                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
+                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
+                    <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR}>
+                    </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+      </div>
     </div>
   );
 }

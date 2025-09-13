@@ -7,8 +7,8 @@ export type Tournee = {
   date: string; // YYYY-MM-DD
   entrepot: string;
   livreur: string;
-  distancePrevue: number; // in meters
-  distanceReelle: number; // in meters
+  distancePrevue: number; // in km
+  distanceReelle: number; // in km
   dureePrevue: number; // in seconds
   dureeReelle: number; // in seconds
   dureeReelleCalculee?: number; // in seconds, calculated from tasks
@@ -47,6 +47,7 @@ export type Tache = {
   tempsService?: number; // in seconds
   tempsServiceReel?: number; // in seconds
   retard: number; // in seconds
+  retardPrevisionnelS?: number; // in seconds
   poids: number; // in kg
   ville: string;
   notation: number | null;
@@ -89,6 +90,10 @@ export type OverloadedTourInfo = Tournee & {
     tauxDepassementBacs: number;
 };
 
+export type LateStartAnomaly = Tournee & {
+  tasksInDelay: number;
+}
+
 export type DelayCount = {
     key: string;
     count: number;
@@ -99,16 +104,30 @@ export type DelayByHour = {
     count: number;
 }
 
+export type WorkloadByHour = {
+  hour: string;
+  planned: number;
+  real: number;
+}
+
+export type AvgWorkloadByHour = {
+  hour: string;
+  avgLoad: number;
+}
+
 export type AnalysisData = {
   generalKpis: Kpi[];
   discrepancyKpis: ComparisonKpi[];
   qualityKpis: Kpi[];
   overloadedTours: OverloadedTourInfo[];
+  lateStartAnomalies: LateStartAnomaly[];
   performanceByDriver: PerformanceBy<string>[];
   delaysByWarehouse: DelayCount[];
   delaysByHour: DelayByHour[];
   delaysByCity: DelayCount[];
   delaysByPostalCode: DelayCount[];
+  workloadByHour: WorkloadByHour[];
+  avgWorkloadByDriverByHour: AvgWorkloadByHour[];
   aiAnalysisResults?: {
     totalNegative: number;
     relatedToTiming: number;
