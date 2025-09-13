@@ -1,4 +1,4 @@
-import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi } from './types';
+import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi, AvgWorkload } from './types';
 import { Truck, Clock, Star, AlertTriangle, Smile, Frown, PackageCheck, Route, BarChart, Hash, Users, Sigma } from 'lucide-react';
 
 export function analyzeData(data: MergedData[], filters: Record<string, any>): AnalysisData {
@@ -99,7 +99,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const generalKpis: Kpi[] = [
         { title: 'Taux de Ponctualité (Réalisé)', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${toleranceMinutes} min`, icon: Clock },
         { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${toleranceMinutes} min après le créneau`, icon: Frown },
-        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `> ${toleranceMinutes} min avant le créneau`, icon: Smile },
+        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< -${toleranceMinutes} min avant le créneau`, icon: Smile },
         { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis`, icon: Star },
     ];
     
@@ -188,9 +188,9 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     ];
     
     // --- Performance & Context Analysis ---
-    const performanceByDriver = calculatePerformanceByDriver(uniqueTourneesWithTasks);
-    const performanceByCity = calculatePerformanceByGeo(allTasks, 'ville');
-    const performanceByPostalCode = calculatePerformanceByGeo(allTasks, 'codePostal');
+    const performanceByDriver = calculatePerformanceByDriver(uniqueTourneesWithTasks, toleranceSeconds);
+    const performanceByCity = calculatePerformanceByGeo(allTasks, 'ville', toleranceSeconds);
+    const performanceByPostalCode = calculatePerformanceByGeo(allTasks, 'codePostal', toleranceSeconds);
 
     const delaysByWarehouse = countItemsBy(lateTasks, (t) => t.tournee!.entrepot);
     const delaysByCity = countItemsBy(lateTasks, (t) => t.ville);
@@ -205,11 +205,11 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     // --- Workload Charts ---
     const workloadByHour: WorkloadByHour[] = [];
     const avgWorkloadByHour: AvgWorkloadByHour[] = [];
-    const tasksByHour: Record<string, { planned: number, real: number, plannedDrivers: Set<string>, realDrivers: Set<string> }> = {};
+    const tasksByHour: Record<string, { planned: number, real: number, delays: number, advances: number, plannedDrivers: Set<string>, realDrivers: Set<string> }> = {};
 
     for (let i = 0; i < 24; i++) {
         const hourStr = `${String(i).padStart(2, '0')}:00`;
-        tasksByHour[hourStr] = { planned: 0, real: 0, plannedDrivers: new Set(), realDrivers: new Set() };
+        tasksByHour[hourStr] = { planned: 0, real: 0, delays: 0, advances: 0, plannedDrivers: new Set(), realDrivers: new Set() };
     }
 
     allTasks.forEach(task => {
@@ -226,12 +226,17 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
             if (tasksByHour[realHourStr]) {
                 tasksByHour[realHourStr].real++;
                 tasksByHour[realHourStr].realDrivers.add(task.livreur);
+                if (task.retardStatus === 'late') {
+                    tasksByHour[realHourStr].delays++;
+                } else if (task.retardStatus === 'early') {
+                    tasksByHour[realHourStr].advances++;
+                }
             }
         }
     });
 
     Object.entries(tasksByHour).forEach(([hour, data]) => {
-        workloadByHour.push({ hour, planned: data.planned, real: data.real });
+        workloadByHour.push({ hour, planned: data.planned, real: data.real, delays: data.delays, advances: data.advances });
         
         const plannedDriverCount = data.plannedDrivers.size;
         const realDriverCount = data.realDrivers.size;
@@ -242,6 +247,13 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
             avgReal: realDriverCount > 0 ? data.real / realDriverCount : 0 
         });
     });
+
+    const totalAvgPlanned = avgWorkloadByHour.reduce((sum, item) => sum + item.avgPlanned, 0);
+    const totalAvgReal = avgWorkloadByHour.reduce((sum, item) => sum + item.avgReal, 0);
+    const avgWorkload: AvgWorkload = {
+      avgPlanned: totalAvgPlanned / avgWorkloadByHour.length,
+      avgReal: totalAvgReal / avgWorkloadByHour.length
+    }
 
 
     return {
@@ -263,7 +275,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         advancesByPostalCode,
         advancesByHour,
         workloadByHour,
-        avgWorkloadByDriverByHour: avgWorkloadByHour
+        avgWorkloadByDriverByHour: avgWorkloadByHour,
+        avgWorkload
     };
 }
 
@@ -288,7 +301,8 @@ function createEmptyAnalysisData(): AnalysisData {
         advancesByPostalCode: [],
         advancesByHour: [],
         workloadByHour: [],
-        avgWorkloadByDriverByHour: []
+        avgWorkloadByDriverByHour: [],
+        avgWorkload: { avgPlanned: 0, avgReal: 0 }
     };
 }
 
@@ -319,7 +333,7 @@ function countByHour(tasks: MergedData[]): DelayByHour[] {
       .sort((a, b) => a.hour.localeCompare(b.hour));
 }
 
-function calculatePerformanceByDriver(toursWithTasks: { tour: Tournee, tasks: MergedData[] }[]): PerformanceByDriver[] {
+function calculatePerformanceByDriver(toursWithTasks: { tour: Tournee, tasks: MergedData[] }[], toleranceSeconds: number): PerformanceByDriver[] {
     const driverGroups = new Map<string, { tours: Tournee[], tasks: MergedData[], overweightTours: Set<string> }>();
 
     toursWithTasks.forEach(({ tour, tasks }) => {
@@ -360,7 +374,7 @@ function calculatePerformanceByDriver(toursWithTasks: { tour: Tournee, tasks: Me
     }).sort((a, b) => b.totalTours - a.totalTours);
 }
 
-function calculatePerformanceByGeo(tasks: MergedData[], key: 'ville' | 'codePostal'): PerformanceByGeo[] {
+function calculatePerformanceByGeo(tasks: MergedData[], key: 'ville' | 'codePostal', toleranceSeconds: number): PerformanceByGeo[] {
     const geoGroups = new Map<string, { totalTasks: number, lateTasks: MergedData[] }>();
 
     tasks.forEach(task => {

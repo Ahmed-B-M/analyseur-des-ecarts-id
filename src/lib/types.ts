@@ -134,10 +134,17 @@ export type WorkloadByHour = {
   hour: string;
   planned: number;
   real: number;
+  delays: number;
+  advances: number;
 }
 
 export type AvgWorkloadByHour = {
   hour: string;
+  avgPlanned: number;
+  avgReal: number;
+}
+
+export type AvgWorkload = {
   avgPlanned: number;
   avgReal: number;
 }
@@ -162,6 +169,7 @@ export type AnalysisData = {
   advancesByPostalCode: DelayCount[];
   workloadByHour: WorkloadByHour[];
   avgWorkloadByDriverByHour: AvgWorkloadByHour[];
+  avgWorkload: AvgWorkload;
   aiAnalysisResults?: {
     totalNegative: number;
     relatedToTiming: number;

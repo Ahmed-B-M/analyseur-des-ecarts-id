@@ -1,7 +1,7 @@
 'use client';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
 import type { AnalysisData, MergedData, OverloadedTourInfo, DurationDiscrepancy, LateStartAnomaly, PerformanceByDriver, PerformanceByGeo } from '@/lib/types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, AreaChart, Area, ComposedChart, Line } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
@@ -420,28 +420,39 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardContent>
            </Card>
            <Card>
-            <CardHeader>
-              <CardTitle>Charge de Travail par Heure</CardTitle>
-              <CardDescription>Comparaison du volume de tâches planifiées et réalisées au fil de la journée.</CardDescription>
-            </CardHeader>
-            <CardContent>
-               <ResponsiveContainer width="100%" height={320}>
-                  <AreaChart data={analysisData.workloadByHour}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="hour" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Area type="monotone" dataKey="planned" name="Planifié" stroke={ACCENT_COLOR} fill={ACCENT_COLOR} fillOpacity={0.3} />
-                    <Area type="monotone" dataKey="real" name="Réalisé" stroke={PRIMARY_COLOR} fill={PRIMARY_COLOR} fillOpacity={0.3} />
-                  </AreaChart>
-               </ResponsiveContainer>
-            </CardContent>
-          </Card>
+             <CardHeader>
+               <CardTitle>Charge, Retards et Avances par Heure</CardTitle>
+               <CardDescription>Volume de tâches, retards et avances au fil de la journée.</CardDescription>
+             </CardHeader>
+             <CardContent>
+                <ResponsiveContainer width="100%" height={320}>
+                   <ComposedChart data={analysisData.workloadByHour}>
+                     <CartesianGrid strokeDasharray="3 3" />
+                     <XAxis dataKey="hour" />
+                     <YAxis yAxisId="left" />
+                     <YAxis yAxisId="right" orientation="right" />
+                     <Tooltip />
+                     <Legend />
+                     <Area yAxisId="left" type="monotone" dataKey="planned" name="Planifié" stroke={ACCENT_COLOR} fill={ACCENT_COLOR} fillOpacity={0.3} />
+                     <Area yAxisId="left" type="monotone" dataKey="real" name="Réalisé" stroke={PRIMARY_COLOR} fill={PRIMARY_COLOR} fillOpacity={0.3} />
+                     <Line yAxisId="right" type="monotone" dataKey="delays" name="Retards" stroke={PRIMARY_COLOR} dot={false} strokeWidth={2} />
+                     <Line yAxisId="right" type="monotone" dataKey="advances" name="Avances" stroke={ADVANCE_COLOR} dot={false} strokeWidth={2} />
+                   </ComposedChart>
+                </ResponsiveContainer>
+             </CardContent>
+           </Card>
            <Card>
             <CardHeader>
               <CardTitle>Intensité du Travail par Heure</CardTitle>
-               <CardDescription>Nombre moyen de tâches gérées par livreur à chaque heure.</CardDescription>
+               <CardDescription className="flex items-center gap-2">
+                <span>Nb. moyen de tâches / livreur.</span>
+                <span className="font-semibold text-xs rounded bg-muted px-1.5 py-0.5">
+                    Moy Plan.: {analysisData.avgWorkload.avgPlanned.toFixed(2)}
+                </span>
+                <span className="font-semibold text-xs rounded bg-muted px-1.5 py-0.5">
+                    Moy Réel: {analysisData.avgWorkload.avgReal.toFixed(2)}
+                </span>
+               </CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={320}>
