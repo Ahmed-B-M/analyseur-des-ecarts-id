@@ -17,9 +17,10 @@ export type Tournee = {
   heureFinReelle: number; // in seconds from midnight
   capaciteBacs: number;
   bacsPrevus: number;
+  bacsReels: number;
   capacitePoids: number; // in kg
   poidsPrevu: number; // in kg
-  poidsReel?: number; // Calculated field
+  poidsReel: number; 
 };
 
 export type Tache = {
@@ -75,7 +76,20 @@ export type OverloadedTourInfo = Tournee & {
     poidsReel: number;
     depassementPoids: number;
     tauxDepassementPoids: number;
+    bacsReels: number;
+    depassementBacs: number;
+    tauxDepassementBacs: number;
 };
+
+export type DelayCount = {
+    key: string;
+    count: number;
+}
+
+export type DelayByHour = {
+    hour: string;
+    count: number;
+}
 
 export type AnalysisData = {
   generalKpis: Kpi[];
@@ -84,7 +98,10 @@ export type AnalysisData = {
   overloadedTours: OverloadedTourInfo[];
   performanceByDriver: PerformanceBy<string>[];
   performanceByCity: PerformanceBy<string>[];
-  delaysByWarehouse: { warehouse: string; count: number }[];
+  delaysByWarehouse: DelayCount[];
+  delaysByHour: DelayByHour[];
+  delaysByCity: DelayCount[];
+  delaysByPostalCode: DelayCount[];
   aiAnalysisResults?: {
     totalNegative: number;
     relatedToTiming: number;

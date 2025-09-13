@@ -5,7 +5,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
-import { AlertTriangle, Info, Package, Weight } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AnalysisDashboardProps {
   analysisData: AnalysisData | null;
@@ -14,6 +15,7 @@ interface AnalysisDashboardProps {
 }
 
 const COLORS = ['#0033A0', '#E4002B', '#FFBB28', '#FF8042', '#00C49F'];
+const ACCENT_COLOR = "hsl(var(--accent))";
 
 export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData }: AnalysisDashboardProps) {
   if (!analysisData) {
@@ -35,6 +37,16 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
          onFilterAndSwitch({ city: payload.key });
       }
     }
+  };
+  
+  const CustomYAxisTick = ({ y, payload }: any) => {
+    return (
+      <g transform={`translate(0,${y})`}>
+        <text x={0} y={0} dy={4} textAnchor="start" fill="#666" fontSize={12} className="max-w-[70px] truncate">
+          {payload.value}
+        </text>
+      </g>
+    );
   };
 
   return (
@@ -66,58 +78,85 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             <AiAnalysis allData={allData} />
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-         <Card>
+
+       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
             <CardHeader>
-              <CardTitle>Top 5 Villes par Nombre de Tâches</CardTitle>
+              <CardTitle className="flex items-center gap-2"><MapPin/>Répartition des Retards par Entrepôt</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={analysisData.performanceByCity.slice(0, 5)} onClick={handleBarClick} className="cursor-pointer">
+                <ScrollArea className="h-80">
+                  <ResponsiveContainer width="100%" height={analysisData.delaysByWarehouse.length * 30}>
+                    <BarChart data={analysisData.delaysByWarehouse} layout="vertical" margin={{ left: 80 }}>
+                        <XAxis type="number" />
+                        <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
+                        <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
+                        <Bar dataKey="count" name="Retards" barSize={20} fill={ACCENT_COLOR}>
+                        </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ScrollArea>
+            </CardContent>
+          </Card>
+           <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Clock />Répartition des Retards par Heure</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={analysisData.delaysByHour}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="key" />
-                  <YAxis yAxisId="left" orientation="left" stroke="var(--color-chart-1)" />
-                  <YAxis yAxisId="right" orientation="right" stroke="var(--color-chart-2)" />
+                  <XAxis dataKey="hour" />
+                  <YAxis />
                   <Tooltip />
-                  <Legend />
-                  <Bar yAxisId="left" dataKey="totalTasks" fill="hsl(var(--chart-1))" name="Nb. Tâches" />
-                  <Bar yAxisId="right" dataKey="avgDelay" fill="hsl(var(--chart-2))" name="Retard moyen (min)" />
+                  <Bar dataKey="count" fill={ACCENT_COLOR} name="Nb. Retards" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Retards par Entrepôt</CardTitle>
+              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Villes avec le Plus de Retards</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                 <BarChart data={analysisData.delaysByWarehouse} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" />
+              <ResponsiveContainer width="100%" height={320}>
+                 <BarChart data={analysisData.delaysByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }}>
                     <XAxis type="number" />
-                    <YAxis dataKey="warehouse" type="category" width={80} tick={{fontSize: 12}} />
-                    <Tooltip />
-                    <Bar dataKey="count" name="Nombre de retards">
-                        {analysisData.delaysByWarehouse.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
+                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
+                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
+                    <Bar dataKey="count" name="Retards" barSize={20} fill={ACCENT_COLOR}>
+                    </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Codes Postaux avec le Plus de Retards</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={320}>
+                 <BarChart data={analysisData.delaysByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }}>
+                    <XAxis type="number" />
+                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
+                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
+                    <Bar dataKey="count" name="Retards" barSize={20} fill={ACCENT_COLOR}>
                     </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
       </div>
-
+      
       {analysisData.overloadedTours.length > 0 && (
           <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     <AlertTriangle className="text-amber-500"/>
-                    Tournées en Surcharge de Poids
+                    Tournées en Surcharge
                 </CardTitle>
                 <CardDescription>
-                    Tournées dont le poids réel des tâches dépasse la capacité maximale du véhicule.
+                    Tournées dont le poids réel ou le nombre de bacs dépasse la capacité maximale du véhicule.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -126,9 +165,12 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                         <TableRow>
                             <TableHead>Tournée</TableHead>
                             <TableHead>Livreur</TableHead>
-                            <TableHead>Capacité (kg)</TableHead>
-                            <TableHead>Poids Réel (kg)</TableHead>
-                            <TableHead>Dépassement</TableHead>
+                            <TableHead>Capacité Poids</TableHead>
+                            <TableHead>Poids Réel</TableHead>
+                            <TableHead>Dépassement Poids</TableHead>
+                            <TableHead>Capacité Bacs</TableHead>
+                            <TableHead>Bacs Réels</TableHead>
+                            <TableHead>Dépassement Bacs</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -136,12 +178,19 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                             <TableRow key={tour.uniqueId}>
                                 <TableCell>{tour.nom}</TableCell>
                                 <TableCell>{tour.livreur}</TableCell>
-                                <TableCell>{tour.capacitePoids.toFixed(2)}</TableCell>
-                                <TableCell className="font-bold text-destructive">
-                                    {tour.poidsReel.toFixed(2)}
+                                <TableCell>{tour.capacitePoids.toFixed(2)} kg</TableCell>
+                                <TableCell className={cn(tour.poidsReel > tour.capacitePoids && "font-bold text-destructive")}>
+                                    {tour.poidsReel.toFixed(2)} kg
                                 </TableCell>
-                                <TableCell className="font-semibold">
-                                    +{tour.depassementPoids.toFixed(2)} kg ({tour.tauxDepassementPoids.toFixed(1)}%)
+                                <TableCell className={cn(tour.poidsReel > tour.capacitePoids && "font-semibold")}>
+                                    {tour.depassementPoids > 0 ? `+${tour.depassementPoids.toFixed(2)} kg (${tour.tauxDepassementPoids.toFixed(1)}%)` : '-'}
+                                </TableCell>
+                                <TableCell>{tour.capaciteBacs} bacs</TableCell>
+                                 <TableCell className={cn(tour.bacsReels > tour.capaciteBacs && "font-bold text-destructive")}>
+                                    {tour.bacsReels} bacs
+                                </TableCell>
+                                <TableCell className={cn(tour.bacsReels > tour.capaciteBacs && "font-semibold")}>
+                                    {tour.depassementBacs > 0 ? `+${tour.depassementBacs} bacs (${tour.tauxDepassementBacs.toFixed(1)}%)` : '-'}
                                 </TableCell>
                             </TableRow>
                         ))}
