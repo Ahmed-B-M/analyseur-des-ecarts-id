@@ -11,16 +11,23 @@ export type Tournee = {
   distanceReelle: number; // in meters
   dureePrevue: number; // in seconds
   dureeReelle: number; // in seconds
+  dureeReelleCalculee?: number; // in seconds, calculated from tasks
   heureDepartPrevue: number; // in seconds from midnight
   heureFinPrevue: number; // in seconds from midnight
   heureDepartReelle: number; // in seconds from midnight
   heureFinReelle: number; // in seconds from midnight
+  demarre: number; // in seconds from midnight
+  termine: number; // in seconds from midnight
   capaciteBacs: number;
   bacsPrevus: number;
   bacsReels: number;
   capacitePoids: number; // in kg
   poidsPrevu: number; // in kg
   poidsReel: number; 
+  tempsPreparationLivreur: number;
+  tempsService: number;
+  tempsParcours: number;
+  codePostalMajoritaire: string;
 };
 
 export type Tache = {
@@ -36,6 +43,7 @@ export type Tache = {
   heureFinCreneau: number; // in seconds from midnight
   heureArriveeApprox: number; // in seconds from midnight
   heureCloture: number; // in seconds from midnight
+  tempsService: number; // in seconds
   tempsServiceReel: number; // in seconds
   retard: number; // in seconds
   poids: number; // in kg
@@ -68,15 +76,13 @@ export type PerformanceBy<T> = {
   totalTasks: number;
   punctualityRate: number;
   avgDelay: number; // in minutes
-  overloadCount?: number;
   avgRating?: number;
 };
 
 export type OverloadedTourInfo = Tournee & {
-    poidsReel: number;
+    isOverloaded: boolean;
     depassementPoids: number;
     tauxDepassementPoids: number;
-    bacsReels: number;
     depassementBacs: number;
     tauxDepassementBacs: number;
 };
@@ -97,7 +103,6 @@ export type AnalysisData = {
   qualityKpis: Kpi[];
   overloadedTours: OverloadedTourInfo[];
   performanceByDriver: PerformanceBy<string>[];
-  performanceByCity: PerformanceBy<string>[];
   delaysByWarehouse: DelayCount[];
   delaysByHour: DelayByHour[];
   delaysByCity: DelayCount[];
