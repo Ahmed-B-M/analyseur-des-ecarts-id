@@ -30,7 +30,8 @@ export default function CalendarView({ data, onDateSelect, onWeekSelect }: Calen
 
   const handleDayClick = (day: Date | undefined) => {
     setDate(day);
-
+    onDateSelect(day ? format(day, 'yyyy-MM-dd') : undefined);
+    
     if (day) {
         const start = startOfWeek(day, { weekStartsOn: 1 }); // Monday
         const end = endOfWeek(day, { weekStartsOn: 1 });
@@ -41,14 +42,18 @@ export default function CalendarView({ data, onDateSelect, onWeekSelect }: Calen
         setWeek(undefined);
         onWeekSelect(undefined);
     }
-    
-    // Also trigger single day selection if needed, or decide on a primary interaction
-    onDateSelect(day ? format(day, 'yyyy-MM-dd') : undefined);
   };
   
   useEffect(() => {
     // Select current week on initial load
-    handleDayClick(new Date());
+    const today = new Date();
+    const start = startOfWeek(today, { weekStartsOn: 1 });
+    const end = endOfWeek(today, { weekStartsOn: 1 });
+    const currentWeek = { from: start, to: end };
+    setWeek(currentWeek);
+    onWeekSelect(currentWeek);
+    setDate(undefined);
+    onDateSelect(undefined);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -65,12 +70,12 @@ export default function CalendarView({ data, onDateSelect, onWeekSelect }: Calen
           locale={fr}
           showOutsideDays
           components={{
-            DayContent: ({ date, ...props }) => {
-                const dayStr = format(date, 'yyyy-MM-dd');
+            DayContent: ({ date: calendarDate, ...props }) => {
+                const dayStr = format(calendarDate, 'yyyy-MM-dd');
                 const toursCount = toursByDay[dayStr]?.size || 0;
                 return (
                     <div className="relative h-full w-full flex items-center justify-center">
-                        <p>{format(date, 'd')}</p>
+                        <p>{format(calendarDate, 'd')}</p>
                         {toursCount > 0 && (
                             <div className="absolute bottom-1 w-5 h-5 bg-primary/80 text-primary-foreground text-xs rounded-full flex items-center justify-center">
                                 {toursCount}

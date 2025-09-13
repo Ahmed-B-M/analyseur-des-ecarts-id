@@ -153,43 +153,43 @@ export default function Dashboard() {
     dispatch({ type: 'SET_FILE', fileType, file });
   };
   
-  const setFilters = (newFilters: Partial<typeof state.filters>) => {
-    const filtersToApply = { ...state.filters, ...newFilters };
-    if (newFilters.selectedDate !== undefined) {
-        delete filtersToApply.dateRange;
+  const setFilters = useCallback((newFilters: Record<string, any>) => {
+    const filtersToApply = { ...newFilters };
+
+    if ('selectedDate' in filtersToApply && 'dateRange' in filtersToApply) {
+        if(filtersToApply.selectedDate) {
+            delete filtersToApply.dateRange;
+        } else {
+            delete filtersToApply.selectedDate;
+        }
     }
-    if (newFilters.dateRange !== undefined) {
-        delete filtersToApply.selectedDate;
-    }
-    if (newFilters.selectedDate === null) {
-        delete filtersToApply.selectedDate;
-    }
-    if (newFilters.dateRange === null) {
-        delete filtersToApply.dateRange;
-    }
+    
     dispatch({ type: 'SET_FILTERS', filters: filtersToApply });
-  }
+  }, []);
 
   const applyFilterAndSwitchTab = useCallback((filter: Record<string, any>) => {
-    setFilters(filter);
+    setFilters({...state.filters, ...filter});
     setActiveTab('data');
-  }, []);
+  }, [setFilters, state.filters]);
 
   const depots = useMemo(() => {
     if (!state.data) return [];
+    
     const specialCases: Record<string, string> = {
         "Solo Antibes": "Solo Antibes"
     };
 
     const depotNames = state.data.tournees.map(t => {
+        const entrepot = t.entrepot || "";
         for (const specialCase in specialCases) {
-            if (t.entrepot.startsWith(specialCase)) {
+            if (entrepot.startsWith(specialCase)) {
                 return specialCases[specialCase];
             }
         }
-        return t.entrepot.split(' ')[0];
+        return entrepot.split(' ')[0];
     });
-    return [...new Set(depotNames)].sort();
+
+    return [...new Set(depotNames)].filter(Boolean).sort();
   }, [state.data]);
 
   const warehouses = useMemo(() => {
@@ -275,8 +275,8 @@ export default function Dashboard() {
                     <div className="md:col-span-1">
                         <CalendarView 
                             data={mergedData} 
-                            onDateSelect={(date) => setFilters({ selectedDate: date })} 
-                            onWeekSelect={(range) => setFilters({ dateRange: range })}
+                            onDateSelect={(date) => setFilters({ ...state.filters, selectedDate: date, dateRange: undefined })}
+                            onWeekSelect={(range) => setFilters({ ...state.filters, dateRange: range, selectedDate: undefined })}
                         />
                     </div>
                     <div className="md:col-span-2">

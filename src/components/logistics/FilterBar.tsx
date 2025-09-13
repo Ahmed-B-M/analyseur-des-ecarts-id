@@ -35,10 +35,12 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
         newFilters[key] = value;
     }
     
-    if (key === 'dateRange' && value) {
-        delete newFilters.selectedDate;
-    } else if (key === 'selectedDate' && value) {
-        delete newFilters.dateRange;
+    if (key === 'dateRange') {
+        if(value) delete newFilters.selectedDate;
+        else delete newFilters.dateRange
+    } else if (key === 'selectedDate') {
+        if(value) delete newFilters.dateRange;
+        else delete newFilters.selectedDate;
     }
     
     setFilters(newFilters);
@@ -54,7 +56,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
     const persistentFilters = ['punctualityThreshold'];
     const newFilters: Record<string, any> = {};
     persistentFilters.forEach(key => {
-        if(filters[key]) {
+        if(filters[key] !== undefined) {
             newFilters[key] = filters[key];
         }
     });
@@ -85,16 +87,16 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
       if (key === 'heure') {
           return `${value}h - ${parseInt(value) + 1}h`;
       }
-      if (key === 'dateRange' && typeof value === 'object' && value.from && value.to) {
+      if (key === 'dateRange' && typeof value === 'object' && value && value.from && value.to) {
          if (value.from.getTime() === value.to.getTime()) {
             return format(value.from, 'd MMMM yyyy', { locale: fr });
          }
         return `${format(value.from, 'd MMM', { locale: fr })} - ${format(value.to, 'd MMM yyyy', { locale: fr })}`;
       }
-      if (key === 'dateRange' && typeof value === 'object' && value.from) {
+      if (key === 'dateRange' && typeof value === 'object' && value && value.from) {
         return `Depuis le ${format(value.from, 'd MMMM yyyy', { locale: fr })}`;
       }
-       if (key === 'dateRange' && typeof value === 'object' && value.to) {
+       if (key === 'dateRange' && typeof value === 'object' && value && value.to) {
         return `Jusqu'au ${format(value.to, 'd MMMM yyyy', { locale: fr })}`;
       }
       return value;
