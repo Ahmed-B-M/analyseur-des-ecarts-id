@@ -119,12 +119,15 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
   const headers = data[0].map(h => String(h).trim());
   const headerMap: Record<number, string> = {};
   const foundHeaders = new Set<string>();
+  
+  const colMap: Record<string, number> = {};
 
   for (let i = 0; i < headers.length; i++) {
       const foundKey = findHeader(headers[i], fileType);
       if (foundKey) {
         headerMap[i] = foundKey;
         foundHeaders.add(foundKey);
+        colMap[foundKey] = i;
       }
   }
 
@@ -200,6 +203,8 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
           newRow[key] = String(value).trim();
       }
     }
+    
+    // --- Post-processing and fallback logic ---
 
     if (fileType === 'tournees') {
         if (newRow.nom && String(newRow.nom).toUpperCase().startsWith('R')) {
@@ -210,14 +215,25 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
         }
     }
     
-    if (fileType === 'taches' && tourneeStartTimes) {
-        const uniqueId = `${newRow.nomTournee}|${newRow.date}|${newRow.entrepot}`;
-        const tourneeStartTime = tourneeStartTimes.get(uniqueId);
-        const twelveHoursInSeconds = 12 * 3600;
+    if (fileType === 'taches') {
+        // Fallback for missing heureArriveeReelle
+        if (!newRow.heureArriveeReelle && colMap['heureCloture'] !== undefined) {
+             const clotureValue = row[colMap['heureCloture']];
+             if (clotureValue !== null && clotureValue !== undefined) {
+                newRow.heureArriveeReelle = parseTime(clotureValue);
+             }
+        }
+        
+        // Handle overnight tours
+        if (tourneeStartTimes) {
+            const uniqueId = `${newRow.nomTournee}|${newRow.date}|${newRow.entrepot}`;
+            const tourneeStartTime = tourneeStartTimes.get(uniqueId);
+            const twelveHoursInSeconds = 12 * 3600;
 
-        if (tourneeStartTime && newRow.heureCloture < tourneeStartTime - twelveHoursInSeconds) {
-            newRow.heureCloture += 24 * 3600;
-            newRow.heureArriveeReelle += 24 * 3600;
+            if (tourneeStartTime && newRow.heureCloture < tourneeStartTime - twelveHoursInSeconds) {
+                newRow.heureCloture += 24 * 3600;
+                newRow.heureArriveeReelle += 24 * 3600;
+            }
         }
     }
 
