@@ -29,15 +29,16 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
 
   const handleFilterChange = (key: string, value: any) => {
     const newFilters = { ...filters };
-    if (value === ALL_ITEMS_VALUE || value === '') {
+    if (value === ALL_ITEMS_VALUE || value === '' || value === undefined) {
         delete newFilters[key];
     } else {
         newFilters[key] = value;
     }
     
-    // When changing date range, remove selectedDate
-    if (key === 'dateRange' && newFilters.selectedDate) {
+    if (key === 'dateRange' && value) {
         delete newFilters.selectedDate;
+    } else if (key === 'selectedDate' && value) {
+        delete newFilters.dateRange;
     }
     
     setFilters(newFilters);
@@ -61,7 +62,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
   }
 
   const activeFilters = Object.keys(filters).filter(key => 
-    !['punctualityThreshold'].includes(key) && filters[key]
+    !['punctualityThreshold'].includes(key) && filters[key] !== undefined && filters[key] !== null
   );
   
   const getFilterLabel = (key: string) => {
@@ -81,19 +82,19 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
       if (key === 'selectedDate') {
           return format(new Date(value), 'd MMMM yyyy', { locale: fr });
       }
-       if (key === 'heure') {
+      if (key === 'heure') {
           return `${value}h - ${parseInt(value) + 1}h`;
       }
-      if (key === 'dateRange' && value.from && value.to) {
+      if (key === 'dateRange' && typeof value === 'object' && value.from && value.to) {
          if (value.from.getTime() === value.to.getTime()) {
             return format(value.from, 'd MMMM yyyy', { locale: fr });
          }
         return `${format(value.from, 'd MMM', { locale: fr })} - ${format(value.to, 'd MMM yyyy', { locale: fr })}`;
       }
-      if (key === 'dateRange' && value.from) {
+      if (key === 'dateRange' && typeof value === 'object' && value.from) {
         return `Depuis le ${format(value.from, 'd MMMM yyyy', { locale: fr })}`;
       }
-       if (key === 'dateRange' && value.to) {
+       if (key === 'dateRange' && typeof value === 'object' && value.to) {
         return `Jusqu'au ${format(value.to, 'd MMMM yyyy', { locale: fr })}`;
       }
       return value;
@@ -106,6 +107,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
           <Label>Période d'Analyse</Label>
           <DateRangePicker 
             onDateChange={(range) => handleFilterChange('dateRange', range)}
+            date={filters.dateRange}
             disabled={!!filters.selectedDate}
           />
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Calendar as CalendarIcon } from 'lucide-react';
@@ -17,11 +17,16 @@ import {
 
 interface DateRangePickerProps extends React.ComponentProps<'div'> {
   onDateChange: (range: DateRange | undefined) => void;
+  date: DateRange | undefined;
   disabled?: boolean;
 }
 
-export function DateRangePicker({ className, onDateChange, disabled }: DateRangePickerProps) {
-  const [date, setDate] = useState<DateRange | undefined>(undefined);
+export function DateRangePicker({ className, onDateChange, date: propDate, disabled }: DateRangePickerProps) {
+  const [date, setDate] = useState<DateRange | undefined>(propDate);
+  
+  useEffect(() => {
+    setDate(propDate);
+  }, [propDate]);
 
   const handleDateSelect = (range: DateRange | undefined) => {
     setDate(range);
