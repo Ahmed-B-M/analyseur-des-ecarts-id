@@ -113,7 +113,7 @@ function parseDate(value: any): string {
 }
 
 
-function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
+function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeStartTimes?: Map<string, number>): any[] {
   if (data.length < 2) return [];
 
   const headers = data[0].map(h => String(h).trim());
@@ -207,19 +207,14 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches'): any[] {
         }
     }
     
-    // Handle overnight tasks
-    if (fileType === 'taches' && newRow.heureCloture > 0 && newRow.heureDebutCreneau > 0 && newRow.heureCloture < newRow.heureDebutCreneau) {
+    if (fileType === 'taches' && tourneeStartTimes) {
+        const uniqueId = `${newRow.nomTournee}|${newRow.date}|${newRow.entrepot}`;
+        const tourneeStartTime = tourneeStartTimes.get(uniqueId);
         const twelveHoursInSeconds = 12 * 3600;
-        if (newRow.heureDebutCreneau - newRow.heureCloture > twelveHoursInSeconds) {
-            newRow.heureCloture += 24 * 3600; // Add 24 hours in seconds
-        }
-    }
-    
-    // Also handle overnight for real arrival time vs slot start
-     if (fileType === 'taches' && newRow.heureArriveeReelle > 0 && newRow.heureDebutCreneau > 0 && newRow.heureArriveeReelle < newRow.heureDebutCreneau) {
-        const twelveHoursInSeconds = 12 * 3600;
-        if (newRow.heureDebutCreneau - newRow.heureArriveeReelle > twelveHoursInSeconds) {
-            newRow.heureArriveeReelle += 24 * 3600; // Add 24 hours in seconds
+
+        if (tourneeStartTime && newRow.heureCloture < tourneeStartTime - twelveHoursInSeconds) {
+            newRow.heureCloture += 24 * 3600;
+            newRow.heureArriveeReelle += 24 * 3600;
         }
     }
 
@@ -247,22 +242,32 @@ self.addEventListener('message', async (event: MessageEvent) => {
     const tachesJson = XLSX.utils.sheet_to_json(tachesSheet, { header: 1, defval: null });
 
     const rawTournees = normalizeData(tourneesJson, 'tournees');
-    const rawTaches = normalizeData(tachesJson, 'taches');
     
     if (rawTournees.length === 0) {
         throw new Error("Aucune donnée de tournée n'a pu être lue. Vérifiez le fichier des tournées et ses en-têtes.");
     }
+    
+    const tourneeStartTimes = new Map<string, number>();
+    const tournees: Tournee[] = rawTournees.map((t: any) => {
+      const uniqueId = `${t.nom}|${t.date}|${t.entrepot}`;
+      // Fallback to heureDepartPrevue if demarre is also not available
+      const startTime = t.heureDepartReelle || t.demarre || t.heureDepartPrevue;
+      tourneeStartTimes.set(uniqueId, startTime);
+      return {
+        ...t,
+        bacsReels: 0,
+        poidsReel: 0,
+        uniqueId: uniqueId,
+        heureDepartReelle: startTime // Ensure this is set for dataAnalyzer
+      };
+    });
+
+    const rawTaches = normalizeData(tachesJson, 'taches', tourneeStartTimes);
+
     if (rawTaches.length === 0) {
         throw new Error("Aucune donnée de tâche n'a pu être lue. Vérifiez le fichier des tâches et ses en-têtes.");
     }
     
-    const tournees: Tournee[] = rawTournees.map((t: any) => ({
-      ...t,
-      bacsReels: 0,
-      poidsReel: 0,
-      uniqueId: `${t.nom}|${t.date}|${t.entrepot}`
-    }));
-
     const taches: Tache[] = rawTaches.map((t: any) => ({
       ...t,
       tourneeUniqueId: `${t.nomTournee}|${t.date}|${t.entrepot}`

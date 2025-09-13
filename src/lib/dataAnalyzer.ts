@@ -50,21 +50,13 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         tour.bacsReels = tasks.reduce((sum, t) => sum + t.items, 0);
         
         if (tasks.length > 0) {
-            // Sort by sequence if available, otherwise by approximate arrival time
-            const sortedTasksByPlan = tasks[0].sequence != null
-                ? [...tasks].sort((a,b) => a.sequence! - b.sequence!)
-                : [...tasks].sort((a,b) => a.heureArriveeApprox - b.heureArriveeApprox);
-
-            const firstPlannedTask = sortedTasksByPlan[0];
-            const lastPlannedTask = sortedTasksByPlan[sortedTasksByPlan.length - 1];
+            const plannedTasks = [...tasks].sort((a,b) => a.heureArriveeApprox - b.heureArriveeApprox);
+            const firstPlannedTask = plannedTasks[0];
+            const lastPlannedTask = plannedTasks[tasks.length - 1];
             
-            // Sort by sequence if available, otherwise by real cloture time
-            const sortedTasksByReal = tasks[0].sequence != null
-                ? [...tasks].sort((a,b) => a.sequence! - b.sequence!)
-                : [...tasks].sort((a,b) => a.heureCloture - b.heureCloture);
-            
-            const firstRealTask = sortedTasksByReal[0];
-            const lastRealTask = sortedTasksByReal[sortedTasksByReal.length - 1];
+            const realTasks = [...tasks].sort((a,b) => a.heureArriveeReelle - b.heureArriveeReelle);
+            const firstRealTask = realTasks[0];
+            const lastRealTask = realTasks[tasks.length - 1];
 
             tour.dureeEstimeeOperationnelle = lastPlannedTask.heureArriveeApprox - firstPlannedTask.heureArriveeApprox;
             tour.dureeReelleCalculee = lastRealTask.heureCloture - firstRealTask.heureArriveeReelle;
@@ -93,7 +85,6 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const outOfTimeTasks = lateTasks.length + earlyTasks.length;
 
     const predictedTasksOnTime = allTasks.filter(t => t.retardPrevisionnelS === 0);
-    const predictedLateTasks = allTasks.filter(t => t.retardPrevisionnelS! > 0);
     const predictedOutOfTimeTasks = allTasks.length - predictedTasksOnTime.length;
 
     const punctualityRate = allTasks.length > 0 ? (tasksOnTime.length / allTasks.length) * 100 : 100;
@@ -103,8 +94,6 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const avgRating = avgRatingData.length > 0 ? avgRatingData.reduce((acc, t) => acc + t.notation!, 0) / avgRatingData.length : 0;
     
     const negativeReviews = allTasks.filter(t => t.notation != null && t.notation <= 3);
-    const negativeReviewsOnLateTasks = negativeReviews.filter(t => t.retardStatus === 'late');
-    const negativeReviewsOnEarlyTasks = negativeReviews.filter(t => t.retardStatus === 'early');
 
 
     const generalKpis: Kpi[] = [
@@ -182,6 +171,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     // --- Quality Impact KPIs ---
     const overloadedToursIds = new Set(overloadedToursInfos.map(t => t.uniqueId));
     const negativeReviewsOnOverloadedTours = negativeReviews.filter(t => t.tournee && overloadedToursIds.has(t.tournee.uniqueId));
+    const negativeReviewsOnLateTasks = negativeReviews.filter(t => t.retardStatus === 'late');
 
     const correlationDelays = negativeReviews.length > 0 ? (negativeReviewsOnLateTasks.length / negativeReviews.length) * 100 : 0;
     const correlationOverload = negativeReviews.length > 0 ? (negativeReviewsOnOverloadedTours.length / negativeReviews.length) * 100 : 0;
