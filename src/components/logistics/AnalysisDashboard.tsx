@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
@@ -174,7 +174,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
   const sortedPerformanceBySlot = analysisData.performanceByTimeSlot.sort((a,b) => slotOrder.indexOf(a.slot) - slotOrder.indexOf(b.slot));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <section>
         <h2 className="text-2xl font-bold mb-4">KPIs Généraux & Satisfaction Client</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
@@ -184,492 +184,516 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
 
       <section>
         <h2 className="text-2xl font-bold mb-4">Synthèse des Écarts : Planifié vs. Réalisé</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {analysisData.discrepancyKpis.map(kpi => <ComparisonKpiCard key={kpi.title} {...kpi} />)}
         </div>
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>Impact des Écarts sur la Qualité</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {analysisData.qualityKpis.map(kpi => <KpiCard variant="inline" key={kpi.title} {...kpi} />)}
-          </CardContent>
-        </Card>
-        <div className="lg:col-span-2">
-            <AiAnalysis allData={allData} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card>
-             <CardHeader>
-               <CardTitle className="flex items-center gap-2"><Calendar/>Performance par Jour</CardTitle>
-             </CardHeader>
-             <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                   <ComposedChart data={sortedPerformanceByDay}>
-                     <CartesianGrid strokeDasharray="3 3" />
-                     <XAxis dataKey="day" fontSize={12} />
-                     <YAxis yAxisId="left" label={{ value: 'Nb. Tâches', angle: -90, position: 'insideLeft', fontSize: 12, offset: 10 }} />
-                     <YAxis yAxisId="right" orientation="right" label={{ value: 'Retard Moyen (min)', angle: -90, position: 'insideRight', fontSize: 12, offset: 10 }} />
-                     <Tooltip />
-                     <Legend wrapperStyle={{fontSize: "12px"}}/>
-                     <Bar yAxisId="left" dataKey="delays" name="Retards" fill={PRIMARY_COLOR} />
-                     <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} />
-                     <Line yAxisId="right" type="monotone" dataKey="avgDelay" name="Retard Moyen" stroke="#ff7300" dot={false} strokeWidth={2} />
-                   </ComposedChart>
-                </ResponsiveContainer>
-             </CardContent>
-           </Card>
-           <Card>
-             <CardHeader>
-               <CardTitle className="flex items-center gap-2"><Clock/>Performance par Créneau</CardTitle>
-             </CardHeader>
-             <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                   <ComposedChart data={sortedPerformanceBySlot}>
-                     <CartesianGrid strokeDasharray="3 3" />
-                     <XAxis dataKey="slot" fontSize={12}/>
-                     <YAxis yAxisId="left" label={{ value: 'Nb. Tâches', angle: -90, position: 'insideLeft', fontSize: 12, offset: 10 }} />
-                     <YAxis yAxisId="right" orientation="right" label={{ value: 'Retard Moyen (min)', angle: -90, position: 'insideRight', fontSize: 12, offset: 10 }}/>
-                     <Tooltip />
-                     <Legend wrapperStyle={{fontSize: "12px"}}/>
-                     <Bar yAxisId="left" dataKey="delays" name="Retards" fill={PRIMARY_COLOR} />
-                     <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} />
-                     <Line yAxisId="right" type="monotone" dataKey="avgDelay" name="Retard Moyen" stroke="#ff7300" dot={false} strokeWidth={2} />
-                   </ComposedChart>
-                </ResponsiveContainer>
-             </CardContent>
-           </Card>
-           <Card>
-             <CardHeader>
-               <CardTitle className="flex items-center gap-2"><Sigma />Répartition des Écarts</CardTitle>
-             </CardHeader>
-             <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                   <BarChart data={analysisData.delayHistogram}>
-                     <CartesianGrid strokeDasharray="3 3" />
-                     <XAxis dataKey="range" fontSize={12} angle={-30} textAnchor="end" height={60} />
-                     <YAxis />
-                     <Tooltip />
-                     <Bar dataKey="count" name="Nb. de Tâches">
-                        {analysisData.delayHistogram.map((entry, index) => (
-                           <Cell key={`cell-${index}`} fill={entry.range.includes('retard') ? PRIMARY_COLOR : entry.range.includes('avance') ? ADVANCE_COLOR : '#a0aec0'} />
-                        ))}
-                     </Bar>
-                   </BarChart>
-                </ResponsiveContainer>
-             </CardContent>
-           </Card>
-      </div>
-       
-      {analysisData.overloadedTours.length > 0 && (
-          <Card>
+      <section>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card className="lg:col-span-1">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="text-amber-500"/>
-                    Analyse des Dépassements de Charge
-                </CardTitle>
-                <CardDescription>
-                    Tournées dont la charge réelle (poids ou volume) dépasse la capacité maximale du véhicule.
-                </CardDescription>
+              <CardTitle className="flex items-center gap-2"><BarChart2 />Impact des Écarts sur la Qualité</CardTitle>
             </CardHeader>
-            <CardContent>
-                <ScrollArea className="h-72">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'date')}>Date {renderSortIcon('overloaded', 'date')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'nom')}>Tournée {renderSortIcon('overloaded', 'nom')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'livreur')}>Livreur {renderSortIcon('overloaded', 'livreur')}</TableHead>
-                                <TableHead>Capacité Poids</TableHead>
-                                <TableHead>Poids Réel</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementPoids')}>Dépassement Poids {renderSortIcon('overloaded', 'tauxDepassementPoids')}</TableHead>
-                                <TableHead>Capacité Bacs</TableHead>
-                                <TableHead>Bacs Réels</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementBacs')}>Dépassement Bacs {renderSortIcon('overloaded', 'tauxDepassementBacs')}</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {sortedData.overloadedTours?.map(tour => (
-                                <TableRow key={tour.uniqueId}>
-                                    <TableCell>{formatDate(tour.date)}</TableCell>
-                                    <TableCell>{tour.nom}</TableCell>
-                                    <TableCell>{tour.livreur}</TableCell>
-                                    <TableCell>{tour.capacitePoids.toFixed(2)} kg</TableCell>
-                                    <TableCell className={cn(tour.depassementPoids > 0 && "font-bold text-destructive")}>
-                                        {tour.poidsReel.toFixed(2)} kg
-                                    </TableCell>
-                                    <TableCell className={cn(tour.depassementPoids > 0 && "font-semibold")}>
-                                        {tour.depassementPoids > 0 ? `+${tour.depassementPoids.toFixed(2)} kg (${tour.tauxDepassementPoids.toFixed(1)}%)` : '-'}
-                                    </TableCell>
-                                    <TableCell>{tour.capaciteBacs} bacs</TableCell>
-                                     <TableCell className={cn(tour.depassementBacs > 0 && "font-bold text-destructive")}>
-                                        {tour.bacsReels} bacs
-                                    </TableCell>
-                                    <TableCell className={cn(tour.depassementBacs > 0 && "font-semibold")}>
-                                        {tour.depassementBacs > 0 ? `+${tour.depassementBacs} bacs (${tour.tauxDepassementBacs.toFixed(1)}%)` : '-'}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
+            <CardContent className="space-y-4">
+              {analysisData.qualityKpis.map(kpi => <KpiCard variant="inline" key={kpi.title} {...kpi} />)}
             </CardContent>
           </Card>
-      )}
+          <div className="lg:col-span-2">
+              <AiAnalysis allData={allData} />
+          </div>
+        </div>
+      </section>
 
-      {analysisData.durationDiscrepancies.length > 0 && (
-          <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Timer className="text-blue-500"/>
-                    Analyse des Écarts de Durée de Service (Estimée vs. Réelle)
-                </CardTitle>
-                <CardDescription>
-                    Comparaison de la durée entre la première et la dernière livraison de chaque tournée.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ScrollArea className="h-72">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
+      <section>
+        <h2 className="text-2xl font-bold mb-4">Analyse Temporelle</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card>
+               <CardHeader>
+                 <CardTitle className="flex items-center gap-2"><Calendar/>Performance par Jour</CardTitle>
+               </CardHeader>
+               <CardContent>
+                  <ResponsiveContainer width="100%" height={250}>
+                     <ComposedChart data={sortedPerformanceByDay}>
+                       <CartesianGrid strokeDasharray="3 3" />
+                       <XAxis dataKey="day" fontSize={12} />
+                       <YAxis yAxisId="left" label={{ value: 'Nb. Tâches', angle: -90, position: 'insideLeft', fontSize: 12, offset: 10 }} />
+                       <YAxis yAxisId="right" orientation="right" label={{ value: 'Retard Moyen (min)', angle: -90, position: 'insideRight', fontSize: 12, offset: 10 }} />
+                       <Tooltip />
+                       <Legend wrapperStyle={{fontSize: "12px"}}/>
+                       <Bar yAxisId="left" dataKey="delays" name="Retards" fill={PRIMARY_COLOR} />
+                       <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} />
+                       <Line yAxisId="right" type="monotone" dataKey="avgDelay" name="Retard Moyen" stroke="#ff7300" dot={false} strokeWidth={2} />
+                     </ComposedChart>
+                  </ResponsiveContainer>
+               </CardContent>
+             </Card>
+             <Card>
+               <CardHeader>
+                 <CardTitle className="flex items-center gap-2"><Clock/>Performance par Créneau</CardTitle>
+               </CardHeader>
+               <CardContent>
+                  <ResponsiveContainer width="100%" height={250}>
+                     <ComposedChart data={sortedPerformanceBySlot}>
+                       <CartesianGrid strokeDasharray="3 3" />
+                       <XAxis dataKey="slot" fontSize={12}/>
+                       <YAxis yAxisId="left" label={{ value: 'Nb. Tâches', angle: -90, position: 'insideLeft', fontSize: 12, offset: 10 }} />
+                       <YAxis yAxisId="right" orientation="right" label={{ value: 'Retard Moyen (min)', angle: -90, position: 'insideRight', fontSize: 12, offset: 10 }}/>
+                       <Tooltip />
+                       <Legend wrapperStyle={{fontSize: "12px"}}/>
+                       <Bar yAxisId="left" dataKey="delays" name="Retards" fill={PRIMARY_COLOR} />
+                       <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} />
+                       <Line yAxisId="right" type="monotone" dataKey="avgDelay" name="Retard Moyen" stroke="#ff7300" dot={false} strokeWidth={2} />
+                     </ComposedChart>
+                  </ResponsiveContainer>
+               </CardContent>
+             </Card>
+             <Card>
+               <CardHeader>
+                 <CardTitle className="flex items-center gap-2"><Sigma />Répartition des Écarts</CardTitle>
+               </CardHeader>
+               <CardContent>
+                  <ResponsiveContainer width="100%" height={250}>
+                     <BarChart data={analysisData.delayHistogram}>
+                       <CartesianGrid strokeDasharray="3 3" />
+                       <XAxis dataKey="range" fontSize={12} angle={-30} textAnchor="end" height={60} />
+                       <YAxis />
+                       <Tooltip />
+                       <Bar dataKey="count" name="Nb. de Tâches">
+                          {analysisData.delayHistogram.map((entry, index) => (
+                             <Cell key={`cell-${index}`} fill={entry.range.includes('retard') ? PRIMARY_COLOR : entry.range.includes('avance') ? ADVANCE_COLOR : '#a0aec0'} />
+                          ))}
+                       </Bar>
+                     </BarChart>
+                  </ResponsiveContainer>
+               </CardContent>
+             </Card>
+        </div>
+      </section>
+      
+      <section>
+        <h2 className="text-2xl font-bold mb-4">Analyse des Anomalies de Tournées</h2>
+        <div className="space-y-6">
+        {analysisData.overloadedTours.length > 0 && (
+            <Card>
+              <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                      <AlertTriangle className="text-amber-500"/>
+                      Dépassements de Charge
+                  </CardTitle>
+                  <CardDescription>
+                      Tournées dont la charge réelle (poids ou volume) dépasse la capacité maximale du véhicule.
+                  </CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <ScrollArea className="h-72">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'date')}>Date {renderSortIcon('overloaded', 'date')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'nom')}>Tournée {renderSortIcon('overloaded', 'nom')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'livreur')}>Livreur {renderSortIcon('overloaded', 'livreur')}</TableHead>
+                                  <TableHead>Capacité Poids</TableHead>
+                                  <TableHead>Poids Réel</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementPoids')}>Dépassement Poids {renderSortIcon('overloaded', 'tauxDepassementPoids')}</TableHead>
+                                  <TableHead>Capacité Bacs</TableHead>
+                                  <TableHead>Bacs Réels</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementBacs')}>Dépassement Bacs {renderSortIcon('overloaded', 'tauxDepassementBacs')}</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {sortedData.overloadedTours?.map(tour => (
+                                  <TableRow key={tour.uniqueId}>
+                                      <TableCell>{formatDate(tour.date)}</TableCell>
+                                      <TableCell>{tour.nom}</TableCell>
+                                      <TableCell>{tour.livreur}</TableCell>
+                                      <TableCell>{tour.capacitePoids.toFixed(2)} kg</TableCell>
+                                      <TableCell className={cn(tour.depassementPoids > 0 && "font-bold text-destructive")}>
+                                          {tour.poidsReel.toFixed(2)} kg
+                                      </TableCell>
+                                      <TableCell className={cn(tour.depassementPoids > 0 && "font-semibold")}>
+                                          {tour.depassementPoids > 0 ? `+${tour.depassementPoids.toFixed(2)} kg (${tour.tauxDepassementPoids.toFixed(1)}%)` : '-'}
+                                      </TableCell>
+                                      <TableCell>{tour.capaciteBacs} bacs</TableCell>
+                                       <TableCell className={cn(tour.depassementBacs > 0 && "font-bold text-destructive")}>
+                                          {tour.bacsReels} bacs
+                                      </TableCell>
+                                      <TableCell className={cn(tour.depassementBacs > 0 && "font-semibold")}>
+                                          {tour.depassementBacs > 0 ? `+${tour.depassementBacs} bacs (${tour.tauxDepassementBacs.toFixed(1)}%)` : '-'}
+                                      </TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </ScrollArea>
+              </CardContent>
+            </Card>
+        )}
+
+        {analysisData.durationDiscrepancies.length > 0 && (
+            <Card>
+              <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                      <Timer className="text-blue-500"/>
+                      Écarts de Durée de Service (Estimée vs. Réelle)
+                  </CardTitle>
+                  <CardDescription>
+                      Comparaison de la durée entre la première et la dernière livraison de chaque tournée.
+                  </CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <ScrollArea className="h-72">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'date')}>Date {renderSortIcon('duration', 'date')}</TableHead>
                                 <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'nom')}>Tournée {renderSortIcon('duration', 'nom')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'livreur')}>Livreur {renderSortIcon('duration', 'livreur')}</TableHead>
                                 <TableHead className="text-center">1ère Livraison (Prévue / Réelle)</TableHead>
                                 <TableHead className="text-center">Dernière Livraison (Prévue / Réelle)</TableHead>
                                 <TableHead className="text-center">Durée Estimée</TableHead>
                                 <TableHead className="text-center">Durée Réelle</TableHead>
                                 <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'ecart')}>Écart {renderSortIcon('duration', 'ecart')}</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {sortedData.durationDiscrepancies?.map(tour => (
-                                <TableRow key={tour.uniqueId}>
-                                    <TableCell>
-                                        <div className="font-medium">{tour.nom}</div>
-                                        <div className="text-xs text-muted-foreground">{formatDate(tour.date)}</div>
-                                        <div className="text-xs text-muted-foreground">{tour.livreur}</div>
-                                    </TableCell>
-                                    <TableCell className="text-center">{formatSecondsToClock(tour.heurePremiereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heurePremiereLivraisonReelle)}</span></TableCell>
-                                    <TableCell className="text-center">{formatSecondsToClock(tour.heureDerniereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heureDerniereLivraisonReelle)}</span></TableCell>
-                                    <TableCell className="text-center">{formatSecondsToTime(tour.dureeEstimee)}</TableCell>
-                                    <TableCell className="text-center">{formatSecondsToTime(tour.dureeReelle)}</TableCell>
-                                    <TableCell className={cn(tour.ecart > 300 ? "text-destructive font-semibold" : tour.ecart < -300 ? "text-blue-500 font-semibold" : "")}>
-                                        {tour.ecart > 0 ? '+' : ''}{formatSecondsToTime(tour.ecart)}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
-            </CardContent>
-          </Card>
-      )}
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {sortedData.durationDiscrepancies?.map(tour => (
+                                  <TableRow key={tour.uniqueId}>
+                                      <TableCell>{formatDate(tour.date)}</TableCell>
+                                      <TableCell>{tour.nom}</TableCell>
+                                      <TableCell>{tour.livreur}</TableCell>
+                                      <TableCell className="text-center">{formatSecondsToClock(tour.heurePremiereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heurePremiereLivraisonReelle)}</span></TableCell>
+                                      <TableCell className="text-center">{formatSecondsToClock(tour.heureDerniereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heureDerniereLivraisonReelle)}</span></TableCell>
+                                      <TableCell className="text-center">{formatSecondsToTime(tour.dureeEstimee)}</TableCell>
+                                      <TableCell className="text-center">{formatSecondsToTime(tour.dureeReelle)}</TableCell>
+                                      <TableCell className={cn(tour.ecart > 300 ? "text-destructive font-semibold" : tour.ecart < -300 ? "text-blue-500 font-semibold" : "")}>
+                                          {tour.ecart > 0 ? '+' : ''}{formatSecondsToTime(tour.ecart)}
+                                      </TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </ScrollArea>
+              </CardContent>
+            </Card>
+        )}
 
-      {analysisData.lateStartAnomalies.length > 0 && (
-          <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Route className="text-violet-500"/>
-                    Anomalie : Parties à l'Heure, Livrées en Retard
-                </CardTitle>
-                <CardDescription>
-                    Tournées qui ont démarré à l'heure prévue mais qui ont accumulé des retards pendant la livraison, indiquant des problèmes sur la route.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ScrollArea className="h-72">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'date')}>Date {renderSortIcon('anomaly', 'date')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'nom')}>Tournée {renderSortIcon('anomaly', 'nom')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'livreur')}>Livreur {renderSortIcon('anomaly', 'livreur')}</TableHead>
-                                <TableHead>Départ Prévu</TableHead>
-                                <TableHead>Départ Réel</TableHead>
-                                <TableHead>Écart au Départ</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'tasksInDelay')}># Tâches en Retard {renderSortIcon('anomaly', 'tasksInDelay')}</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {sortedData.lateStartAnomalies?.map(tour => (
-                                <TableRow key={tour.uniqueId}>
-                                    <TableCell>{formatDate(tour.date)}</TableCell>
-                                    <TableCell>{tour.nom}</TableCell>
-                                    <TableCell>{tour.livreur}</TableCell>
-                                    <TableCell>{new Date(tour.heureDepartPrevue * 1000).toISOString().substr(11, 8)}</TableCell>
-                                    <TableCell>{new Date(tour.heureDepartReelle * 1000).toISOString().substr(11, 8)}</TableCell>
-                                    <TableCell className="text-green-600 font-semibold">
-                                        {formatSecondsToTime(tour.ecartDepart)}
-                                    </TableCell>
-                                    <TableCell className="font-bold">{tour.tasksInDelay}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
-            </CardContent>
-          </Card>
-      )}
+        {analysisData.lateStartAnomalies.length > 0 && (
+            <Card>
+              <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                      <Route className="text-violet-500"/>
+                      Anomalie : Parties à l'Heure, Livrées en Retard
+                  </CardTitle>
+                  <CardDescription>
+                      Tournées qui ont démarré à l'heure prévue mais qui ont accumulé des retards pendant la livraison.
+                  </CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <ScrollArea className="h-72">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'date')}>Date {renderSortIcon('anomaly', 'date')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'nom')}>Tournée {renderSortIcon('anomaly', 'nom')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'livreur')}>Livreur {renderSortIcon('anomaly', 'livreur')}</TableHead>
+                                  <TableHead>Départ Prévu</TableHead>
+                                  <TableHead>Départ Réel</TableHead>
+                                  <TableHead>Écart au Départ</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'tasksInDelay')}># Tâches en Retard {renderSortIcon('anomaly', 'tasksInDelay')}</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {sortedData.lateStartAnomalies?.map(tour => (
+                                  <TableRow key={tour.uniqueId}>
+                                      <TableCell>{formatDate(tour.date)}</TableCell>
+                                      <TableCell>{tour.nom}</TableCell>
+                                      <TableCell>{tour.livreur}</TableCell>
+                                      <TableCell>{new Date(tour.heureDepartPrevue * 1000).toISOString().substr(11, 8)}</TableCell>
+                                      <TableCell>{new Date(tour.heureDepartReelle * 1000).toISOString().substr(11, 8)}</TableCell>
+                                      <TableCell className="text-green-600 font-semibold">
+                                          {formatSecondsToTime(tour.ecartDepart)}
+                                      </TableCell>
+                                      <TableCell className="font-bold">{tour.tasksInDelay}</TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </ScrollArea>
+              </CardContent>
+            </Card>
+        )}
+        </div>
+      </section>
 
-      <Card>
-          <CardHeader>
-              <CardTitle>Synthèse par Livreur</CardTitle>
-              <CardDescription>Performances individuelles pour identifier les top-performers et les axes d'accompagnement.</CardDescription>
-          </CardHeader>
-          <CardContent>
-               <ScrollArea className="h-72">
-                   <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'key')}>Livreur {renderSortIcon('driver', 'key')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'totalTours')}>Nb. Tournées {renderSortIcon('driver', 'totalTours')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'punctualityRate')}>Ponctualité {renderSortIcon('driver', 'punctualityRate')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('driver', 'avgDelay')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'overweightToursCount')}>Dépassements Poids {renderSortIcon('driver', 'overweightToursCount')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgRating')}>Notation Moy. {renderSortIcon('driver', 'avgRating')}</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {sortedData.performanceByDriver?.map(driver => (
-                                <TableRow key={driver.key}>
-                                    <TableCell>{driver.key}</TableCell>
-                                    <TableCell>{driver.totalTours}</TableCell>
-                                    <TableCell>{driver.punctualityRate.toFixed(1)}%</TableCell>
-                                    <TableCell>{driver.avgDelay.toFixed(1)}</TableCell>
-                                    <TableCell>{driver.overweightToursCount}</TableCell>
-                                    <TableCell>{driver.avgRating?.toFixed(2) || 'N/A'}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-               </ScrollArea>
-          </CardContent>
-      </Card>
+      <section>
+         <h2 className="text-2xl font-bold mb-4">Analyse par Livreur & Zone Géographique</h2>
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Users />Synthèse par Livreur</CardTitle>
+                    <CardDescription>Performances individuelles pour identifier les axes d'accompagnement.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <ScrollArea className="h-72">
+                         <Table>
+                              <TableHeader>
+                                  <TableRow>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'key')}>Livreur {renderSortIcon('driver', 'key')}</TableHead>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'totalTours')}>Nb. Tournées {renderSortIcon('driver', 'totalTours')}</TableHead>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'punctualityRate')}>Ponctualité {renderSortIcon('driver', 'punctualityRate')}</TableHead>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('driver', 'avgDelay')}</TableHead>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'overweightToursCount')}>Dépassements Poids {renderSortIcon('driver', 'overweightToursCount')}</TableHead>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgRating')}>Notation Moy. {renderSortIcon('driver', 'avgRating')}</TableHead>
+                                  </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                  {sortedData.performanceByDriver?.map(driver => (
+                                      <TableRow key={driver.key}>
+                                          <TableCell>{driver.key}</TableCell>
+                                          <TableCell>{driver.totalTours}</TableCell>
+                                          <TableCell>{driver.punctualityRate.toFixed(1)}%</TableCell>
+                                          <TableCell>{driver.avgDelay.toFixed(1)}</TableCell>
+                                          <TableCell>{driver.overweightToursCount}</TableCell>
+                                          <TableCell>{driver.avgRating?.toFixed(2) || 'N/A'}</TableCell>
+                                      </TableRow>
+                                  ))}
+                              </TableBody>
+                          </Table>
+                     </ScrollArea>
+                </CardContent>
+            </Card>
+             <Card>
+              <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><MapPin />Analyse Comparative Géographique</CardTitle>
+                  <CardDescription>Performances par secteur pour identifier les zones à problèmes.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <div className="flex justify-center mb-4 border-b">
+                      <button onClick={() => setActiveTab('ville')} className={cn("px-4 py-2 text-sm font-medium -mb-px", activeTab === 'ville' ? "border-b-2 border-primary text-primary" : "text-muted-foreground")}>Par Ville</button>
+                      <button onClick={() => setActiveTab('codePostal')} className={cn("px-4 py-2 text-sm font-medium -mb-px", activeTab === 'codePostal' ? "border-b-2 border-primary text-primary" : "text-muted-foreground")}>Par Code Postal</button>
+                  </div>
+                  <ScrollArea className="h-72">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'key')}>Secteur {renderSortIcon('geo', 'key')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalTasks')}>Tâches {renderSortIcon('geo', 'totalTasks')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'punctualityRate')}>Ponctualité {renderSortIcon('geo', 'punctualityRate')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalDelays')}>Retards {renderSortIcon('geo', 'totalDelays')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'avgDelay')}>Retard Moy. (min) {renderSortIcon('geo', 'avgDelay')}</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {geoDataToDisplay?.map(item => (
+                                  <TableRow key={item.key}>
+                                      <TableCell>{item.key}</TableCell>
+                                      <TableCell>{item.totalTasks}</TableCell>
+                                      <TableCell>{item.punctualityRate.toFixed(1)}%</TableCell>
+                                      <TableCell>{item.totalDelays}</TableCell>
+                                      <TableCell>{item.avgDelay.toFixed(1)}</TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </ScrollArea>
+              </CardContent>
+             </Card>
+         </div>
+      </section>
 
-       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-           <Card>
-            <CardHeader>
-                <CardTitle>Analyse Comparative Géographique</CardTitle>
-                <CardDescription>Performances par secteur pour identifier les zones à problèmes.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="flex justify-center mb-4">
-                    <button onClick={() => setActiveTab('ville')} className={cn("px-4 py-2 text-sm font-medium", activeTab === 'ville' ? "border-b-2 border-primary text-primary" : "text-muted-foreground")}>Par Ville</button>
-                    <button onClick={() => setActiveTab('codePostal')} className={cn("px-4 py-2 text-sm font-medium", activeTab === 'codePostal' ? "border-b-2 border-primary text-primary" : "text-muted-foreground")}>Par Code Postal</button>
-                </div>
-                <ScrollArea className="h-72">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'key')}>Secteur {renderSortIcon('geo', 'key')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalTasks')}>Tâches Totales {renderSortIcon('geo', 'totalTasks')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'punctualityRate')}>Taux Ponctualité {renderSortIcon('geo', 'punctualityRate')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalDelays')}>Nb. Retards {renderSortIcon('geo', 'totalDelays')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('geo', 'avgDelay')}</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {geoDataToDisplay?.map(item => (
-                                <TableRow key={item.key}>
-                                    <TableCell>{item.key}</TableCell>
-                                    <TableCell>{item.totalTasks}</TableCell>
-                                    <TableCell>{item.punctualityRate.toFixed(1)}%</TableCell>
-                                    <TableCell>{item.totalDelays}</TableCell>
-                                    <TableCell>{item.avgDelay.toFixed(1)}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
-            </CardContent>
-           </Card>
-           <Card>
-             <CardHeader>
-               <CardTitle>Charge, Retards et Avances par Heure</CardTitle>
-               <CardDescription>Volume de tâches, retards et avances au fil de la journée.</CardDescription>
-             </CardHeader>
-             <CardContent>
+       <section>
+        <h2 className="text-2xl font-bold mb-4">Analyse de la Charge de Travail</h2>
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+             <Card>
+               <CardHeader>
+                 <CardTitle>Charge, Retards et Avances par Heure</CardTitle>
+                 <CardDescription>Volume de tâches, retards et avances au fil de la journée.</CardDescription>
+               </CardHeader>
+               <CardContent>
+                  <ResponsiveContainer width="100%" height={320}>
+                     <ComposedChart data={analysisData.workloadByHour}>
+                       <CartesianGrid strokeDasharray="3 3" />
+                       <XAxis dataKey="hour" />
+                       <YAxis yAxisId="left" label={{ value: 'Nb. Tâches', angle: -90, position: 'insideLeft' }}/>
+                       <YAxis yAxisId="right" orientation="right" label={{ value: 'Nb. Écarts', angle: -90, position: 'insideRight' }} />
+                       <Tooltip />
+                       <Legend />
+                       <Area yAxisId="left" type="monotone" dataKey="planned" name="Planifié" stroke={ACCENT_COLOR} fill={ACCENT_COLOR} fillOpacity={0.3} />
+                       <Area yAxisId="left" type="monotone" dataKey="real" name="Réalisé" stroke={PRIMARY_COLOR} fill={PRIMARY_COLOR} fillOpacity={0.3} />
+                       <Line yAxisId="right" type="monotone" dataKey="delays" name="Retards" stroke={PRIMARY_COLOR} dot={false} strokeWidth={2} />
+                       <Line yAxisId="right" type="monotone" dataKey="advances" name="Avances" stroke={ADVANCE_COLOR} dot={false} strokeWidth={2} />
+                     </ComposedChart>
+                  </ResponsiveContainer>
+               </CardContent>
+             </Card>
+             <Card>
+              <CardHeader>
+                <CardTitle>Intensité du Travail par Heure</CardTitle>
+                 <CardDescription className="flex items-center gap-2">
+                  <span>Nb. moyen de tâches / livreur.</span>
+                  <span className="font-semibold text-xs rounded bg-muted px-1.5 py-0.5">
+                      Moy Plan.: {analysisData.avgWorkload.avgPlanned.toFixed(2)}
+                  </span>
+                  <span className="font-semibold text-xs rounded bg-muted px-1.5 py-0.5">
+                      Moy Réel: {analysisData.avgWorkload.avgReal.toFixed(2)}
+                  </span>
+                 </CardDescription>
+              </CardHeader>
+              <CardContent>
                 <ResponsiveContainer width="100%" height={320}>
-                   <ComposedChart data={analysisData.workloadByHour}>
-                     <CartesianGrid strokeDasharray="3 3" />
-                     <XAxis dataKey="hour" />
-                     <YAxis yAxisId="left" />
-                     <YAxis yAxisId="right" orientation="right" />
-                     <Tooltip />
-                     <Legend />
-                     <Area yAxisId="left" type="monotone" dataKey="planned" name="Planifié" stroke={ACCENT_COLOR} fill={ACCENT_COLOR} fillOpacity={0.3} />
-                     <Area yAxisId="left" type="monotone" dataKey="real" name="Réalisé" stroke={PRIMARY_COLOR} fill={PRIMARY_COLOR} fillOpacity={0.3} />
-                     <Line yAxisId="right" type="monotone" dataKey="delays" name="Retards" stroke={PRIMARY_COLOR} dot={false} strokeWidth={2} />
-                     <Line yAxisId="right" type="monotone" dataKey="advances" name="Avances" stroke={ADVANCE_COLOR} dot={false} strokeWidth={2} />
-                   </ComposedChart>
+                  <AreaChart data={analysisData.avgWorkloadByDriverByHour}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="hour" />
+                    <YAxis label={{ value: 'Tâches / Livreur', angle: -90, position: 'insideLeft' }}/>
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="avgPlanned" name="Planifié / Livreur" stroke={ACCENT_COLOR} fill={ACCENT_COLOR} fillOpacity={0.3} />
+                    <Area type="monotone" dataKey="avgReal" name="Réalisé / Livreur" stroke={PRIMARY_COLOR} fill={PRIMARY_COLOR} fillOpacity={0.3} />
+                  </AreaChart>
                 </ResponsiveContainer>
-             </CardContent>
-           </Card>
-           <Card>
-            <CardHeader>
-              <CardTitle>Intensité du Travail par Heure</CardTitle>
-               <CardDescription className="flex items-center gap-2">
-                <span>Nb. moyen de tâches / livreur.</span>
-                <span className="font-semibold text-xs rounded bg-muted px-1.5 py-0.5">
-                    Moy Plan.: {analysisData.avgWorkload.avgPlanned.toFixed(2)}
-                </span>
-                <span className="font-semibold text-xs rounded bg-muted px-1.5 py-0.5">
-                    Moy Réel: {analysisData.avgWorkload.avgReal.toFixed(2)}
-                </span>
-               </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <AreaChart data={analysisData.avgWorkloadByDriverByHour}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Area type="monotone" dataKey="avgPlanned" name="Planifié / Livreur" stroke={ACCENT_COLOR} fill={ACCENT_COLOR} fillOpacity={0.3} />
-                  <Area type="monotone" dataKey="avgReal" name="Réalisé / Livreur" stroke={PRIMARY_COLOR} fill={PRIMARY_COLOR} fillOpacity={0.3} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Frown style={{color: PRIMARY_COLOR}} />Répartition des Retards par Heure</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={analysisData.delaysByHour} onClick={(e) => handleBarClick(e, 'heure')}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill={PRIMARY_COLOR} name="Nb. Retards" className="cursor-pointer" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MapPin/>Répartition des Retards par Entrepôt</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <ScrollArea className="h-80">
-                  <ResponsiveContainer width="100%" height={analysisData.delaysByWarehouse.length * 30}>
-                    <BarChart data={analysisData.delaysByWarehouse} layout="vertical" margin={{ left: 80 }} onClick={(e) => handleBarClick(e, 'entrepot')}>
-                        <XAxis type="number" />
-                        <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
-                        <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
-                        <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
-                        </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ScrollArea>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Villes avec le Plus de Retards</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                 <BarChart data={analysisData.delaysByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }} onClick={(e) => handleBarClick(e, 'city')}>
-                    <XAxis type="number" />
-                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
-                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                    <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
-                    </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Codes Postaux avec le Plus de Retards</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                 <BarChart data={analysisData.delaysByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }} onClick={(e) => handleBarClick(e, 'codePostal')}>
-                    <XAxis type="number" />
-                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
-                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                    <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
-                    </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Smile style={{color: ADVANCE_COLOR}} />Répartition des Avances par Heure</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={analysisData.advancesByHour}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill={ADVANCE_COLOR} name="Nb. Avances" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MapPin/>Répartition des Avances par Entrepôt</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <ScrollArea className="h-80">
-                  <ResponsiveContainer width="100%" height={analysisData.advancesByWarehouse.length * 30}>
-                    <BarChart data={analysisData.advancesByWarehouse} layout="vertical" margin={{ left: 80 }}>
-                        <XAxis type="number" />
-                        <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
-                        <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
-                        <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR}>
-                        </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ScrollArea>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Villes avec le Plus d'Avances</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                 <BarChart data={analysisData.advancesByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }}>
-                    <XAxis type="number" />
-                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
-                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                    <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR} className="cursor-pointer">
-                    </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MapPin/>Top 10 Codes Postaux avec le Plus d'Avances</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                 <BarChart data={analysisData.advancesByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }}>
-                    <XAxis type="number" />
-                    <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
-                    <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                    <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR} className="cursor-pointer">
-                    </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-      </div>
+              </CardContent>
+            </Card>
+         </div>
+      </section>
+
+      <section>
+        <h2 className="text-2xl font-bold mb-4">Analyse Détaillée des Écarts</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Frown className="text-destructive"/>Répartition des Retards par Heure</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={analysisData.delaysByHour} onClick={(e) => handleBarClick(e, 'heure')}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="hour" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill={PRIMARY_COLOR} name="Nb. Retards" className="cursor-pointer" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><MapPin className="text-destructive"/>Répartition des Retards par Entrepôt</CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <ScrollArea className="h-80">
+                    <ResponsiveContainer width="100%" height={analysisData.delaysByWarehouse.length * 30}>
+                      <BarChart data={analysisData.delaysByWarehouse} layout="vertical" margin={{ left: 80 }} onClick={(e) => handleBarClick(e, 'entrepot')}>
+                          <XAxis type="number" />
+                          <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
+                          <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
+                          <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
+                          </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ScrollArea>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><MapPin className="text-destructive"/>Top 10 Villes (Retards)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={320}>
+                   <BarChart data={analysisData.delaysByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }} onClick={(e) => handleBarClick(e, 'city')}>
+                      <XAxis type="number" />
+                      <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
+                      <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
+                      <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
+                      </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Smile style={{color: ADVANCE_COLOR}} />Répartition des Avances par Heure</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={analysisData.advancesByHour}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="hour" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill={ADVANCE_COLOR} name="Nb. Avances" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+             <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><MapPin style={{color: ADVANCE_COLOR}}/>Répartition des Avances par Entrepôt</CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <ScrollArea className="h-80">
+                    <ResponsiveContainer width="100%" height={analysisData.advancesByWarehouse.length * 30}>
+                      <BarChart data={analysisData.advancesByWarehouse} layout="vertical" margin={{ left: 80 }}>
+                          <XAxis type="number" />
+                          <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
+                          <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
+                          <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR}>
+                          </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ScrollArea>
+              </CardContent>
+            </Card>
+             <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><MapPin style={{color: ADVANCE_COLOR}}/>Top 10 Villes (Avances)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={320}>
+                   <BarChart data={analysisData.advancesByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }}>
+                      <XAxis type="number" />
+                      <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
+                      <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
+                      <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR} className="cursor-pointer">
+                      </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><MapPin className="text-destructive"/>Top 10 Codes Postaux (Retards)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={320}>
+                   <BarChart data={analysisData.delaysByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }} onClick={(e) => handleBarClick(e, 'codePostal')}>
+                      <XAxis type="number" />
+                      <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
+                      <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
+                      <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
+                      </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><MapPin style={{color: ADVANCE_COLOR}}/>Top 10 Codes Postaux (Avances)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={320}>
+                   <BarChart data={analysisData.advancesByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }}>
+                      <XAxis type="number" />
+                      <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
+                      <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
+                      <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR} className="cursor-pointer">
+                      </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+        </div>
+      </section>
     </div>
   );
 }
