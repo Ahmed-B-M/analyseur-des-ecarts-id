@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AiAnalysis from './AiAnalysis';
 import { AlertTriangle, Info, Clock, MapPin } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 interface AnalysisDashboardProps {
   analysisData: AnalysisData | null;
@@ -14,7 +15,6 @@ interface AnalysisDashboardProps {
   allData: MergedData[];
 }
 
-const COLORS = ['#0033A0', '#E4002B', '#FFBB28', '#FF8042', '#00C49F'];
 const ACCENT_COLOR = "hsl(var(--accent))";
 
 export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData }: AnalysisDashboardProps) {
@@ -27,17 +27,6 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       </div>
     );
   }
-
-  const handleBarClick = (data: any) => {
-    if (data && data.activePayload && data.activePayload[0]) {
-      const payload = data.activePayload[0].payload;
-      if(payload.warehouse) {
-        onFilterAndSwitch({ entrepot: payload.warehouse });
-      } else if (payload.key && analysisData.performanceByCity.some(c => c.key === payload.key)) {
-         onFilterAndSwitch({ city: payload.key });
-      }
-    }
-  };
   
   const CustomYAxisTick = ({ y, payload }: any) => {
     return (
