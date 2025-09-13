@@ -5,7 +5,6 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     
     const toleranceMinutes = filters.punctualityThreshold || 15;
     const toleranceSeconds = toleranceMinutes * 60;
-    const maxWeightThreshold = filters.maxWeightThreshold; // Can be undefined
 
     const allTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée');
     
@@ -95,7 +94,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     
     // --- Quality Impact ---
     const overloadedToursInfos: OverloadedTourInfo[] = uniqueTournees.map(tour => {
-        const capacity = maxWeightThreshold !== undefined ? maxWeightThreshold : tour.capacitePoids;
+        const capacity = tour.capacitePoids;
         const isOverloadedByWeight = capacity > 0 && tour.poidsReel > capacity;
         const isOverloadedByBins = tour.capaciteBacs > 0 && tour.bacsReels > tour.capaciteBacs;
 

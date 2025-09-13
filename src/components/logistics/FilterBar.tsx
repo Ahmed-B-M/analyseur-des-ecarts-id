@@ -48,7 +48,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
   }
   
   const clearAllFilters = () => {
-    const persistentFilters = ['period', 'punctualityThreshold', 'maxWeightThreshold'];
+    const persistentFilters = ['period', 'punctualityThreshold'];
     const newFilters: Record<string, any> = {};
     persistentFilters.forEach(key => {
         if(filters[key]) {
@@ -59,7 +59,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
   }
 
   const activeFilters = Object.keys(filters).filter(key => 
-    !['period', 'punctualityThreshold', 'maxWeightThreshold'].includes(key) && filters[key]
+    !['period', 'punctualityThreshold'].includes(key) && filters[key]
   );
   
   const getFilterLabel = (key: string) => {
@@ -86,7 +86,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
 
   return (
     <div className="p-4 bg-card rounded-lg border shadow-sm space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         <div>
           <Label htmlFor="period-select">Période</Label>
           <Select
@@ -147,16 +147,6 @@ export default function FilterBar({ filters, setFilters, depots, warehouses }: F
             value={filters.punctualityThreshold || ''}
             onChange={(e) => handleFilterChange('punctualityThreshold', e.target.value ? parseInt(e.target.value) : undefined)}
            />
-        </div>
-        <div>
-          <Label htmlFor="max-weight-threshold">Seuil Poids Max (kg)</Label>
-          <Input 
-            id="max-weight-threshold" 
-            type="number" 
-            placeholder="ex: 500"
-            value={filters.maxWeightThreshold || ''}
-            onChange={(e) => handleFilterChange('maxWeightThreshold', e.target.value ? parseInt(e.target.value) : undefined)}
-          />
         </div>
       </div>
       {activeFilters.length > 0 && (
