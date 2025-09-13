@@ -6,6 +6,7 @@ import FileUpload from '@/components/logistics/FileUpload';
 import FilterBar from '@/components/logistics/FilterBar';
 import AnalysisDashboard from '@/components/logistics/AnalysisDashboard';
 import CalendarView from '@/components/logistics/CalendarView';
+import WeeklySummary from '@/components/logistics/WeeklySummary';
 import DetailedDataView from '@/components/logistics/DetailedDataView';
 import { Logo } from '@/components/logistics/Logo';
 import { analyzeData } from '@/lib/dataAnalyzer';
@@ -120,8 +121,17 @@ export default function Dashboard() {
         } else if (state.filters.dateRange) {
           const { from, to } = state.filters.dateRange as DateRange;
           const itemDate = new Date(item.date);
-          if (from && itemDate < from) return false;
-          if (to && itemDate > to) return false;
+          itemDate.setHours(0,0,0,0); // Normalize item date
+          if (from) {
+            const fromDate = new Date(from);
+            fromDate.setHours(0,0,0,0); // Normalize from date
+            if (itemDate < fromDate) return false;
+          }
+          if (to) {
+            const toDate = new Date(to);
+            toDate.setHours(0,0,0,0); // Normalize to date
+            if (itemDate > toDate) return false;
+          }
         }
 
         if (state.filters.depot && !item.tournee.entrepot.includes(state.filters.depot)) return false;
@@ -145,11 +155,17 @@ export default function Dashboard() {
   
   const setFilters = (newFilters: Partial<typeof state.filters>) => {
     const filtersToApply = { ...state.filters, ...newFilters };
-    if (newFilters.selectedDate) {
+    if (newFilters.selectedDate !== undefined) {
         delete filtersToApply.dateRange;
     }
-    if (newFilters.dateRange) {
+    if (newFilters.dateRange !== undefined) {
         delete filtersToApply.selectedDate;
+    }
+    if (newFilters.selectedDate === null) {
+        delete filtersToApply.selectedDate;
+    }
+    if (newFilters.dateRange === null) {
+        delete filtersToApply.dateRange;
     }
     dispatch({ type: 'SET_FILTERS', filters: filtersToApply });
   }
@@ -247,7 +263,18 @@ export default function Dashboard() {
                 />
               </TabsContent>
               <TabsContent value="calendar" className="mt-6">
-                <CalendarView data={mergedData} onDateSelect={(date) => setFilters({ selectedDate: date })} />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-1">
+                        <CalendarView 
+                            data={mergedData} 
+                            onDateSelect={(date) => setFilters({ selectedDate: date })} 
+                            onWeekSelect={(range) => setFilters({ dateRange: range })}
+                        />
+                    </div>
+                    <div className="md:col-span-2">
+                        <WeeklySummary analysisData={analysisData} filters={state.filters} />
+                    </div>
+                </div>
               </TabsContent>
               <TabsContent value="data" className="mt-6">
                 <DetailedDataView data={filteredData} />
