@@ -134,7 +134,7 @@ export default function Dashboard() {
           }
         }
 
-        if (state.filters.depot && !item.tournee.entrepot.includes(state.filters.depot)) return false;
+        if (state.filters.depot && !item.tournee.entrepot.startsWith(state.filters.depot)) return false;
         if (state.filters.entrepot && item.tournee.entrepot !== state.filters.entrepot) return false;
         if (state.filters.city && item.ville !== state.filters.city) return false;
         if (state.filters.codePostal && item.codePostal !== state.filters.codePostal) return false;
@@ -177,11 +177,19 @@ export default function Dashboard() {
 
   const depots = useMemo(() => {
     if (!state.data) return [];
+    const specialCases: Record<string, string> = {
+        "Solo Antibes": "Solo Antibes"
+    };
+
     const depotNames = state.data.tournees.map(t => {
-      const parts = t.entrepot.split(' - ');
-      return parts[0];
+        for (const specialCase in specialCases) {
+            if (t.entrepot.startsWith(specialCase)) {
+                return specialCases[specialCase];
+            }
+        }
+        return t.entrepot.split(' ')[0];
     });
-    return [...new Set(depotNames)];
+    return [...new Set(depotNames)].sort();
   }, [state.data]);
 
   const warehouses = useMemo(() => {
