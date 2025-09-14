@@ -24,12 +24,16 @@ const ComparisonKpiSchema = z.object({
 });
 
 const OverloadedTourSchema = z.object({
+  date: z.string(),
   nom: z.string(),
   livreur: z.string(),
+  poidsPrevu: z.number(),
+  poidsReel: z.number(),
   tauxDepassementPoids: z.number(),
 });
 
 const DurationDiscrepancySchema = z.object({
+  date: z.string(),
   nom: z.string(),
   livreur: z.string(),
   ecart: z.number(), // in seconds
@@ -38,6 +42,7 @@ const DurationDiscrepancySchema = z.object({
 });
 
 const LateStartAnomalySchema = z.object({
+  date: z.string(),
   nom: z.string(),
   livreur: z.string(),
   tasksInDelay: z.number(),
@@ -55,9 +60,14 @@ const ExemplaryDriverSchema = z.object({
 const ReportInputSchema = z.object({
   totalTours: z.number(),
   generalKpis: z.array(KpiSchema).describe("KPIs généraux."),
+  qualityKpis: z.array(KpiSchema).describe("KPIs sur l'impact qualité."),
   negativeReviewsFromLateness: KpiSchema.describe("KPI spécifique sur les avis négatifs dus aux retards."),
   discrepancyKpis: z.array(ComparisonKpiSchema).describe("KPIs comparant le planifié et le réalisé."),
   
+  // Inefficiency KPIs
+  totalCumulativeDelayHours: z.number().describe("Total des heures de retard cumulées."),
+  totalAdditionalServiceHours: z.number().describe("Total des heures de service additionnelles (écarts de durée positifs)."),
+
   // Anomaly percentages
   overloadedToursPercentage: z.number().describe("Pourcentage de tournées en surcharge sur le total."),
   durationDiscrepancyPercentage: z.number().describe("Pourcentage de tournées avec écart de durée positif significatif."),
@@ -80,16 +90,19 @@ export type GenerateLogisticsReportInput = z.infer<typeof ReportInputSchema>;
 const ReportOutputSchema = z.object({
     title: z.string().describe("Titre très court et factuel. Ex: 'Rapport Opérationnel - Semaine 24'."),
     
-    executiveSummary: z.string().describe("Synthèse managériale (1-2 phrases) sur l'impact de la planification sur la ponctualité."),
+    globalSynthesis: z.string().describe("Une synthèse globale et factuelle de toutes les données. Elle doit être détaillée, neutre, sans opinion, sans blâme et sans suggestion."),
     
     kpiComments: z.object({
         punctuality: z.string().describe("Commentaire sur la ponctualité. Ex: 'Ponctualité sous l'objectif, principalement due aux...'"),
         rating: z.string().describe("Commentaire sur le KPI des avis négatifs liés aux retards."),
+        quality: z.string().describe("Commentaire sur la section 'Impact sur la Qualité', expliquant la corrélation entre les problèmes opérationnels et la satisfaction client."),
+        discrepancy: z.string().describe("Commentaire sur les KPIs d'écarts (durée, service), expliquant la tendance générale."),
+        inefficiency: z.string().describe("Commentaire sur la quantification des inefficacités, expliquant ce que représentent les heures perdues.")
     }),
 
     chartsInsights: z.object({
         temporalAnalysis: z.string().describe("Insight sur le graphique temporel heure/heure. Ex: 'Le pic de retards se situe entre 10h et 14h.'"),
-        workloadAnalysis: z.string().describe("Insight sur la comparaison charge planifiée vs. réelle. Ex: 'La charge réelle est constamment supérieure à la planification.'"),
+        workloadAnalysis: z.string().describe("Insight sur le graphique de charge. Y a-t-il un lien entre le pic de charge (différence planifié/réel) et les pics de retards/avances ?"),
     }),
 
     anomaliesComments: z.object({
@@ -117,36 +130,40 @@ const prompt = ai.definePrompt({
   input: { schema: ReportInputSchema },
   output: { schema: ReportOutputSchema },
   prompt: `
-    En tant qu'IA experte en analyse logistique, génère des commentaires concis pour un rapport VISUEL destiné à des directeurs opérationnels. L'objectif est d'expliquer les données des graphiques et tableaux sans être verbeux. Sois analytique et va droit au but.
-
+    En tant qu'IA experte en analyse logistique, génère des commentaires concis et factuels pour un rapport VISUEL.
+    
     ## Données Clés Analysées :
     - Total de tournées: {{{totalTours}}}
+    - KPIs Généraux: {{{json generalKpis}}}
+    - KPIs Qualité: {{{json qualityKpis}}}
+    - KPIs Écarts: {{{json discrepancyKpis}}}
     - KPI "Avis négatifs liés aux retards": {{{json negativeReviewsFromLateness}}}
+    - Heures de retard cumulées: {{{totalCumulativeDelayHours}}}h
+    - Heures de service additionnelles: {{{totalAdditionalServiceHours}}}h
     - Pourcentage de tournées en surcharge: {{{overloadedToursPercentage}}}%
-    - Pourcentage de tournées avec écart de durée > 15min: {{{durationDiscrepancyPercentage}}}%
-    - Pourcentage de tournées en anomalie de planification: {{{planningAnomalyPercentage}}}%
     - Top 10 Dépassements de Charge: {{{json top10OverloadedTours}}}
-    - Top 10 Écarts de Durée (Positifs): {{{json top10PositiveDurationDiscrepancies}}}
-    - Top 10 Anomalies (Départ Avance/Arrivée Retard): {{{json top10LateStartAnomalies}}}
     - Top Livreur performants malgré la surcharge: {{{json topExemplaryDrivers}}}
     - Pire Entrepôt (retards): {{{topWarehouseByDelay}}}
     - Pire Ville (retards): {{{topCityByDelay}}}
 
-    ## Instructions par Section :
+    ## Instructions :
     - **title**: "Rapport de Performance Opérationnelle".
-    - **executiveSummary**: En 1-2 phrases, explique comment les écarts de planification (charge, durée) impactent la ponctualité globale.
+    - **globalSynthesis**: Rédige une synthèse globale et factuelle de toutes les données. L'objectif est de décrire en détail chaque indicateur sans porter de jugement, sans attribuer de cause, et sans proposer de solution. Présente les faits uniquement. Commence par les KPIs généraux, puis les écarts, les inefficacités, les anomalies (en citant les pourcentages), et termine par les analyses géographiques et humaines. Sois aussi détaillé que possible.
     - **kpiComments.punctuality**: Commente la ponctualité en la liant à la satisfaction client.
-    - **kpiComments.rating**: Explique ce que le chiffre des "avis négatifs liés aux retards" signifie pour l'image de marque.
-    - **chartsInsights.temporalAnalysis**: Donne l'insight principal du graphique heure par heure. Quel est le créneau le plus critique ?
-    - **chartsInsights.workloadAnalysis**: Commente le graphique de charge planifiée vs. réelle. Y a-t-il un décalage constant ?
-    - **anomaliesComments.overloaded**: Résume l'impact des {{{overloadedToursPercentage}}}% de tournées en surcharge sur le matériel et les livreurs.
-    - **anomaliesComments.duration**: Explique pourquoi {{{durationDiscrepancyPercentage}}}% des tournées qui durent plus longtemps que prévu est un problème de planification (temps de service sous-estimé).
-    - **anomaliesComments.planning**: Explique ce que l'anomalie "départ en avance, arrivée en retard" révèle sur l'estimation des temps de trajet.
-    - **geoDriverComments.warehouse**: Identifie l'entrepôt le plus problématique ({{{topWarehouseByDelay}}}) et ce que cela suggère.
-    - **geoDriverComments.city**: Identifie la ville la plus problématique ({{{topCityByDelay}}}) et ce que cela suggère (trafic, etc.).
-    - **geoDriverComments.driver**: En te basant sur les 'Top Livreur', rédige un commentaire expliquant que malgré des conditions difficiles (surcharge), une haute performance est possible, suggérant que le problème n'est pas forcément humain mais lié à la planification.
+    - **kpiComments.rating**: Explique ce que le chiffre des "avis négatifs liés aux retards" signifie.
+    - **kpiComments.quality**: Commente les KPIs de la section "Impact sur la Qualité".
+    - **kpiComments.discrepancy**: En te basant sur les KPIs d'écarts, commente la fiabilité de la planification.
+    - **kpiComments.inefficiency**: Commente l'impact des {{{totalCumulativeDelayHours}}}h de retard et {{{totalAdditionalServiceHours}}}h de service additionnel sur les coûts et la productivité.
+    - **chartsInsights.temporalAnalysis**: Donne l'insight principal du graphique heure par heure.
+    - **chartsInsights.workloadAnalysis**: Commente le graphique de charge (planifié vs. réel) et son lien avec les retards/avances.
+    - **anomaliesComments.overloaded**: Résume l'impact des {{{overloadedToursPercentage}}}% de tournées en surcharge.
+    - **anomaliesComments.duration**: Explique ce que révèle l'écart de durée sur la planification.
+    - **anomaliesComments.planning**: Explique ce que l'anomalie "départ en avance, arrivée en retard" révèle.
+    - **geoDriverComments.warehouse**: Identifie l'entrepôt le plus problématique.
+    - **geoDriverComments.city**: Identifie la ville la plus problématique.
+    - **geoDriverComments.driver**: Commente l'analyse des livreurs exemplaires.
 
-    **Sois bref et factuel. Tes textes sont des légendes pour des visuels. Ne génère que le JSON.**
+    **Sois bref et factuel pour les commentaires des sections, mais détaillé et neutre pour la synthèse globale. Ne génère que le JSON.**
     `,
 });
 

@@ -3,10 +3,12 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'Carrefour Logistics Insights',
-  description: 'Analyze logistics performance for Carrefour.',
+  title: 'A-E-L',
+  description: 'Analyse des Écarts Logistiques',
   icons: {
-    icon: '/logo-crf.png',
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png',
   },
 };
 

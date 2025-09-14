@@ -188,7 +188,7 @@ export default function Dashboard() {
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
       <header className="flex items-center justify-between p-4 border-b border-border shadow-sm">
         <div className="flex items-center gap-3">
-          <Logo className="h-10 w-auto" />
+          <Logo className="h-32 w-auto" />
           <div>
             <h1 className="text-xl font-bold text-primary">Analyse de la Performance Logistique</h1>
             <p className="text-sm text-muted-foreground">Analyse des écarts de livraison pour Carrefour</p>

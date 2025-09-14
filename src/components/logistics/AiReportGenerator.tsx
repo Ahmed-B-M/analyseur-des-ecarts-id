@@ -26,7 +26,7 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
     try {
         const totalTours = analysisData.generalKpis?.find(k => k.title.includes('Tournées'))?.value ? parseInt(analysisData.generalKpis.find(k => k.title.includes('Tournées'))!.value) : 0;
 
-        // --- Corrected KPI Calculation ---
+        // --- KPI Calculations ---
         const lateTasksWithBadReview = (allData || []).filter(d => d.notation && d.notation <= 3 && d.retardStatus === 'late');
         const totalLateTasks = (allData || []).filter(d => d.retardStatus === 'late').length;
         const percentageOfLateTasksWithBadReview = totalLateTasks > 0 ? (lateTasksWithBadReview.length / totalLateTasks) * 100 : 0;
@@ -35,6 +35,13 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
             value: `${lateTasksWithBadReview.length}`,
             description: `${percentageOfLateTasksWithBadReview.toFixed(1)}% des livraisons en retard ont une mauvaise note.`
         };
+        
+        // --- Inefficiency Quantification ---
+        const totalCumulativeDelaySeconds = (allData || []).reduce((acc, d) => d.retardStatus === 'late' ? acc + d.retard : acc, 0);
+        const totalCumulativeDelayHours = totalCumulativeDelaySeconds / 3600;
+        const totalAdditionalServiceSeconds = (analysisData.durationDiscrepancies || []).reduce((acc, d) => d.ecart > 0 ? acc + d.ecart : acc, 0);
+        const totalAdditionalServiceHours = totalAdditionalServiceSeconds / 3600;
+
 
         // --- Anomaly Percentages ---
         const overloadedToursPercentage = totalTours > 0 ? ((analysisData.overloadedTours || []).length / totalTours) * 100 : 0;
@@ -47,18 +54,18 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
         const top10Overloaded = (analysisData.overloadedTours || [])
             .sort((a,b) => b.tauxDepassementPoids - a.tauxDepassementPoids)
             .slice(0, 10)
-            .map(t => ({ nom: t.nom, livreur: t.livreur, tauxDepassementPoids: t.tauxDepassementPoids }));
+            .map(t => ({ date: t.date, nom: t.nom, livreur: t.livreur, poidsPrevu: t.poidsPrevu, poidsReel: t.poidsReel, tauxDepassementPoids: t.tauxDepassementPoids }));
 
         const top10PositiveDuration = (analysisData.durationDiscrepancies || [])
             .filter(d => d.ecart > 0)
             .sort((a,b) => b.ecart - a.ecart)
             .slice(0, 10)
-            .map(t => ({ nom: t.nom, livreur: t.livreur, ecart: t.ecart, dureeEstimee: t.dureeEstimee, dureeReelle: t.dureeReelle }));
+            .map(t => ({ date: t.date, nom: t.nom, livreur: t.livreur, ecart: t.ecart, dureeEstimee: t.dureeEstimee, dureeReelle: t.dureeReelle }));
 
         const top10Anomalies = (analysisData.lateStartAnomalies || [])
             .sort((a,b) => b.tasksInDelay - a.tasksInDelay)
             .slice(0, 10)
-            .map(t => ({ nom: t.nom, livreur: t.livreur, tasksInDelay: t.tasksInDelay, heureDepartPrevue: t.heureDepartPrevue, heureDepartReelle: t.heureDepartReelle }));
+            .map(t => ({ date: t.date, nom: t.nom, livreur: t.livreur, tasksInDelay: t.tasksInDelay, heureDepartPrevue: t.heureDepartPrevue, heureDepartReelle: t.heureDepartReelle }));
 
         // --- Exemplary Driver Analysis ---
         const exemplaryDrivers = (analysisData.performanceByDriver || [])
@@ -72,8 +79,11 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
         const input: GenerateLogisticsReportInput = {
             totalTours: totalTours,
             generalKpis: (analysisData.generalKpis || []).map(({icon, ...kpi}) => kpi),
+            qualityKpis: (analysisData.qualityKpis || []).map(({icon, ...kpi}) => kpi),
             negativeReviewsFromLateness: negativeReviewsKpi,
             discrepancyKpis: (analysisData.discrepancyKpis || []).filter(kpi => !kpi.title.toLowerCase().includes('distance')),
+            totalCumulativeDelayHours: totalCumulativeDelayHours,
+            totalAdditionalServiceHours: totalAdditionalServiceHours,
             overloadedToursPercentage: overloadedToursPercentage,
             durationDiscrepancyPercentage: durationDiscrepancyPercentage,
             planningAnomalyPercentage: planningAnomalyPercentage,
@@ -100,7 +110,9 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
                 top10PositiveDuration,
                 top10Anomalies,
                 top10Overloaded,
-                exemplaryDrivers
+                exemplaryDrivers,
+                totalCumulativeDelayHours,
+                totalAdditionalServiceHours
             }
         };
         sessionStorage.setItem('visualReportData', JSON.stringify(reportData));
