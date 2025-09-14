@@ -27,6 +27,7 @@ const OverloadedTourSchema = z.object({
   date: z.string(),
   nom: z.string(),
   livreur: z.string(),
+  entrepot: z.string(),
   poidsPrevu: z.number(),
   poidsReel: z.number(),
   tauxDepassementPoids: z.number(),
@@ -36,6 +37,7 @@ const DurationDiscrepancySchema = z.object({
   date: z.string(),
   nom: z.string(),
   livreur: z.string(),
+  entrepot: z.string(),
   ecart: z.number(), // in seconds
   dureeEstimee: z.number(), // in seconds
   dureeReelle: z.number(), // in seconds
@@ -45,6 +47,7 @@ const LateStartAnomalySchema = z.object({
   date: z.string(),
   nom: z.string(),
   livreur: z.string(),
+  entrepot: z.string(),
   tasksInDelay: z.number(),
   heureDepartPrevue: z.number(), // in seconds from midnight
   heureDepartReelle: z.number(), // in seconds from midnight
@@ -55,6 +58,12 @@ const ExemplaryDriverSchema = z.object({
     punctualityRate: z.number().describe("Son taux de ponctualité."),
     overweightToursCount: z.number().describe("Nombre de tournées en surcharge qu'il a effectuées."),
     avgDelay: z.number().describe("Son retard moyen en minutes.")
+});
+
+const WarehouseOverrunSchema = z.object({
+    entrepot: z.string(),
+    totalWeightOverrun: z.number().describe("Dépassement de poids total en kg."),
+    totalTimeOverrun: z.number().describe("Dépassement de temps total en heures.")
 });
 
 const ReportInputSchema = z.object({
@@ -81,6 +90,9 @@ const ReportInputSchema = z.object({
   // New driver analysis
   topExemplaryDrivers: z.array(ExemplaryDriverSchema).describe("Top livreurs qui restent performants malgré la surcharge."),
 
+  // New warehouse analysis
+  top20percentWarehousesByOverrun: z.array(WarehouseOverrunSchema).describe("Top 20% des entrepôts avec les plus forts dépassements (poids et temps)."),
+
   // Data for charts - just the key facts
   topWarehouseByDelay: z.string().optional().describe("L'entrepôt avec le plus de retards."),
   topCityByDelay: z.string().optional().describe("La ville avec le plus de retards."),
@@ -103,6 +115,7 @@ const ReportOutputSchema = z.object({
     chartsInsights: z.object({
         temporalAnalysis: z.string().describe("Insight sur le graphique temporel heure/heure. Ex: 'Le pic de retards se situe entre 10h et 14h.'"),
         workloadAnalysis: z.string().describe("Insight sur le graphique de charge. Y a-t-il un lien entre le pic de charge (différence planifié/réel) et les pics de retards/avances ?"),
+        warehouseOverrun: z.string().describe("Commentaire sur le graphique des dépassements par entrepôt, identifiant le ou les entrepôts les plus critiques.")
     }),
 
     anomaliesComments: z.object({
@@ -141,27 +154,17 @@ const prompt = ai.definePrompt({
     - Heures de retard cumulées: {{{totalCumulativeDelayHours}}}h
     - Heures de service additionnelles: {{{totalAdditionalServiceHours}}}h
     - Pourcentage de tournées en surcharge: {{{overloadedToursPercentage}}}%
-    - Top 10 Dépassements de Charge: {{{json top10OverloadedTours}}}
-    - Top Livreur performants malgré la surcharge: {{{json topExemplaryDrivers}}}
-    - Pire Entrepôt (retards): {{{topWarehouseByDelay}}}
-    - Pire Ville (retards): {{{topCityByDelay}}}
-
+    - Top 20% des entrepôts par dépassement: {{{json top20percentWarehousesByOverrun}}}
+    
     ## Instructions :
     - **title**: "Rapport de Performance Opérationnelle".
-    - **globalSynthesis**: Rédige une synthèse globale et factuelle de toutes les données. L'objectif est de décrire en détail chaque indicateur sans porter de jugement, sans attribuer de cause, et sans proposer de solution. Présente les faits uniquement. Commence par les KPIs généraux, puis les écarts, les inefficacités, les anomalies (en citant les pourcentages), et termine par les analyses géographiques et humaines. Sois aussi détaillé que possible.
-    - **kpiComments.punctuality**: Commente la ponctualité en la liant à la satisfaction client.
-    - **kpiComments.rating**: Explique ce que le chiffre des "avis négatifs liés aux retards" signifie.
-    - **kpiComments.quality**: Commente les KPIs de la section "Impact sur la Qualité".
-    - **kpiComments.discrepancy**: En te basant sur les KPIs d'écarts, commente la fiabilité de la planification.
-    - **kpiComments.inefficiency**: Commente l'impact des {{{totalCumulativeDelayHours}}}h de retard et {{{totalAdditionalServiceHours}}}h de service additionnel sur les coûts et la productivité.
+    - **globalSynthesis**: Rédige une synthèse globale et factuelle de toutes les données. L'objectif est de décrire en détail chaque indicateur sans porter de jugement.
+    - **kpiComments**: Rédige un commentaire court pour chaque section (punctuality, rating, quality, discrepancy, inefficiency).
     - **chartsInsights.temporalAnalysis**: Donne l'insight principal du graphique heure par heure.
     - **chartsInsights.workloadAnalysis**: Commente le graphique de charge (planifié vs. réel) et son lien avec les retards/avances.
-    - **anomaliesComments.overloaded**: Résume l'impact des {{{overloadedToursPercentage}}}% de tournées en surcharge.
-    - **anomaliesComments.duration**: Explique ce que révèle l'écart de durée sur la planification.
-    - **anomaliesComments.planning**: Explique ce que l'anomalie "départ en avance, arrivée en retard" révèle.
-    - **geoDriverComments.warehouse**: Identifie l'entrepôt le plus problématique.
-    - **geoDriverComments.city**: Identifie la ville la plus problématique.
-    - **geoDriverComments.driver**: Commente l'analyse des livreurs exemplaires.
+    - **chartsInsights.warehouseOverrun**: En te basant sur les données des "Top 20% des entrepôts par dépassement", commente quels entrepôts subissent le plus de dépassements de poids et de temps.
+    - **anomaliesComments**: Rédige un commentaire court pour chaque anomalie (overloaded, duration, planning).
+    - **geoDriverComments**: Rédige un commentaire court pour chaque analyse (warehouse, city, driver).
 
     **Sois bref et factuel pour les commentaires des sections, mais détaillé et neutre pour la synthèse globale. Ne génère que le JSON.**
     `,

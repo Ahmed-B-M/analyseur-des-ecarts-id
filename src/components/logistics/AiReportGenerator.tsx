@@ -42,30 +42,26 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
         const totalAdditionalServiceSeconds = (analysisData.durationDiscrepancies || []).reduce((acc, d) => d.ecart > 0 ? acc + d.ecart : acc, 0);
         const totalAdditionalServiceHours = totalAdditionalServiceSeconds / 3600;
 
-
         // --- Anomaly Percentages ---
         const overloadedToursPercentage = totalTours > 0 ? ((analysisData.overloadedTours || []).length / totalTours) * 100 : 0;
         const positiveDiscrepancyTours = (analysisData.durationDiscrepancies || []).filter(d => d.ecart > 900).length;
         const durationDiscrepancyPercentage = totalTours > 0 ? (positiveDiscrepancyTours / totalTours) * 100 : 0;
         const planningAnomalyPercentage = totalTours > 0 ? ((analysisData.lateStartAnomalies || []).length / totalTours) * 100 : 0;
 
-
         // --- Preparing Top 10 examples ---
         const top10Overloaded = (analysisData.overloadedTours || [])
             .sort((a,b) => b.tauxDepassementPoids - a.tauxDepassementPoids)
             .slice(0, 10)
-            .map(t => ({ date: t.date, nom: t.nom, livreur: t.livreur, poidsPrevu: t.poidsPrevu, poidsReel: t.poidsReel, tauxDepassementPoids: t.tauxDepassementPoids }));
-
+            .map(t => ({ ...t, entrepot: t.entrepot }));
         const top10PositiveDuration = (analysisData.durationDiscrepancies || [])
             .filter(d => d.ecart > 0)
             .sort((a,b) => b.ecart - a.ecart)
             .slice(0, 10)
-            .map(t => ({ date: t.date, nom: t.nom, livreur: t.livreur, ecart: t.ecart, dureeEstimee: t.dureeEstimee, dureeReelle: t.dureeReelle }));
-
+            .map(t => ({ ...t, entrepot: t.entrepot }));
         const top10Anomalies = (analysisData.lateStartAnomalies || [])
             .sort((a,b) => b.tasksInDelay - a.tasksInDelay)
             .slice(0, 10)
-            .map(t => ({ date: t.date, nom: t.nom, livreur: t.livreur, tasksInDelay: t.tasksInDelay, heureDepartPrevue: t.heureDepartPrevue, heureDepartReelle: t.heureDepartReelle }));
+            .map(t => ({ ...t, entrepot: t.entrepot }));
 
         // --- Exemplary Driver Analysis ---
         const exemplaryDrivers = (analysisData.performanceByDriver || [])
@@ -74,23 +70,47 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
             .slice(0, 3)
             .map(d => ({ key: d.key, punctualityRate: d.punctualityRate, overweightToursCount: d.overweightToursCount, avgDelay: d.avgDelay }));
 
+        // --- New Warehouse Overrun Analysis ---
+        const warehouseOverruns = (analysisData.overloadedTours || []).reduce((acc, tour) => {
+            if (!acc[tour.entrepot]) {
+                acc[tour.entrepot] = { totalWeightOverrun: 0, totalTimeOverrun: 0 };
+            }
+            acc[tour.entrepot].totalWeightOverrun += tour.depassementPoids;
+            return acc;
+        }, {} as Record<string, { totalWeightOverrun: number, totalTimeOverrun: number }>);
+
+        (analysisData.durationDiscrepancies || []).forEach(tour => {
+            if (tour.ecart > 0) {
+                if (!warehouseOverruns[tour.entrepot]) {
+                    warehouseOverruns[tour.entrepot] = { totalWeightOverrun: 0, totalTimeOverrun: 0 };
+                }
+                warehouseOverruns[tour.entrepot].totalTimeOverrun += tour.ecart / 3600; // convert to hours
+            }
+        });
+        
+        const sortedWarehouses = Object.entries(warehouseOverruns)
+            .map(([entrepot, data]) => ({ entrepot, ...data }))
+            .sort((a, b) => b.totalWeightOverrun - a.totalWeightOverrun);
+        
+        const top20percentWarehouses = sortedWarehouses.slice(0, Math.ceil(sortedWarehouses.length * 0.2));
 
         // --- Constructing the input for the AI report ---
         const input: GenerateLogisticsReportInput = {
-            totalTours: totalTours,
+            totalTours,
             generalKpis: (analysisData.generalKpis || []).map(({icon, ...kpi}) => kpi),
             qualityKpis: (analysisData.qualityKpis || []).map(({icon, ...kpi}) => kpi),
             negativeReviewsFromLateness: negativeReviewsKpi,
             discrepancyKpis: (analysisData.discrepancyKpis || []).filter(kpi => !kpi.title.toLowerCase().includes('distance')),
-            totalCumulativeDelayHours: totalCumulativeDelayHours,
-            totalAdditionalServiceHours: totalAdditionalServiceHours,
-            overloadedToursPercentage: overloadedToursPercentage,
-            durationDiscrepancyPercentage: durationDiscrepancyPercentage,
-            planningAnomalyPercentage: planningAnomalyPercentage,
-            top10OverloadedTours: top10Overloaded,
+            totalCumulativeDelayHours,
+            totalAdditionalServiceHours,
+            overloadedToursPercentage,
+            durationDiscrepancyPercentage,
+            planningAnomalyPercentage,
+            top10OverloadedTours,
             top10PositiveDurationDiscrepancies: top10PositiveDuration,
             top10LateStartAnomalies: top10Anomalies,
             topExemplaryDrivers: exemplaryDrivers,
+            top20percentWarehousesByOverrun: top20percentWarehouses,
             topWarehouseByDelay: analysisData.delaysByWarehouse?.[0]?.key,
             topCityByDelay: analysisData.delaysByCity?.[0]?.key,
         };
@@ -99,9 +119,9 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
       
         // Store the FULL data in session storage
         const reportData = {
-            analysis: analysisData,
+            analysis,
             ai: generatedReport,
-            filters: filters,
+            filters,
             extra: {
                 negativeReviewsKpi,
                 overloadedToursPercentage,
@@ -112,7 +132,8 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
                 top10Overloaded,
                 exemplaryDrivers,
                 totalCumulativeDelayHours,
-                totalAdditionalServiceHours
+                totalAdditionalServiceHours,
+                top20percentWarehousesByOverrun: top20percentWarehouses
             }
         };
         sessionStorage.setItem('visualReportData', JSON.stringify(reportData));
