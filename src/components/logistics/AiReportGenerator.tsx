@@ -53,7 +53,7 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
         const top10Overloaded = (analysisData.overloadedTours || [])
             .sort((a,b) => b.tauxDepassementPoids - a.tauxDepassementPoids)
             .slice(0, 10)
-            .map(t => ({ ...t, entrepot: t.entrepot }));
+            .map(t => ({ ...t, entrepot: t.entrepot, depassementPoids: t.depassementPoids > 0 ? t.depassementPoids : t.poidsReel - t.poidsPrevu }));
         const top10PositiveDuration = (analysisData.durationDiscrepancies || [])
             .filter(d => d.ecart > 0)
             .sort((a,b) => b.ecart - a.ecart)
@@ -107,7 +107,15 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
             overloadedToursPercentage,
             durationDiscrepancyPercentage,
             planningAnomalyPercentage,
-            top10OverloadedTours: top10Overloaded,
+            top10OverloadedTours: top10Overloaded.map(t => ({
+                date: t.date,
+                nom: t.nom,
+                livreur: t.livreur,
+                entrepot: t.entrepot,
+                poidsPrevu: t.poidsPrevu,
+                poidsReel: t.poidsReel,
+                tauxDepassementPoids: t.tauxDepassementPoids
+            })),
             top10PositiveDurationDiscrepancies: top10PositiveDuration,
             top10LateStartAnomalies: top10Anomalies,
             topExemplaryDrivers: exemplaryDrivers,
@@ -192,4 +200,5 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
     
 
     
+
 
