@@ -101,7 +101,7 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
             generalKpis: (analysisData.generalKpis || []).map(({icon, ...kpi}) => kpi),
             qualityKpis: (analysisData.qualityKpis || []).map(({icon, ...kpi}) => kpi),
             negativeReviewsFromLateness: negativeReviewsKpi,
-            discrepancyKpis: (analysisData.discrepancyKpis || []).filter(kpi => !kpi.title.toLowerCase().includes('distance')),
+            discrepancyKpis: (analysisData.discrepancyKpis || []).map(({changeType, ...kpi}) => kpi).filter(kpi => !kpi.title.toLowerCase().includes('distance')),
             totalCumulativeDelayHours,
             totalAdditionalServiceHours,
             overloadedToursPercentage,
