@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect, useState } from 'react';
 import type { VisualReportData, Kpi } from '@/lib/types';
@@ -226,5 +227,7 @@ export default function VisualReport() {
         </div>
     );
 }
+
+    
 
     

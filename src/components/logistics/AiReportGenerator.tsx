@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -106,7 +107,7 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
             overloadedToursPercentage,
             durationDiscrepancyPercentage,
             planningAnomalyPercentage,
-            top10OverloadedTours,
+            top10OverloadedTours: top10Overloaded,
             top10PositiveDurationDiscrepancies: top10PositiveDuration,
             top10LateStartAnomalies: top10Anomalies,
             topExemplaryDrivers: exemplaryDrivers,
@@ -187,5 +188,7 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
     </Card>
   );
 }
+
+    
 
     

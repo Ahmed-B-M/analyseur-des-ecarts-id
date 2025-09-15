@@ -2,7 +2,7 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import {
     Kpi
 } from '@/lib/types';
@@ -177,7 +177,7 @@ const prompt = ai.definePrompt({
         - **duration**: Écarts de durée.
         - **planning**: Anomalies de planification (parti à l'heure, arrivé en retard).
     - **geoDriverComments**: Rédige un commentaire analytique pour chaque sujet.
-        - **warehouse**: En te basant sur 'topWarehouseByDelay', nomme l'entrepôt le plus critique et explique pourquoi.
+        - **warehouse**: En te basant sur 'topWarehouseByDelay' et 'top20percentWarehousesByOverrun', nomme l'entrepôt le plus critique et explique pourquoi (cumul des dépassements poids/temps).
         - **city**: En te basant sur 'topCityByDelay', nomme la ville la plus critique et suggère des causes possibles (trafic, etc.).
         - **driver**: En te basant sur les 'topExemplaryDrivers', souligne que la performance est possible malgré les contraintes et met en avant leurs points forts (ex: haute ponctualité malgré la surcharge).
 
@@ -196,5 +196,7 @@ const generateLogisticsReportFlow = ai.defineFlow(
     return output!;
   }
 );
+
+    
 
     
