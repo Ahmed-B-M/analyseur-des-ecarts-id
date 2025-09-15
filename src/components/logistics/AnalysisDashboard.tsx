@@ -457,7 +457,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                       Dépassements de Charge
                   </CardTitle>
                   <CardDescription>
-                      Tournées dont la charge réelle (poids ou volume) dépasse la capacité maximale du véhicule.
+                      Tournées dont la charge réelle (poids) dépasse la capacité maximale du véhicule.
                   </CardDescription>
               </CardHeader>
               <CardContent>
@@ -469,8 +469,9 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'nom')}>Tournée {renderSortIcon('overloaded', 'nom')}</TableHead>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'entrepot')}>Entrepôt {renderSortIcon('overloaded', 'entrepot')}</TableHead>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'livreur')}>Livreur {renderSortIcon('overloaded', 'livreur')}</TableHead>
-                                  <TableHead>Poids Prévu</TableHead>
+                                  <TableHead>Poids Planifié</TableHead>
                                   <TableHead>Poids Réel</TableHead>
+                                  <TableHead>Capacité Poids</TableHead>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementPoids')}>Dépassement Poids {renderSortIcon('overloaded', 'tauxDepassementPoids')}</TableHead>
                               </TableRow>
                           </TableHeader>
@@ -485,6 +486,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                       <TableCell className={cn(tour.depassementPoids > 0 && "font-bold text-destructive")}>
                                           {tour.poidsReel.toFixed(2)} kg
                                       </TableCell>
+                                      <TableCell>{tour.capacitePoids.toFixed(2)} kg</TableCell>
                                       <TableCell className={cn(tour.depassementPoids > 0 && "font-semibold")}>
                                           {tour.depassementPoids > 0 ? `+${tour.depassementPoids.toFixed(2)} kg (${tour.tauxDepassementPoids.toFixed(1)}%)` : '-'}
                                       </TableCell>
@@ -862,5 +864,3 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     </div>
   );
 }
-
-    
