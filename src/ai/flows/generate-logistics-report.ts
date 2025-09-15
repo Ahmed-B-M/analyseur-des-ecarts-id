@@ -55,7 +55,7 @@ const LateStartAnomalySchema = z.object({
 
 const ExemplaryDriverSchema = z.object({
     key: z.string().describe("Nom du livreur."),
-    punctualityRate: z.number().describe("Son taux de ponctualité."),
+    punctualityRate: z.number().describe("Son taux de ponctualité en pourcentage."),
     overweightToursCount: z.number().describe("Nombre de tournées en surcharge qu'il a effectuées."),
     avgDelay: z.number().describe("Son retard moyen en minutes.")
 });
@@ -88,7 +88,7 @@ const ReportInputSchema = z.object({
   top10LateStartAnomalies: z.array(LateStartAnomalySchema).describe("Top 10 des tournées 'parties en avance, arrivées en retard'."),
   
   // New driver analysis
-  topExemplaryDrivers: z.array(ExemplaryDriverSchema).describe("Top livreurs qui restent performants malgré la surcharge."),
+  topExemplaryDrivers: z.array(ExemplaryDriverSchema).describe("Top livreurs qui restent performants (haute ponctualité) malgré la surcharge."),
 
   // New warehouse analysis
   top20percentWarehousesByOverrun: z.array(WarehouseOverrunSchema).describe("Top 20% des entrepôts avec les plus forts dépassements (poids et temps)."),
@@ -193,7 +193,7 @@ const prompt = ai.definePrompt({
 
     - **recommendations**: Propose 3 recommandations concrètes et actionnables, basées sur les analyses précédentes.
         - **planning**: Suggère une action pour améliorer la planification. Ex: "Réévaluer les temps de parcours pour la ville de [Nom de la ville] où les anomalies de planification sont fréquentes." ou "Ajuster la capacité de poids allouée pour les tournées de l'entrepôt [Nom de l'entrepôt] pour réduire la surcharge."
-        - **operations**: Suggère une action opérationnelle. Ex: "Mettre en place un suivi spécifique sur l'entrepôt [Nom] qui concentre le plus de difficultés (dépassements, retards)."
+        - **operations**: Suggère une action opérationnelle. Ex: "Mettre en place un suivi spécifique sur l'entrepôt [Nom de l'entrepôt] qui concentre le plus de difficultés (dépassements, retards)."
         - **quality**: Suggère une action orientée client. Ex: "Lancer une campagne de communication proactive vers les clients des zones à fort taux de retard pour gérer les attentes."
 
     **Sois bref et factuel pour les commentaires, mais détaillé pour la synthèse globale et les recommandations. Ne génère que le JSON.**

@@ -1,7 +1,7 @@
 
 'use client';
 import { useEffect, useState } from 'react';
-import type { VisualReportData, Kpi } from '@/lib/types';
+import type { VisualReportData, Kpi, OverloadedTourInfo } from '@/lib/types';
 import { Logo } from './Logo';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -22,7 +22,7 @@ type ExtendedVisualReportData = VisualReportData & {
         exemplaryDrivers: any[];
         top10PositiveDuration: any[];
         top10Anomalies: any[];
-        top10Overloaded: any[];
+        top10Overloaded: OverloadedTourInfo[];
         totalCumulativeDelayHours: number;
         totalAdditionalServiceHours: number;
         top20percentWarehousesByOverrun: any[];
@@ -190,8 +190,8 @@ export default function VisualReport() {
                             <Card className="print:shadow-none"><CardHeader>
                                 <CardTitle className="text-base flex items-center justify-between"><span><AlertTriangle className="inline mr-2" />Dépassements de Charge</span> <span className="font-bold text-lg text-red-600">{extra.overloadedToursPercentage.toFixed(1)}% des tournées</span></CardTitle>
                                 <CardDescription>{ai.anomaliesComments.overloaded}</CardDescription></CardHeader><CardContent>
-                                <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Poids Planifié</TableHead><TableHead>Poids Réel</TableHead></TableRow></TableHeader>
-                                    <TableBody>{(extra.top10Overloaded || []).map((t: any, i: number) => (<TableRow key={i}><TableCell>{formatDate(t.date)}</TableCell><TableCell>{t.nom}</TableCell><TableCell>{t.entrepot}</TableCell><TableCell>{t.poidsPrevu.toFixed(2)} kg</TableCell><TableCell className="font-bold text-red-600">{t.poidsReel.toFixed(2)} kg</TableCell></TableRow>))}</TableBody></Table>
+                                <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Poids Planifié</TableHead><TableHead>Poids Réel</TableHead><TableHead>Dépassement</TableHead></TableRow></TableHeader>
+                                    <TableBody>{(extra.top10Overloaded || []).map((t: OverloadedTourInfo, i: number) => (<TableRow key={i}><TableCell>{formatDate(t.date)}</TableCell><TableCell>{t.nom}</TableCell><TableCell>{t.entrepot}</TableCell><TableCell>{t.poidsPrevu.toFixed(2)} kg</TableCell><TableCell className="font-bold text-red-600">{t.poidsReel.toFixed(2)} kg</TableCell><TableCell className="font-bold text-red-600">+{t.depassementPoids.toFixed(2)} kg</TableCell></TableRow>))}</TableBody></Table>
                             </CardContent></Card>
 
                             <Card className="print:shadow-none mt-6"><CardHeader>
