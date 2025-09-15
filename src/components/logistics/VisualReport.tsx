@@ -5,7 +5,7 @@ import type { VisualReportData, Kpi } from '@/lib/types';
 import { Logo } from './Logo';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Printer, Loader2, AlertCircle, FileText, Target, Search, MapPin, BarChart2, Calendar, Clock, AlertTriangle, Timer, Route, Warehouse, Award, TrendingUp, Hourglass, Lightbulb, Info } from 'lucide-react';
+import { Printer, Loader2, AlertCircle, FileText, Target, Search, MapPin, BarChart2, Calendar, Clock, AlertTriangle, Timer, Route, Warehouse, Award, TrendingUp, Hourglass, Lightbulb, Info, Users } from 'lucide-react';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart, Legend, Line, Area } from 'recharts';
 import { format } from 'date-fns';
@@ -183,7 +183,7 @@ export default function VisualReport() {
                     </ReportBlock>
                 </div>
 
-                {/* --- PAGE 3: Detailed Anomalies & Drivers --- */}
+                {/* --- PAGE 3: Detailed Anomalies --- */}
                 <div className="break-after-page space-y-8">
                     <ReportBlock title="Analyse Détaillée des Anomalies" icon={Search}>
                         <div className="space-y-6">
@@ -212,9 +212,9 @@ export default function VisualReport() {
                 </div>
                  {/* --- PAGE 4: Geo, Drivers & Recommendations --- */}
                 <div className="space-y-8">
-                     <ReportBlock title="Analyse Humaine & Géographique" icon={Award}>
+                     <ReportBlock title="Analyse Géographique" icon={MapPin}>
                          <Card className="print:shadow-none mb-6">
-                            <CardHeader><CardTitle className="text-base">Analyse Géographique</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="text-base">Synthèse IA par Zone</CardTitle></CardHeader>
                             <CardContent className="space-y-2">
                                 <h4 className="font-semibold">Entrepôts</h4>
                                 <p className="text-sm text-gray-600 italic">"{ai.geoDriverComments.warehouse}"</p>
@@ -222,17 +222,57 @@ export default function VisualReport() {
                                 <p className="text-sm text-gray-600 italic">"{ai.geoDriverComments.city}"</p>
                             </CardContent>
                         </Card>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Card className="print:shadow-none">
+                                <CardHeader><CardTitle className="text-base">Top 5 Entrepôts par Retards</CardTitle></CardHeader>
+                                <CardContent>
+                                     <ResponsiveContainer width="100%" height={200}>
+                                        <BarChart layout="vertical" data={(analysis.delaysByWarehouse || []).slice(0, 5).reverse()} margin={{ left: 80 }}>
+                                            <XAxis type="number" fontSize={10} />
+                                            <YAxis dataKey="key" type="category" fontSize={10} width={80} />
+                                            <Tooltip />
+                                            <Bar dataKey="count" name="Retards" fill="hsl(var(--accent))" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                             <Card className="print:shadow-none">
+                                <CardHeader><CardTitle className="text-base">Top 5 Villes par Retards</CardTitle></CardHeader>
+                                <CardContent>
+                                     <ResponsiveContainer width="100%" height={200}>
+                                        <BarChart layout="vertical" data={(analysis.delaysByCity || []).slice(0, 5).reverse()} margin={{ left: 80 }}>
+                                            <XAxis type="number" fontSize={10} />
+                                            <YAxis dataKey="key" type="category" fontSize={10} width={80} />
+                                            <Tooltip />
+                                            <Bar dataKey="count" name="Retards" fill="hsl(var(--accent))" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </ReportBlock>
+
+                     <ReportBlock title="Analyse des Livreurs" icon={Users} aiComment={ai.geoDriverComments.driver}>
                         <Card className="print:shadow-none">
                             <CardHeader>
                                 <CardTitle className="text-base">Livreurs Exemplaires (Performants malgré la surcharge)</CardTitle>
-                                <CardDescription>{ai.geoDriverComments.driver}</CardDescription>
                             </CardHeader>
-                            <CardContent>
-                                <Table><TableHeader><TableRow><TableHead>Livreur</TableHead><TableHead>Ponctualité</TableHead><TableHead>Nb. Tournées Surchargées</TableHead></TableRow></TableHeader>
-                                <TableBody>{(extra.exemplaryDrivers || []).map((d: any, i: number) => (<TableRow key={i}><TableCell>{d.key}</TableCell><TableCell className="font-bold text-green-600">{d.punctualityRate.toFixed(1)}%</TableCell><TableCell>{d.overweightToursCount}</TableCell></TableRow>))}</TableBody></Table>
+                             <CardContent>
+                                 <ResponsiveContainer width="100%" height={200}>
+                                    <ComposedChart data={extra.exemplaryDrivers || []}>
+                                        <XAxis dataKey="key" fontSize={10} />
+                                        <YAxis yAxisId="left" dataKey="punctualityRate" domain={[80, 100]} label={{ value: 'Ponctualité (%)', angle: -90, position: 'insideLeft', fontSize: 12 }} fontSize={10} />
+                                        <YAxis yAxisId="right" orientation="right" label={{ value: 'Nb. Tournées Surchargées', angle: -90, position: 'insideRight', fontSize: 12 }} fontSize={10} />
+                                        <Tooltip />
+                                        <Legend />
+                                        <Bar yAxisId="right" dataKey="overweightToursCount" name="Tournées Surchargées" fill="#a1a1aa" />
+                                        <Line yAxisId="left" type="monotone" dataKey="punctualityRate" name="Ponctualité" stroke="hsl(var(--primary))" strokeWidth={2} />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
                             </CardContent>
                         </Card>
                     </ReportBlock>
+
                      <ReportBlock title="Recommandations" icon={Lightbulb}>
                         <Card className="print:shadow-none bg-amber-50 border-amber-200">
                             <CardContent className="pt-6 space-y-4">
