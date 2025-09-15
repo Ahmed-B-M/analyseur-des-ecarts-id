@@ -100,15 +100,22 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const overloadedTours = uniqueTournees.filter(tour => tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids);
     const overweightToursPercentage = uniqueTournees.length > 0 ? (overloadedTours.length / uniqueTournees.length) * 100 : 0;
     
-    const firstTasksLate = uniqueTournees.filter(tour => {
-        const tourData = tourneeMap.get(tour.uniqueId);
-        if (!tourData || tourData.tasks.length === 0) return false;
+    // "Parti à l'heure, arrivé en retard"
+    const onTimeStartLateFirstTask = uniqueTourneesWithTasks.filter(({ tour, tasks }) => {
+        if (tasks.length === 0) return false;
         
-        const firstTask = tourData.tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
-        if (!firstTask) return false;
-        return firstTask.retard > toleranceSeconds;
+        // Condition 1: Tournée partie à l'heure ou en avance
+        const startOnTime = tour.heureDepartReelle <= tour.heureDepartPrevue;
+        if (!startOnTime) return false;
+
+        // Condition 2: Première tâche en retard
+        const firstTask = tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
+        const firstTaskIsLate = firstTask.retard > toleranceSeconds;
+        
+        return firstTaskIsLate;
     });
-    const firstTaskLatePercentage = uniqueTournees.length > 0 ? (firstTasksLate.length / uniqueTournees.length) * 100 : 0;
+
+    const firstTaskLatePercentage = uniqueTournees.length > 0 ? (onTimeStartLateFirstTask.length / uniqueTournees.length) * 100 : 0;
 
 
     const generalKpis: Kpi[] = [
@@ -137,7 +144,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         { title: 'Tâches Hors Délais', value1: `${predictedOutOfTimeTasks}`, label1: 'Planifié', value2: `${outOfTimeTasks}`, label2: 'Réalisé', change: `${Math.abs(outOfTimeTasks - predictedOutOfTimeTasks)}`, changeType: outOfTimeTasks > predictedOutOfTimeTasks ? 'increase' : 'decrease' },
         { title: 'Écart de Durée Totale', value1: formatSeconds(totals.dureePrevue), label1: 'Planifié', value2: formatSeconds(totals.dureeReelleCalculee), label2: 'Réalisé', change: formatSeconds(Math.abs(totals.dureeReelleCalculee - totals.dureePrevue)), changeType: totals.dureeReelleCalculee > totals.dureePrevue ? 'increase' : 'decrease' },
         { title: 'Écart de Poids Total', value1: `${(totals.poidsPrevu / 1000).toFixed(2)} t`, label1: 'Planifié', value2: `${(totals.poidsReel / 1000).toFixed(2)} t`, label2: 'Réalisé', change: `${(Math.abs(totals.poidsReel - totals.poidsPrevu) / 1000).toFixed(2)} t`, changeType: totals.poidsReel > totals.poidsPrevu ? 'increase' : 'decrease' },
-        { title: 'Écart de Kilométrage Total', value1: `${totals.distancePrevue.toFixed(1)} km`, label1: 'Planifié', value2: `${totals.distanceReelle.toFixed(1)} km`, label2: 'Réalisé', change: `${(Math.abs(totals.distanceReelle - totals.distancePrevue)).toFixed(1)} km`, changeType: totals.distanceReelle > totals.distancePrevue ? 'increase' : 'decrease' },
+        { title: 'Écart de Kilométrage Total', value1: `${totals.distancePrevue.toFixed(1)} km`, label1: 'Planifié', value2: `${totals.distanceReelle.toFixed(1)} km`, label2: 'Réalisé', change: `${(Math.abs(totals.distanceReelle - totals.distancePrevue)).toFixed(1)} km`, changeType: totals.distanceReelle > totals.distanceReelle ? 'increase' : 'decrease' },
     ];
     
     // --- Detailed Analysis Tables ---
