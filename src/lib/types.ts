@@ -197,7 +197,7 @@ export type PerformanceByGroup = {
 export type AnalysisData = {
   generalKpis: Kpi[];
   discrepancyKpis: ComparisonKpi[];
-  qualityKpis: Kpi[];
+  qualityKpis: (Kpi | ComparisonKpi)[];
   overloadedTours: OverloadedTourInfo[];
   durationDiscrepancies: DurationDiscrepancy[];
   lateStartAnomalies: LateStartAnomaly[];
