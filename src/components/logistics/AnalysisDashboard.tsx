@@ -220,8 +220,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
         <h2 className="text-2xl font-bold mb-4">KPIs Généraux & Satisfaction Client</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {analysisData.generalKpis.map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
-          <KpiCard title="% Tournées en Surcharge" value={`${analysisData.overweightToursPercentage.toFixed(1)}%`} icon="Percent" description="Tournées dépassant la capacité de poids." />
-          <KpiCard title="% Retard 1ère Tâche" value={`${analysisData.firstTaskLatePercentage.toFixed(1)}%`} icon="Percent" description="Tournées en retard dès la 1ère livraison." />
+          {analysisData.overweightToursPercentage > 0 && <KpiCard title="% Tournées en Surcharge" value={`${analysisData.overweightToursPercentage.toFixed(1)}%`} icon="Percent" description="Tournées dépassant la capacité de poids." />}
+          {analysisData.firstTaskLatePercentage > 0 && <KpiCard title="% Retard 1ère Tâche" value={`${analysisData.firstTaskLatePercentage.toFixed(1)}%`} icon="Percent" description="Tournées en retard dès la 1ère livraison." />}
         </div>
       </section>
       
@@ -372,7 +372,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardHeader>
             <CardContent className="space-y-4">
               {analysisData.qualityKpis.map(kpi => {
-                  if ('value1' in kpi) {
+                  if ('value1' in kpi && 'value2' in kpi) {
                       return <ComparisonKpiCard key={kpi.title} {...kpi} />
                   }
                   return <KpiCard variant="inline" key={kpi.title} {...kpi} />
@@ -870,4 +870,5 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
   );
 }
 
+    
     

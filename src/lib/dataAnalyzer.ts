@@ -79,12 +79,6 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     });
 
     let uniqueTournees = uniqueTourneesWithTasks.map(t => t.tour);
-    uniqueTournees.forEach(tour => {
-        const tourWithTasks = tourneeMap.get(tour.uniqueId);
-        if (tourWithTasks) {
-            tour.poidsReel = tourWithTasks.tasks.reduce((sum, t) => sum + t.poids, 0);
-        }
-    });
     
     // --- KPI Calculations ---
     const tasksOnTime = allTasks.filter(t => t.retardStatus === 'onTime');
@@ -107,7 +101,10 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const overweightToursPercentage = uniqueTournees.length > 0 ? (overloadedTours.length / uniqueTournees.length) * 100 : 0;
     
     const firstTasksLate = uniqueTournees.filter(tour => {
-        const firstTask = tourneeMap.get(tour.uniqueId)?.tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
+        const tourData = tourneeMap.get(tour.uniqueId);
+        if (!tourData || tourData.tasks.length === 0) return false;
+        
+        const firstTask = tourData.tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
         if (!firstTask) return false;
         return firstTask.retard > toleranceSeconds;
     });
@@ -650,15 +647,5 @@ function formatSeconds(seconds: number): string {
     const m = Math.floor((seconds % 3600) / 60);
     return `${h}h ${m < 10 ? '0' : ''}${m}m`;
 }
-
-function formatSecondsToTime(seconds: number): string {
-    const isNegative = seconds < 0;
-    seconds = Math.abs(seconds);
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.round(seconds % 60);
-    return `${isNegative ? '-' : ''}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
 
     
