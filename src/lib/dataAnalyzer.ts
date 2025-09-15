@@ -7,10 +7,14 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const toleranceMinutes = filters.punctualityThreshold || 15;
     const toleranceSeconds = toleranceMinutes * 60;
 
-    const allTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée');
+    const completedTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée');
     
+    if (completedTasks.length === 0) {
+        return createEmptyAnalysisData();
+    }
+
     // --- Pre-calculation per task ---
-    allTasks.forEach(task => {
+    completedTasks.forEach(task => {
         // Realized delay
         const isLate = task.retard > toleranceSeconds;
         const isEarly = task.retard < -toleranceSeconds;
@@ -29,13 +33,9 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         const isPredictedEarly = predictedRetard < -toleranceSeconds;
         task.retardPrevisionnelStatus = isPredictedLate ? 'late' : isPredictedEarly ? 'early' : 'onTime';
     });
-
-    if (allTasks.length === 0) {
-        return createEmptyAnalysisData();
-    }
     
     const tourneeMap = new Map<string, { tour: Tournee, tasks: MergedData[] }>();
-    allTasks.forEach(task => {
+    completedTasks.forEach(task => {
         if (task.tournee) {
             if (!tourneeMap.has(task.tournee.uniqueId)) {
                 tourneeMap.set(task.tournee.uniqueId, { tour: { ...task.tournee }, tasks: [] });
@@ -81,26 +81,26 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const uniqueTournees = uniqueTourneesWithTasks.map(t => t.tour);
     
     // --- KPI Calculations ---
-    const tasksOnTime = allTasks.filter(t => t.retardStatus === 'onTime');
-    const lateTasks = allTasks.filter(t => t.retardStatus === 'late');
-    const earlyTasks = allTasks.filter(t => t.retardStatus === 'early');
+    const tasksOnTime = completedTasks.filter(t => t.retardStatus === 'onTime');
+    const lateTasks = completedTasks.filter(t => t.retardStatus === 'late');
+    const earlyTasks = completedTasks.filter(t => t.retardStatus === 'early');
     const outOfTimeTasks = lateTasks.length + earlyTasks.length;
 
-    const predictedTasksOnTime = allTasks.filter(t => t.retardPrevisionnelStatus === 'onTime');
-    const predictedOutOfTimeTasks = allTasks.length - predictedTasksOnTime.length;
+    const predictedTasksOnTime = completedTasks.filter(t => t.retardPrevisionnelStatus === 'onTime');
+    const predictedOutOfTimeTasks = completedTasks.length - predictedTasksOnTime.length;
 
-    const punctualityRate = allTasks.length > 0 ? (tasksOnTime.length / allTasks.length) * 100 : 100;
-    const predictedPunctualityRate = allTasks.length > 0 ? (predictedTasksOnTime.length / allTasks.length) * 100 : 100;
+    const punctualityRate = completedTasks.length > 0 ? (tasksOnTime.length / completedTasks.length) * 100 : 100;
+    const predictedPunctualityRate = completedTasks.length > 0 ? (predictedTasksOnTime.length / completedTasks.length) * 100 : 100;
     
-    const avgRatingData = allTasks.filter(t => t.notation != null && t.notation > 0);
+    const avgRatingData = completedTasks.filter(t => t.notation != null && t.notation > 0);
     const avgRating = avgRatingData.length > 0 ? avgRatingData.reduce((acc, t) => acc + t.notation!, 0) / avgRatingData.length : 0;
     
-    const negativeReviews = allTasks.filter(t => t.notation != null && t.notation <= 3);
+    const negativeReviews = completedTasks.filter(t => t.notation != null && t.notation <= 3);
 
     const overloadedTours = uniqueTournees.filter(tour => tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids);
     const overweightToursPercentage = uniqueTournees.length > 0 ? (overloadedTours.length / uniqueTournees.length) * 100 : 0;
     
-    // "Parti à l'heure, arrivé en retard"
+    // Anomalie: parti à l'heure, 1ère livraison en retard
     const onTimeStartLateFirstTask = uniqueTourneesWithTasks.filter(({ tour, tasks }) => {
         if (tasks.length === 0) return false;
         
@@ -120,7 +120,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
     const generalKpis: Kpi[] = [
         { title: 'Tournées Analysées', value: uniqueTournees.length.toString(), icon: 'Truck' },
-        { title: 'Livraisons Analysées', value: allTasks.length.toString(), icon: 'ListChecks' },
+        { title: 'Livraisons Analysées', value: completedTasks.length.toString(), icon: 'ListChecks' },
         { title: 'Taux de Ponctualité (Réalisé)', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${toleranceMinutes} min`, icon: 'Clock' },
         { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis (sur 5)`, icon: 'Star' },
         { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${toleranceMinutes} min après le créneau`, icon: 'Frown' },
@@ -201,8 +201,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     // --- Quality Impact KPIs ---
     const overloadedToursIds = new Set(overloadedToursInfos.map(t => t.uniqueId));
     
-    const tasksOnOverloadedTours = allTasks.filter(t => t.tournee && overloadedToursIds.has(t.tournee.uniqueId));
-    const tasksOnNonOverloadedTours = allTasks.filter(t => !t.tournee || !overloadedToursIds.has(t.tournee.uniqueId));
+    const tasksOnOverloadedTours = completedTasks.filter(t => t.tournee && overloadedToursIds.has(t.tournee.uniqueId));
+    const tasksOnNonOverloadedTours = completedTasks.filter(t => !t.tournee || !overloadedToursIds.has(t.tournee.uniqueId));
 
     const negativeReviewsOnOverloadedTours = tasksOnOverloadedTours.filter(t => t.notation != null && t.notation <= 3);
     const negativeReviewsOnNonOverloadedTours = tasksOnNonOverloadedTours.filter(t => t.notation != null && t.notation <= 3);
@@ -231,8 +231,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     
     // --- Performance & Context Analysis ---
     const performanceByDriver = calculatePerformanceByDriver(uniqueTourneesWithTasks, toleranceSeconds);
-    const performanceByCity = calculatePerformanceByGeo(allTasks, tourneeMap, 'ville', toleranceSeconds);
-    const performanceByPostalCode = calculatePerformanceByGeo(allTasks, tourneeMap, 'codePostal', toleranceSeconds);
+    const performanceByCity = calculatePerformanceByGeo(completedTasks, tourneeMap, 'ville', toleranceSeconds);
+    const performanceByPostalCode = calculatePerformanceByGeo(completedTasks, tourneeMap, 'codePostal', toleranceSeconds);
 
     const delaysByWarehouse = countItemsBy(lateTasks, (t) => t.tournee!.entrepot);
     const delaysByCity = countItemsBy(lateTasks, (t) => t.ville);
@@ -247,32 +247,42 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     // --- Workload Charts ---
     const workloadByHour: WorkloadByHour[] = [];
     const avgWorkloadByHour: AvgWorkloadByHour[] = [];
-    const tasksByHour: Record<string, { planned: number, real: number, delays: number, advances: number, plannedDrivers: Set<string>, realDrivers: Set<string> }> = {};
+    const tasksByHour: Record<string, { 
+        planned: number, 
+        real: number, 
+        delays: number, 
+        advances: number, 
+        plannedTours: Set<string>, 
+        realTours: Set<string> 
+    }> = {};
 
     for (let i = 0; i < 24; i++) {
         const hourStr = `${String(i).padStart(2, '0')}:00`;
-        tasksByHour[hourStr] = { planned: 0, real: 0, delays: 0, advances: 0, plannedDrivers: new Set(), realDrivers: new Set() };
+        tasksByHour[hourStr] = { planned: 0, real: 0, delays: 0, advances: 0, plannedTours: new Set(), realTours: new Set() };
     }
 
-    allTasks.forEach(task => {
-        if (task.livreur) {
-            const plannedHour = new Date(task.heureArriveeApprox * 1000).getUTCHours();
-            const plannedHourStr = `${String(plannedHour).padStart(2, '0')}:00`;
+    completedTasks.forEach(task => {
+        // Realized
+        const realHourIndex = new Date(task.heureCloture * 1000).getUTCHours();
+        const realHourStr = `${String(realHourIndex).padStart(2, '0')}:00`;
+        if (tasksByHour[realHourStr]) {
+            tasksByHour[realHourStr].real++;
+            tasksByHour[realHourStr].realTours.add(task.tourneeUniqueId);
+            if (task.retardStatus === 'late') {
+                tasksByHour[realHourStr].delays++;
+            } else if (task.retardStatus === 'early') {
+                tasksByHour[realHourStr].advances++;
+            }
+        }
+
+        // Planned
+        const startHour = Math.floor(task.heureDebutCreneau / 3600);
+        const endHour = Math.ceil(task.heureFinCreneau / 3600);
+        for (let h = startHour; h < endHour; h++) {
+            const plannedHourStr = `${String(h).padStart(2, '0')}:00`;
             if (tasksByHour[plannedHourStr]) {
                 tasksByHour[plannedHourStr].planned++;
-                tasksByHour[plannedHourStr].plannedDrivers.add(task.livreur);
-            }
-
-            const realHour = new Date(task.heureCloture * 1000).getUTCHours();
-            const realHourStr = `${String(realHour).padStart(2, '0')}:00`;
-            if (tasksByHour[realHourStr]) {
-                tasksByHour[realHourStr].real++;
-                tasksByHour[realHourStr].realDrivers.add(task.livreur);
-                if (task.retardStatus === 'late') {
-                    tasksByHour[realHourStr].delays++;
-                } else if (task.retardStatus === 'early') {
-                    tasksByHour[realHourStr].advances++;
-                }
+                tasksByHour[plannedHourStr].plannedTours.add(task.tourneeUniqueId);
             }
         }
     });
@@ -280,13 +290,13 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     Object.entries(tasksByHour).forEach(([hour, data]) => {
         workloadByHour.push({ hour, planned: data.planned, real: data.real, delays: data.delays, advances: data.advances });
         
-        const plannedDriverCount = data.plannedDrivers.size;
-        const realDriverCount = data.realDrivers.size;
+        const plannedTourCount = data.plannedTours.size;
+        const realTourCount = data.realTours.size;
         
         avgWorkloadByHour.push({ 
             hour, 
-            avgPlanned: plannedDriverCount > 0 ? data.planned / plannedDriverCount : 0,
-            avgReal: realDriverCount > 0 ? data.real / realDriverCount : 0 
+            avgPlanned: plannedTourCount > 0 ? data.planned / plannedTourCount : 0,
+            avgReal: realTourCount > 0 ? data.real / realTourCount : 0 
         });
     });
 
@@ -298,9 +308,9 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     }
     
     // --- New Analyses ---
-    const performanceByDayOfWeek = calculatePerformanceByDayOfWeek(allTasks, toleranceSeconds);
-    const performanceByTimeSlot = calculatePerformanceByTimeSlot(allTasks, toleranceSeconds);
-    const delayHistogram = createDelayHistogram(allTasks);
+    const performanceByDayOfWeek = calculatePerformanceByDayOfWeek(completedTasks, toleranceSeconds);
+    const performanceByTimeSlot = calculatePerformanceByTimeSlot(completedTasks, toleranceSeconds);
+    const delayHistogram = createDelayHistogram(completedTasks);
 
     // --- New Summary Tables Data ---
     const globalSummary: GlobalSummary = {
@@ -310,8 +320,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         avgWeightDiscrepancyPerTour: uniqueTournees.length > 0 ? (totals.poidsReel - totals.poidsPrevu) / uniqueTournees.length : 0,
     };
     
-    const performanceByDepot = calculatePerformanceByGroup(allTasks, tourneeMap, (task) => task.tournee!.entrepot.split(' ')[0], toleranceSeconds);
-    const performanceByWarehouse = calculatePerformanceByGroup(allTasks, tourneeMap, (task) => task.tournee!.entrepot, toleranceSeconds);
+    const performanceByDepot = calculatePerformanceByGroup(completedTasks, tourneeMap, (task) => task.tournee!.entrepot.split(' ')[0], toleranceSeconds);
+    const performanceByWarehouse = calculatePerformanceByGroup(completedTasks, tourneeMap, (task) => task.tournee!.entrepot, toleranceSeconds);
 
 
     return {
@@ -338,7 +348,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         performanceByDayOfWeek,
         performanceByTimeSlot,
         delayHistogram,
-        cities: [...new Set(allTasks.map(t => t.ville))].sort(),
+        cities: [...new Set(completedTasks.map(t => t.ville))].sort(),
         globalSummary,
         performanceByDepot,
         performanceByWarehouse,
