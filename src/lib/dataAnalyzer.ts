@@ -78,7 +78,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         }
     });
 
-    let uniqueTournees = uniqueTourneesWithTasks.map(t => t.tour);
+    const uniqueTournees = uniqueTourneesWithTasks.map(t => t.tour);
     
     // --- KPI Calculations ---
     const tasksOnTime = allTasks.filter(t => t.retardStatus === 'onTime');
