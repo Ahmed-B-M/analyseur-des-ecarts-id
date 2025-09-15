@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'A-E-L',
-  description: 'Analyse des Écarts Logistiques',
+  title: 'A-E-L - Analyse des Écarts Logistiques',
+  description: 'Analyse des Écarts Logistiques pour Carrefour',
   icons: {
     icon: '/icon.png',
     shortcut: '/icon.png',

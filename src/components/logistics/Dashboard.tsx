@@ -190,7 +190,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-3">
           <Logo className="h-32 w-auto" />
           <div>
-            <h1 className="text-xl font-bold text-primary">Analyse de la Performance Logistique</h1>
+            <h1 className="text-xl font-bold text-primary">A-E-L - Analyse des Écarts Logistiques</h1>
             <p className="text-sm text-muted-foreground">Analyse des écarts de livraison pour Carrefour</p>
           </div>
         </div>
