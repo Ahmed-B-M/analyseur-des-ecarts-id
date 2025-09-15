@@ -75,7 +75,7 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
             if (!acc[tour.entrepot]) {
                 acc[tour.entrepot] = { totalWeightOverrun: 0, totalTimeOverrun: 0 };
             }
-            acc[tour.entrepot].totalWeightOverrun += tour.depassementPoids;
+            acc[tour.entrepot].totalWeightOverrun += (tour.poidsReel - tour.poidsPrevu);
             return acc;
         }, {} as Record<string, { totalWeightOverrun: number, totalTimeOverrun: number }>);
 
@@ -119,7 +119,7 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
       
         // Store the FULL data in session storage
         const reportData = {
-            analysis,
+            analysis: analysisData,
             ai: generatedReport,
             filters,
             extra: {
@@ -187,3 +187,5 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
     </Card>
   );
 }
+
+    

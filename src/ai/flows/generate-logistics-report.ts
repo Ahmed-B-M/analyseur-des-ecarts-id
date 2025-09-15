@@ -155,16 +155,31 @@ const prompt = ai.definePrompt({
     - Heures de service additionnelles: {{{totalAdditionalServiceHours}}}h
     - Pourcentage de tournées en surcharge: {{{overloadedToursPercentage}}}%
     - Top 20% des entrepôts par dépassement: {{{json top20percentWarehousesByOverrun}}}
+    - Entrepôt avec le plus de retards : {{{topWarehouseByDelay}}}
+    - Ville avec le plus de retards : {{{topCityByDelay}}}
+    - Top livreurs exemplaires : {{{json topExemplaryDrivers}}}
     
     ## Instructions :
     - **title**: "Rapport de Performance Opérationnelle".
-    - **globalSynthesis**: Rédige une synthèse globale et factuelle de toutes les données. L'objectif est de décrire en détail chaque indicateur sans porter de jugement.
-    - **kpiComments**: Rédige un commentaire court pour chaque section (punctuality, rating, quality, discrepancy, inefficiency).
-    - **chartsInsights.temporalAnalysis**: Donne l'insight principal du graphique heure par heure.
-    - **chartsInsights.workloadAnalysis**: Commente le graphique de charge (planifié vs. réel) et son lien avec les retards/avances.
-    - **chartsInsights.warehouseOverrun**: En te basant sur les données des "Top 20% des entrepôts par dépassement", commente quels entrepôts subissent le plus de dépassements de poids et de temps.
-    - **anomaliesComments**: Rédige un commentaire court pour chaque anomalie (overloaded, duration, planning).
-    - **geoDriverComments**: Rédige un commentaire court pour chaque analyse (warehouse, city, driver).
+    - **globalSynthesis**: Rédige une synthèse globale et factuelle de toutes les données. L'objectif est de décrire en détail chaque indicateur sans porter de jugement. Sois exhaustif et mentionne les chiffres clés (ponctualité, retard moyen, écart de durée, etc.).
+    - **kpiComments**: Pour chaque section, rédige un commentaire court et percutant.
+        - **punctuality**: Commente le taux de ponctualité global.
+        - **rating**: Commente l'impact des retards sur les avis négatifs.
+        - **quality**: Explique la corrélation entre les problèmes opérationnels (retards, surcharge) et la satisfaction client.
+        - **discrepancy**: Analyse la signification des écarts entre planifié et réalisé (durée, poids).
+        - **inefficiency**: Explique ce que les heures de retard et de service additionnel représentent en termes de coût ou de temps perdu.
+    - **chartsInsights**:
+        - **temporalAnalysis**: Donne l'insight principal du graphique heure par heure. (ex: "Le pic de retards se situe entre 10h et 14h.").
+        - **workloadAnalysis**: Commente le graphique de charge (planifié vs. réel) et son lien avec les retards/avances.
+        - **warehouseOverrun**: En te basant sur les données des 'Top 20% des entrepôts par dépassement' et 'l'entrepôt avec le plus de retards', commente quels entrepôts subissent le plus de difficultés (dépassements de poids ET de temps).
+    - **anomaliesComments**: Rédige un commentaire court pour chaque type d'anomalie, en expliquant son impact.
+        - **overloaded**: Dépassement de charge.
+        - **duration**: Écarts de durée.
+        - **planning**: Anomalies de planification (parti à l'heure, arrivé en retard).
+    - **geoDriverComments**: Rédige un commentaire analytique pour chaque sujet.
+        - **warehouse**: En te basant sur 'topWarehouseByDelay', nomme l'entrepôt le plus critique et explique pourquoi.
+        - **city**: En te basant sur 'topCityByDelay', nomme la ville la plus critique et suggère des causes possibles (trafic, etc.).
+        - **driver**: En te basant sur les 'topExemplaryDrivers', souligne que la performance est possible malgré les contraintes et met en avant leurs points forts (ex: haute ponctualité malgré la surcharge).
 
     **Sois bref et factuel pour les commentaires des sections, mais détaillé et neutre pour la synthèse globale. Ne génère que le JSON.**
     `,
@@ -181,3 +196,5 @@ const generateLogisticsReportFlow = ai.defineFlow(
     return output!;
   }
 );
+
+    

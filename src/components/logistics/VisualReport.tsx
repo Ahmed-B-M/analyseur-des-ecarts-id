@@ -81,7 +81,7 @@ export default function VisualReport() {
     const { analysis, ai, filters, extra } = reportData;
 
     const renderDateFilter = () => {
-        if (filters.dateRange?.from) return `Période du ${format(new Date(filters.dateRange.from), 'd MMM', { locale: fr })} au ${format(new Date(filters.dateRange.to || filters.dateRange.from), 'd MMM yyyy', { locale: fr })}`;
+        if (filters.dateRange?.from && filters.dateRange?.to) return `Période du ${format(new Date(filters.dateRange.from), 'd MMM', { locale: fr })} au ${format(new Date(filters.dateRange.to), 'd MMM yyyy', { locale: fr })}`;
         if (filters.selectedDate) return `Rapport du ${format(new Date(filters.selectedDate), 'd MMMM yyyy', { locale: fr })}`;
         return "Période non spécifiée";
     };
@@ -143,7 +143,7 @@ export default function VisualReport() {
 
                 {/* --- PAGE 2: Graphical Analysis --- */}
                 <div className="break-after-page space-y-8">
-                    <ReportBlock title="Analyse de la Charge de Travail" icon={Clock} aiComment={ai.chartsInsights.workloadAnalysis}>
+                     <ReportBlock title="Analyse de la Charge & Performance Temporelle" icon={Clock} aiComment={ai.chartsInsights.workloadAnalysis}>
                         <Card className="print:shadow-none"><CardHeader><CardTitle className="text-base">Charge & Écarts par Heure</CardTitle></CardHeader><CardContent>
                             <ResponsiveContainer width="100%" height={250}>
                                 <ComposedChart data={workloadByHourData}>
@@ -157,7 +157,7 @@ export default function VisualReport() {
                         </CardContent></Card>
                     </ReportBlock>
                      <ReportBlock title="Performance par Entrepôt" icon={Warehouse} aiComment={ai.chartsInsights.warehouseOverrun}>
-                        <Card className="print:shadow-none"><CardHeader><CardTitle className="text-base">Top 20% des Entrepôts par Dépassements</CardTitle></CardHeader><CardContent>
+                        <Card className="print:shadow-none"><CardHeader><CardTitle className="text-base">Top 20% des Entrepôts par Dépassements Cumulés</CardTitle></CardHeader><CardContent>
                             <ResponsiveContainer width="100%" height={250}>
                                 <ComposedChart data={extra.top20percentWarehousesByOverrun}>
                                     <XAxis dataKey="entrepot" fontSize={10} /><YAxis yAxisId="left" label={{ value: 'Poids (kg)', angle: -90, position: 'insideLeft', fontSize: 12 }} fontSize={10} /><YAxis yAxisId="right" orientation="right" label={{ value: 'Temps (h)', angle: -90, position: 'insideRight', fontSize: 12 }} fontSize={10} /><Tooltip /><Legend />
@@ -174,21 +174,21 @@ export default function VisualReport() {
                     <ReportBlock title="Analyse Détaillée des Anomalies" icon={Search}>
                         <div className="space-y-6">
                             <Card className="print:shadow-none"><CardHeader>
-                                <CardTitle className="text-base flex items-center justify-between"><span><AlertTriangle className="inline mr-2" />Dépassements de Charge</span> <span className="font-bold text-lg text-red-600">{extra.overloadedToursPercentage.toFixed(1)}%</span></CardTitle>
+                                <CardTitle className="text-base flex items-center justify-between"><span><AlertTriangle className="inline mr-2" />Dépassements de Charge</span> <span className="font-bold text-lg text-red-600">{extra.overloadedToursPercentage.toFixed(1)}% des tournées</span></CardTitle>
                                 <CardDescription>{ai.anomaliesComments.overloaded}</CardDescription></CardHeader><CardContent>
                                 <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Poids Planifié</TableHead><TableHead>Poids Réel</TableHead></TableRow></TableHeader>
                                     <TableBody>{(extra.top10Overloaded || []).map((t: any, i: number) => (<TableRow key={i}><TableCell>{formatDate(t.date)}</TableCell><TableCell>{t.nom}</TableCell><TableCell>{t.entrepot}</TableCell><TableCell>{t.poidsPrevu.toFixed(2)} kg</TableCell><TableCell className="font-bold text-red-600">{t.poidsReel.toFixed(2)} kg</TableCell></TableRow>))}</TableBody></Table>
                             </CardContent></Card>
 
                             <Card className="print:shadow-none mt-6"><CardHeader>
-                                <CardTitle className="text-base flex items-center justify-between"><span><Timer className="inline mr-2" />Écarts de Durée de Service</span><span className="font-bold text-lg text-red-600">{extra.durationDiscrepancyPercentage.toFixed(1)}%</span></CardTitle>
+                                <CardTitle className="text-base flex items-center justify-between"><span><Timer className="inline mr-2" />Écarts de Durée de Service</span><span className="font-bold text-lg text-red-600">{extra.durationDiscrepancyPercentage.toFixed(1)}% des tournées</span></CardTitle>
                                 <CardDescription>{ai.anomaliesComments.duration}</CardDescription></CardHeader><CardContent>
                                 <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Prévu</TableHead><TableHead>Réalisé</TableHead><TableHead>Écart</TableHead></TableRow></TableHeader>
                                     <TableBody>{(extra.top10PositiveDuration || []).map((t: any, i: number) => (<TableRow key={i}><TableCell>{formatDate(t.date)}</TableCell><TableCell>{t.nom}</TableCell><TableCell>{t.entrepot}</TableCell><TableCell>{formatSecondsToClock(t.dureeEstimee)}</TableCell><TableCell>{formatSecondsToClock(t.dureeReelle)}</TableCell><TableCell className="font-bold text-red-600">+{formatSecondsToClock(t.ecart)}</TableCell></TableRow>))}</TableBody></Table>
                             </CardContent></Card>
 
                             <Card className="print:shadow-none mt-6"><CardHeader>
-                                <CardTitle className="text-base flex items-center justify-between"><span><Route className="inline mr-2" />Anomalies de Planification</span><span className="font-bold text-lg text-red-600">{extra.planningAnomalyPercentage.toFixed(1)}%</span></CardTitle>
+                                <CardTitle className="text-base flex items-center justify-between"><span><Route className="inline mr-2" />Anomalies de Planification</span><span className="font-bold text-lg text-red-600">{extra.planningAnomalyPercentage.toFixed(1)}% des tournées</span></CardTitle>
                                 <CardDescription>{ai.anomaliesComments.planning}</CardDescription></CardHeader><CardContent>
                                 <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Départ Prévu</TableHead><TableHead>Départ Réel</TableHead><TableHead># Tâches en Retard</TableHead></TableRow></TableHeader>
                                     <TableBody>{(extra.top10Anomalies || []).map((t: any, i: number) => (<TableRow key={i}><TableCell>{formatDate(t.date)}</TableCell><TableCell>{t.nom}</TableCell><TableCell>{t.entrepot}</TableCell><TableCell>{formatSecondsToClock(t.heureDepartPrevue)}</TableCell><TableCell className="text-blue-600 font-semibold">{formatSecondsToClock(t.heureDepartReelle)}</TableCell><TableCell className="font-bold">{t.tasksInDelay}</TableCell></TableRow>))}</TableBody></Table>
@@ -196,9 +196,21 @@ export default function VisualReport() {
                         </div>
                     </ReportBlock>
                     
-                    <ReportBlock title="Analyse Humaine" icon={Award} aiComment={ai.geoDriverComments.driver}>
+                    <ReportBlock title="Analyse Humaine & Géographique" icon={Award}>
+                         <Card className="print:shadow-none mb-6">
+                            <CardHeader><CardTitle className="text-base">Analyse Géographique</CardTitle></CardHeader>
+                            <CardContent className="space-y-2">
+                                <h4 className="font-semibold">Entrepôts</h4>
+                                <p className="text-sm text-gray-600 italic">"{ai.geoDriverComments.warehouse}"</p>
+                                <h4 className="font-semibold mt-4">Villes</h4>
+                                <p className="text-sm text-gray-600 italic">"{ai.geoDriverComments.city}"</p>
+                            </CardContent>
+                        </Card>
                         <Card className="print:shadow-none">
-                            <CardHeader><CardTitle className="text-base">Livreurs Exemplaires (Performants malgré la surcharge)</CardTitle></CardHeader>
+                            <CardHeader>
+                                <CardTitle className="text-base">Livreurs Exemplaires (Performants malgré la surcharge)</CardTitle>
+                                <CardDescription>{ai.geoDriverComments.driver}</CardDescription>
+                            </CardHeader>
                             <CardContent>
                                 <Table><TableHeader><TableRow><TableHead>Livreur</TableHead><TableHead>Ponctualité</TableHead><TableHead>Nb. Tournées Surchargées</TableHead></TableRow></TableHeader>
                                 <TableBody>{(extra.exemplaryDrivers || []).map((d: any, i: number) => (<TableRow key={i}><TableCell>{d.key}</TableCell><TableCell className="font-bold text-green-600">{d.punctualityRate.toFixed(1)}%</TableCell><TableCell>{d.overweightToursCount}</TableCell></TableRow>))}</TableBody></Table>
@@ -214,3 +226,5 @@ export default function VisualReport() {
         </div>
     );
 }
+
+    
