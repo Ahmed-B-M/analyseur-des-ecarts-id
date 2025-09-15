@@ -206,12 +206,12 @@ export default function Dashboard() {
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="grid md:grid-cols-2 gap-8">
                 <FileUpload
-                title="1. Fichier Tournées (Planifié)"
+                title="1. Fichier Tournées"
                 onFileSelect={(file) => handleSetFile('tournees', file)}
                 file={state.tourneesFile}
                 />
                 <FileUpload
-                title="2. Fichier Tâches (Réalisé)"
+                title="2. Fichier Tâches"
                 onFileSelect={(file) => handleSetFile('taches', file)}
                 file={state.tachesFile}
                 />
