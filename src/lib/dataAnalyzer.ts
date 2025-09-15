@@ -109,7 +109,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const firstTasksLate = uniqueTournees.filter(tour => {
         const firstTask = tourneeMap.get(tour.uniqueId)?.tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
         if (!firstTask) return false;
-        return firstTask.heureArriveeReelle > (firstTask.heureArriveeApprox + toleranceSeconds);
+        return firstTask.retard > toleranceSeconds;
     });
     const firstTaskLatePercentage = uniqueTournees.length > 0 ? (firstTasksLate.length / uniqueTournees.length) * 100 : 0;
 
@@ -196,15 +196,32 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
     // --- Quality Impact KPIs ---
     const overloadedToursIds = new Set(overloadedToursInfos.map(t => t.uniqueId));
-    const negativeReviewsOnOverloadedTours = negativeReviews.filter(t => t.tournee && overloadedToursIds.has(t.tournee.uniqueId));
-    const negativeReviewsOnLateTasks = negativeReviews.filter(t => t.retardStatus === 'late');
-
-    const correlationDelays = negativeReviews.length > 0 ? (negativeReviewsOnLateTasks.length / negativeReviews.length) * 100 : 0;
-    const correlationOverload = negativeReviews.length > 0 ? (negativeReviewsOnOverloadedTours.length / negativeReviews.length) * 100 : 0;
     
-    const qualityKpis: Kpi[] = [
+    const tasksOnOverloadedTours = allTasks.filter(t => t.tournee && overloadedToursIds.has(t.tournee.uniqueId));
+    const tasksOnNonOverloadedTours = allTasks.filter(t => !t.tournee || !overloadedToursIds.has(t.tournee.uniqueId));
+
+    const negativeReviewsOnOverloadedTours = tasksOnOverloadedTours.filter(t => t.notation != null && t.notation <= 3);
+    const negativeReviewsOnNonOverloadedTours = tasksOnNonOverloadedTours.filter(t => t.notation != null && t.notation <= 3);
+
+    const rateBadReviewsOverloaded = tasksOnOverloadedTours.length > 0 ? (negativeReviewsOnOverloadedTours.length / tasksOnOverloadedTours.length) * 100 : 0;
+    const rateBadReviewsNonOverloaded = tasksOnNonOverloadedTours.length > 0 ? (negativeReviewsOnNonOverloadedTours.length / tasksOnNonOverloadedTours.length) * 100 : 0;
+
+    const badReviewsOnOverloadKpi: ComparisonKpi = {
+        title: 'Taux Avis Négatifs vs Surcharge',
+        value1: `${rateBadReviewsOverloaded.toFixed(1)}%`,
+        label1: 'Surchargées',
+        value2: `${rateBadReviewsNonOverloaded.toFixed(1)}%`,
+        label2: 'Standard',
+        change: `${(rateBadReviewsOverloaded - rateBadReviewsNonOverloaded).toFixed(1)} pts d'écart`,
+        changeType: rateBadReviewsOverloaded > rateBadReviewsNonOverloaded ? 'increase' : 'decrease'
+    };
+
+    const negativeReviewsOnLateTasks = negativeReviews.filter(t => t.retardStatus === 'late');
+    const correlationDelays = negativeReviews.length > 0 ? (negativeReviewsOnLateTasks.length / negativeReviews.length) * 100 : 0;
+    
+    const qualityKpis: (Kpi | ComparisonKpi)[] = [
         { title: 'Corrélation Retards / Avis Négatifs', value: `${correlationDelays.toFixed(1)}%`, icon: 'BarChart' },
-        { title: 'Corrélation Surcharge / Avis Négatifs', value: `${correlationOverload.toFixed(1)}%`, icon: 'Hash' },
+        badReviewsOnOverloadKpi,
         { title: 'Anomalies en Tournée', value: lateStartAnomalies.length.toString(), icon: 'Route' },
     ];
     
@@ -642,3 +659,6 @@ function formatSecondsToTime(seconds: number): string {
     const s = Math.round(seconds % 60);
     return `${isNegative ? '-' : ''}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
+
+
+    

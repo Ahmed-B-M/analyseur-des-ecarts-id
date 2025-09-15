@@ -371,7 +371,12 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               <CardTitle className="flex items-center gap-2"><BarChart2 />Impact des Écarts sur la Qualité</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {analysisData.qualityKpis.map(kpi => <KpiCard variant="inline" key={kpi.title} {...kpi} />)}
+              {analysisData.qualityKpis.map(kpi => {
+                  if ('value1' in kpi) {
+                      return <ComparisonKpiCard key={kpi.title} {...kpi} />
+                  }
+                  return <KpiCard variant="inline" key={kpi.title} {...kpi} />
+              })}
             </CardContent>
           </Card>
           <div className="lg:col-span-2">
@@ -469,9 +474,9 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'nom')}>Tournée {renderSortIcon('overloaded', 'nom')}</TableHead>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'entrepot')}>Entrepôt {renderSortIcon('overloaded', 'entrepot')}</TableHead>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'livreur')}>Livreur {renderSortIcon('overloaded', 'livreur')}</TableHead>
-                                  <TableHead>Poids Planifié</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'poidsPrevu')}>Poids Planifié {renderSortIcon('overloaded', 'poidsPrevu')}</TableHead>
                                   <TableHead>Poids Réel</TableHead>
-                                  <TableHead>Capacité Poids</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'capacitePoids')}>Capacité Poids {renderSortIcon('overloaded', 'capacitePoids')}</TableHead>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementPoids')}>Dépassement Poids {renderSortIcon('overloaded', 'tauxDepassementPoids')}</TableHead>
                               </TableRow>
                           </TableHeader>
@@ -864,3 +869,5 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     </div>
   );
 }
+
+    
