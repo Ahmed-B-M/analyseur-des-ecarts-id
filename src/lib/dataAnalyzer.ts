@@ -13,49 +13,6 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         return createEmptyAnalysisData();
     }
 
-    const tourneeIdsWithCompletedTasks = new Set(completedTasks.map(t => t.tournee!.uniqueId));
-    const allUniqueTournees = [...new Map(data.map(item => [item.tournee!.uniqueId, item.tournee!])).values()];
-    const uniqueTourneesWithTasksData = allUniqueTournees
-        .filter(tour => tourneeIdsWithCompletedTasks.has(tour.uniqueId))
-        .map(tour => ({
-            tour: { ...tour },
-            tasks: completedTasks.filter(t => t.tourneeUniqueId === tour.uniqueId)
-        }));
-
-    // Aggregate real values and calculated durations per tour
-    uniqueTourneesWithTasksData.forEach(({ tour, tasks }) => {
-        tour.poidsReel = tasks.reduce((sum, t) => sum + t.poids, 0);
-        tour.bacsReels = tasks.reduce((sum, t) => sum + t.items, 0);
-        
-        if (tasks.length > 0) {
-            const plannedTasks = [...tasks].sort((a,b) => a.heureArriveeApprox - b.heureArriveeApprox);
-            const firstPlannedTask = plannedTasks[0];
-            const lastPlannedTask = plannedTasks[tasks.length - 1];
-            
-            const realTasks = [...tasks].sort((a,b) => a.heureArriveeReelle - b.heureArriveeReelle);
-            const firstRealTask = realTasks[0];
-            const lastRealTask = realTasks[tasks.length - 1];
-
-            tour.dureeEstimeeOperationnelle = lastPlannedTask.heureArriveeApprox - firstPlannedTask.heureArriveeApprox;
-            tour.dureeReelleCalculee = lastRealTask.heureCloture - firstRealTask.heureArriveeReelle;
-            
-            tour.heurePremiereLivraisonPrevue = firstPlannedTask.heureArriveeApprox;
-            tour.heurePremiereLivraisonReelle = firstRealTask.heureArriveeReelle;
-            tour.heureDerniereLivraisonPrevue = lastPlannedTask.heureArriveeApprox;
-            tour.heureDerniereLivraisonReelle = lastRealTask.heureCloture;
-
-        } else {
-            tour.dureeReelleCalculee = 0;
-            tour.dureeEstimeeOperationnelle = 0;
-            tour.heurePremiereLivraisonPrevue = 0;
-            tour.heurePremiereLivraisonReelle = 0;
-            tour.heureDerniereLivraisonPrevue = 0;
-            tour.heureDerniereLivraisonReelle = 0;
-        }
-    });
-
-    const uniqueTournees = uniqueTourneesWithTasksData.map(t => t.tour);
-
     // --- Pre-calculation per task ---
     completedTasks.forEach(task => {
         // Realized delay
@@ -87,6 +44,40 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         }
     });
 
+    // Aggregate real values and calculated durations per tour
+    tourneeMap.forEach(({ tour, tasks }) => {
+        tour.poidsReel = tasks.reduce((sum, t) => sum + t.poids, 0);
+        tour.bacsReels = tasks.reduce((sum, t) => sum + t.items, 0);
+        
+        if (tasks.length > 0) {
+            const plannedTasks = [...tasks].sort((a,b) => a.heureArriveeApprox - b.heureArriveeApprox);
+            const firstPlannedTask = plannedTasks[0];
+            const lastPlannedTask = plannedTasks[tasks.length - 1];
+            
+            const realTasks = [...tasks].sort((a,b) => a.heureArriveeReelle - b.heureArriveeReelle);
+            const firstRealTask = realTasks[0];
+            const lastRealTask = realTasks[tasks.length - 1];
+
+            tour.dureeEstimeeOperationnelle = lastPlannedTask.heureArriveeApprox - firstPlannedTask.heureArriveeApprox;
+            tour.dureeReelleCalculee = lastRealTask.heureCloture - firstRealTask.heureArriveeReelle;
+            
+            tour.heurePremiereLivraisonPrevue = firstPlannedTask.heureArriveeApprox;
+            tour.heurePremiereLivraisonReelle = firstRealTask.heureArriveeReelle;
+            tour.heureDerniereLivraisonPrevue = lastPlannedTask.heureArriveeApprox;
+            tour.heureDerniereLivraisonReelle = lastRealTask.heureCloture;
+
+        } else {
+            tour.dureeReelleCalculee = 0;
+            tour.dureeEstimeeOperationnelle = 0;
+            tour.heurePremiereLivraisonPrevue = 0;
+            tour.heurePremiereLivraisonReelle = 0;
+            tour.heureDerniereLivraisonPrevue = 0;
+            tour.heureDerniereLivraisonReelle = 0;
+        }
+    });
+
+    const uniqueTournees = Array.from(tourneeMap.values()).map(data => data.tour);
+
     // --- KPI Calculations ---
     const tasksOnTime = completedTasks.filter(t => t.retardStatus === 'onTime');
     const lateTasks = completedTasks.filter(t => t.retardStatus === 'late');
@@ -103,27 +94,6 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const avgRating = avgRatingData.length > 0 ? avgRatingData.reduce((acc, t) => acc + t.notation!, 0) / avgRatingData.length : 0;
     
     const negativeReviews = completedTasks.filter(t => t.notation != null && t.notation <= 3);
-
-    const overloadedTours = uniqueTournees.filter(tour => tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids);
-    const overweightToursPercentage = uniqueTournees.length > 0 ? (overloadedTours.length / uniqueTournees.length) * 100 : 0;
-    
-    // Anomalie: parti à l'heure, 1ère livraison en retard
-    const onTimeStartLateFirstTask = uniqueTourneesWithTasksData.filter(({ tour, tasks }) => {
-        if (tasks.length === 0) return false;
-        
-        // Condition 1: Tournée partie à l'heure ou en avance
-        const startOnTime = tour.heureDepartReelle <= tour.heureDepartPrevue;
-        if (!startOnTime) return false;
-
-        // Condition 2: Première tâche en retard
-        const firstTask = tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
-        const firstTaskIsLate = firstTask.retard > toleranceSeconds;
-        
-        return firstTaskIsLate;
-    });
-
-    const firstTaskLatePercentage = uniqueTournees.length > 0 ? (onTimeStartLateFirstTask.length / uniqueTournees.length) * 100 : 0;
-
 
     const generalKpis: Kpi[] = [
         { title: 'Tournées Analysées', value: uniqueTournees.length.toString(), icon: 'Truck' },
@@ -191,7 +161,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
       return b.ecart - a.ecart;
     });
 
-    const lateStartAnomalies: LateStartAnomaly[] = uniqueTourneesWithTasksData
+    const lateStartAnomalies: LateStartAnomaly[] = Array.from(tourneeMap.values())
         .map(({tour, tasks}) => ({ 
             tour, 
             tasksInDelay: tasks.filter(t => t.retardStatus === 'late').length,
@@ -237,7 +207,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     ];
     
     // --- Performance & Context Analysis ---
-    const performanceByDriver = calculatePerformanceByDriver(uniqueTourneesWithTasksData, toleranceSeconds);
+    const performanceByDriver = calculatePerformanceByDriver(Array.from(tourneeMap.values()), toleranceSeconds);
     const performanceByCity = calculatePerformanceByGeo(completedTasks, tourneeMap, 'ville', toleranceSeconds);
     const performanceByPostalCode = calculatePerformanceByGeo(completedTasks, tourneeMap, 'codePostal', toleranceSeconds);
 
@@ -355,9 +325,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         cities: [...new Set(completedTasks.map(t => t.ville))].sort(),
         globalSummary,
         performanceByDepot,
-        performanceByWarehouse,
-        overweightToursPercentage,
-        firstTaskLatePercentage,
+        performanceByWarehouse
     };
 }
 
@@ -390,9 +358,7 @@ function createEmptyAnalysisData(): AnalysisData {
         cities: [],
         globalSummary: { punctualityRatePlanned: 0, punctualityRateRealized: 0, avgDurationDiscrepancyPerTour: 0, avgWeightDiscrepancyPerTour: 0 },
         performanceByDepot: [],
-        performanceByWarehouse: [],
-        overweightToursPercentage: 0,
-        firstTaskLatePercentage: 0,
+        performanceByWarehouse: []
     };
 }
 

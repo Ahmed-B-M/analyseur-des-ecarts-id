@@ -1,6 +1,5 @@
 import type { LucideProps } from "lucide-react";
 import type { ForwardRefExoticComponent, RefAttributes } from "react";
-import type { GenerateLogisticsReportOutput } from "@/ai/flows/generate-logistics-report";
 
 export type Tournee = {
   uniqueId: string;
@@ -222,32 +221,8 @@ export type AnalysisData = {
   globalSummary: GlobalSummary;
   performanceByDepot: PerformanceByGroup[];
   performanceByWarehouse: PerformanceByGroup[];
-  overweightToursPercentage: number;
-  firstTaskLatePercentage: number;
 };
 
 export type AiAnalysisResult = {
   reason: 'Retard' | 'Avance' | 'Autre';
 };
-
-export type VisualReportData = {
-  analysis: AnalysisData;
-  ai: GenerateLogisticsReportOutput;
-  filters: Record<string, any>;
-  extra: {
-    negativeReviewsKpi: Kpi;
-    overloadedToursPercentage: number;
-    durationDiscrepancyPercentage: number;
-    planningAnomalyPercentage: number;
-    top10PositiveDuration: any[];
-    top10Anomalies: any[];
-    top10Overloaded: OverloadedTourInfo[];
-    exemplaryDrivers: any[];
-    totalCumulativeDelayHours: number;
-    totalAdditionalServiceHours: number;
-    top20percentWarehousesByOverrun: any[];
-    firstTaskLatePercentage: number;
-  };
-};
-
-    

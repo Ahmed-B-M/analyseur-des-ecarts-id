@@ -221,8 +221,6 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
         <h2 className="text-2xl font-bold mb-4">Vue d'Ensemble & Synthèse Globale</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6">
           {analysisData.generalKpis.map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
-          {analysisData.overweightToursPercentage != null && <KpiCard title="% Tournées en Dépassement de Poids" value={`${analysisData.overweightToursPercentage.toFixed(1)}%`} icon="Percent" description="Tournées dépassant la capacité de poids." />}
-          {analysisData.firstTaskLatePercentage != null && <KpiCard title="% Anomalies 1ère Tâche" value={`${analysisData.firstTaskLatePercentage.toFixed(1)}%`} icon="Percent" description="Parti à l'heure, 1ère livraison en retard." />}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {analysisData.discrepancyKpis.map(kpi => <ComparisonKpiCard key={kpi.title} {...kpi} />)}
