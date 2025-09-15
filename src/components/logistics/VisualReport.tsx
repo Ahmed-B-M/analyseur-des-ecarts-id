@@ -5,12 +5,13 @@ import type { VisualReportData, Kpi } from '@/lib/types';
 import { Logo } from './Logo';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Printer, Loader2, AlertCircle, FileText, Target, Search, MapPin, BarChart2, Calendar, Clock, AlertTriangle, Timer, Route, Warehouse, Award, TrendingUp, Hourglass, Lightbulb } from 'lucide-react';
+import { Printer, Loader2, AlertCircle, FileText, Target, Search, MapPin, BarChart2, Calendar, Clock, AlertTriangle, Timer, Route, Warehouse, Award, TrendingUp, Hourglass, Lightbulb, Info } from 'lucide-react';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart, Legend, Line, Area } from 'recharts';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type ExtendedVisualReportData = VisualReportData & {
     extra: {
@@ -103,6 +104,18 @@ export default function VisualReport() {
             </header>
 
             <main className="mt-6">
+                <Alert className="no-print mb-6">
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Conseils d'utilisation</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc list-inside">
+                        <li>Cliquez sur **Imprimer / PDF** pour générer un fichier PDF de haute qualité, idéal pour l'archivage et le partage.</li>
+                        <li>Pour une consultation future interactive (graphiques), sauvegardez cette page via `Fichier &gt; Enregistrer la page sous...` dans votre navigateur.</li>
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+
+
                 <div className="no-print flex justify-end mb-6">
                     <Button onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Imprimer / PDF</Button>
                 </div>
@@ -247,4 +260,5 @@ export default function VisualReport() {
         </div>
     );
 }
-`
+
+    
