@@ -5,7 +5,7 @@ import type { VisualReportData, Kpi } from '@/lib/types';
 import { Logo } from './Logo';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Printer, Loader2, AlertCircle, FileText, Target, Search, MapPin, BarChart2, Calendar, Clock, AlertTriangle, Timer, Route, Warehouse, Award, TrendingUp, Hourglass } from 'lucide-react';
+import { Printer, Loader2, AlertCircle, FileText, Target, Search, MapPin, BarChart2, Calendar, Clock, AlertTriangle, Timer, Route, Warehouse, Award, TrendingUp, Hourglass, Lightbulb } from 'lucide-react';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart, Legend, Line, Area } from 'recharts';
 import { format } from 'date-fns';
@@ -171,7 +171,7 @@ export default function VisualReport() {
                 </div>
 
                 {/* --- PAGE 3: Detailed Anomalies & Drivers --- */}
-                <div className="space-y-8">
+                <div className="break-after-page space-y-8">
                     <ReportBlock title="Analyse Détaillée des Anomalies" icon={Search}>
                         <div className="space-y-6">
                             <Card className="print:shadow-none"><CardHeader>
@@ -196,8 +196,10 @@ export default function VisualReport() {
                             </CardContent></Card>
                         </div>
                     </ReportBlock>
-                    
-                    <ReportBlock title="Analyse Humaine & Géographique" icon={Award}>
+                </div>
+                 {/* --- PAGE 4: Geo, Drivers & Recommendations --- */}
+                <div className="space-y-8">
+                     <ReportBlock title="Analyse Humaine & Géographique" icon={Award}>
                          <Card className="print:shadow-none mb-6">
                             <CardHeader><CardTitle className="text-base">Analyse Géographique</CardTitle></CardHeader>
                             <CardContent className="space-y-2">
@@ -218,6 +220,24 @@ export default function VisualReport() {
                             </CardContent>
                         </Card>
                     </ReportBlock>
+                     <ReportBlock title="Recommandations" icon={Lightbulb}>
+                        <Card className="print:shadow-none bg-amber-50 border-amber-200">
+                            <CardContent className="pt-6 space-y-4">
+                                <div>
+                                    <h4 className="font-semibold">Planification</h4>
+                                    <p className="text-gray-700">{ai.recommendations.planning}</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold">Opérations</h4>
+                                    <p className="text-gray-700">{ai.recommendations.operations}</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold">Qualité de Service</h4>
+                                    <p className="text-gray-700">{ai.recommendations.quality}</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </ReportBlock>
                 </div>
             </main>
 
@@ -227,7 +247,4 @@ export default function VisualReport() {
         </div>
     );
 }
-
-    
-
-    
+`

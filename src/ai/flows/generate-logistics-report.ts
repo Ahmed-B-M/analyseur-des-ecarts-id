@@ -128,7 +128,13 @@ const ReportOutputSchema = z.object({
         warehouse: z.string().describe("Commentaire sur l'analyse par entrepôt. Ex: 'L'entrepôt de [Nom] concentre le plus de difficultés.'"),
         city: z.string().describe("Commentaire sur l'analyse par ville. Ex: 'La ville de [Nom] présente des défis de circulation.'"),
         driver: z.string().describe("Commentaire sur l'analyse des livreurs exemplaires, soulignant que la performance est possible malgré les contraintes."),
-    })
+    }),
+
+    recommendations: z.object({
+      planning: z.string().describe("Recommandation liée à la planification (ex: réévaluer les temps de parcours, ajuster les capacités des véhicules)."),
+      operations: z.string().describe("Recommandation opérationnelle (ex: focus sur un entrepôt, formation des livreurs)."),
+      quality: z.string().describe("Recommandation visant à améliorer la qualité de service perçue par le client."),
+    }),
 });
 export type GenerateLogisticsReportOutput = z.infer<typeof ReportOutputSchema>;
 
@@ -143,7 +149,7 @@ const prompt = ai.definePrompt({
   input: { schema: ReportInputSchema },
   output: { schema: ReportOutputSchema },
   prompt: `
-    En tant qu'IA experte en analyse logistique, génère des commentaires concis et factuels pour un rapport VISUEL.
+    En tant qu'IA experte en analyse logistique, génère un rapport VISUEL complet, factuel et orienté action.
     
     ## Données Clés Analysées :
     - Total de tournées: {{{totalTours}}}
@@ -159,29 +165,38 @@ const prompt = ai.definePrompt({
     - Ville avec le plus de retards : {{{topCityByDelay}}}
     - Top livreurs exemplaires : {{{json topExemplaryDrivers}}}
     
-    ## Instructions :
+    ## Instructions Détaillées :
     - **title**: "Rapport de Performance Opérationnelle".
-    - **globalSynthesis**: Rédige une synthèse globale et factuelle de toutes les données. L'objectif est de décrire en détail chaque indicateur sans porter de jugement. Sois exhaustif et mentionne les chiffres clés (ponctualité, retard moyen, écart de durée, etc.).
-    - **kpiComments**: Pour chaque section, rédige un commentaire court et percutant.
+    - **globalSynthesis**: Rédige une synthèse managériale et factuelle de la situation. Sois exhaustif et mentionne les chiffres clés (ponctualité, retard moyen, écart de durée, etc.).
+    
+    - **kpiComments**: Pour chaque section, un commentaire court et percutant.
         - **punctuality**: Commente le taux de ponctualité global.
-        - **rating**: Commente l'impact des retards sur les avis négatifs.
-        - **quality**: Explique la corrélation entre les problèmes opérationnels (retards, surcharge) et la satisfaction client.
-        - **discrepancy**: Analyse la signification des écarts entre planifié et réalisé (durée, poids).
-        - **inefficiency**: Explique ce que les heures de retard et de service additionnel représentent en termes de coût ou de temps perdu.
+        - **rating**: Impact des retards sur les avis négatifs.
+        - **quality**: Corrélation entre problèmes opérationnels et satisfaction client.
+        - **discrepancy**: Analyse des écarts planifié/réalisé (durée, poids).
+        - **inefficiency**: Explique ce que les heures perdues représentent.
+        
     - **chartsInsights**:
-        - **temporalAnalysis**: Donne l'insight principal du graphique heure par heure. (ex: "Le pic de retards se situe entre 10h et 14h.").
-        - **workloadAnalysis**: Commente le graphique de charge (planifié vs. réel) et son lien avec les retards/avances.
-        - **warehouseOverrun**: En te basant sur les données des 'Top 20% des entrepôts par dépassement' et 'l'entrepôt avec le plus de retards', commente quels entrepôts subissent le plus de difficultés (dépassements de poids ET de temps).
-    - **anomaliesComments**: Rédige un commentaire court pour chaque type d'anomalie, en expliquant son impact.
+        - **temporalAnalysis**: Insight principal du graphique heure par heure.
+        - **workloadAnalysis**: Lien entre charge de travail et retards/avances.
+        - **warehouseOverrun**: Identifie les entrepôts les plus critiques en combinant les dépassements de poids et de temps.
+        
+    - **anomaliesComments**: Commente chaque anomalie et son impact.
         - **overloaded**: Dépassement de charge.
         - **duration**: Écarts de durée.
-        - **planning**: Anomalies de planification (parti à l'heure, arrivé en retard).
-    - **geoDriverComments**: Rédige un commentaire analytique pour chaque sujet.
-        - **warehouse**: En te basant sur 'topWarehouseByDelay' et 'top20percentWarehousesByOverrun', nomme l'entrepôt le plus critique et explique pourquoi (cumul des dépassements poids/temps).
-        - **city**: En te basant sur 'topCityByDelay', nomme la ville la plus critique et suggère des causes possibles (trafic, etc.).
-        - **driver**: En te basant sur les 'topExemplaryDrivers', souligne que la performance est possible malgré les contraintes et met en avant leurs points forts (ex: haute ponctualité malgré la surcharge).
+        - **planning**: Parti à l'heure, arrivé en retard.
+        
+    - **geoDriverComments**: Analyse analytique pour chaque sujet.
+        - **warehouse**: En te basant sur 'topWarehouseByDelay' et 'top20percentWarehousesByOverrun', nomme l'entrepôt le plus critique et explique pourquoi.
+        - **city**: Nomme la ville la plus critique et suggère des causes.
+        - **driver**: Souligne que la performance est possible malgré les contraintes, en te basant sur les 'topExemplaryDrivers'.
 
-    **Sois bref et factuel pour les commentaires des sections, mais détaillé et neutre pour la synthèse globale. Ne génère que le JSON.**
+    - **recommendations**: Propose 3 recommandations concrètes et actionnables, basées sur les analyses précédentes.
+        - **planning**: Suggère une action pour améliorer la planification. Ex: "Réévaluer les temps de parcours pour la ville de [Nom de la ville] où les anomalies de planification sont fréquentes." ou "Ajuster la capacité de poids allouée pour les tournées de l'entrepôt [Nom de l'entrepôt] pour réduire la surcharge."
+        - **operations**: Suggère une action opérationnelle. Ex: "Mettre en place un suivi spécifique sur l'entrepôt [Nom] qui concentre le plus de difficultés (dépassements, retards)."
+        - **quality**: Suggère une action orientée client. Ex: "Lancer une campagne de communication proactive vers les clients des zones à fort taux de retard pour gérer les attentes."
+
+    **Sois bref et factuel pour les commentaires, mais détaillé pour la synthèse globale et les recommandations. Ne génère que le JSON.**
     `,
 });
 
@@ -196,7 +211,3 @@ const generateLogisticsReportFlow = ai.defineFlow(
     return output!;
   }
 );
-
-    
-
-    
