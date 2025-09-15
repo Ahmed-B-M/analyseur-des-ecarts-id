@@ -13,6 +13,9 @@ import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Button } from '../ui/button';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 interface AnalysisDashboardProps {
   analysisData: AnalysisData | null;
@@ -23,7 +26,7 @@ interface AnalysisDashboardProps {
 
 const ACCENT_COLOR = "hsl(var(--accent))";
 const PRIMARY_COLOR = "hsl(var(--primary))";
-const ADVANCE_COLOR = "hsl(210 100% 56%)"; // A distinct blue for "advance"
+const ADVANCE_COLOR = "hsl(210 100% 56%)";
 
 function formatSecondsToTime(seconds: number): string {
     const isNegative = seconds < 0;
@@ -59,21 +62,18 @@ type SortConfig<T> = {
 } | null;
 
 export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData, filters }: AnalysisDashboardProps) {
-  const [activeTab, setActiveTab] = useState('ville');
+  const [activeGeoTab, setActiveGeoTab] = useState('ville');
   const [feedbackAnalysisResult, setFeedbackAnalysisResult] = useState<{ reason: string; count: number }[] | null>(null);
-  const [depotViewMode, setDepotViewMode] = useState<'all' | 'top20'>('all');
-  const [warehouseViewMode, setWarehouseViewMode] = useState<'all' | 'top20'>('all');
-  const [cityViewMode, setCityViewMode] = useState<'all' | 'top20'>('all');
   
   const [sorts, setSorts] = useState<{ [key: string]: SortConfig<any> }>({
       overloaded: { key: 'tauxDepassementPoids', direction: 'desc' },
       duration: { key: 'ecart', direction: 'desc' },
       anomaly: { key: 'tasksInDelay', direction: 'desc' },
       driver: { key: 'totalTours', direction: 'desc' },
-      geo: { key: 'totalTasks', direction: 'desc' },
-      depot: { key: 'avgDurationDiscrepancy', direction: 'desc' },
-      warehouse: { key: 'punctualityRateRealized', direction: 'asc' },
+      depot: { key: 'totalTasks', direction: 'desc' },
+      warehouse: { key: 'totalTasks', direction: 'desc' },
       city: { key: 'totalTasks', direction: 'desc' },
+      postalCode: { key: 'totalTasks', direction: 'desc' },
   });
 
   const handleSort = <T,>(table: string, key: keyof T) => {
@@ -138,41 +138,11 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       lateStartAnomalies: sortFn<LateStartAnomaly>(analysisData.lateStartAnomalies, sorts.anomaly),
       performanceByDriver: sortFn<PerformanceByDriver>(analysisData.performanceByDriver, sorts.driver),
       performanceByCity: sortFn<PerformanceByGeo>(analysisData.performanceByCity, sorts.city),
-      performanceByPostalCode: sortFn<PerformanceByGeo>(analysisData.performanceByPostalCode, sorts.geo),
+      performanceByPostalCode: sortFn<PerformanceByGeo>(analysisData.performanceByPostalCode, sorts.postalCode),
       performanceByDepot: sortFn<PerformanceByGroup>(analysisData.performanceByDepot, sorts.depot),
       performanceByWarehouse: sortFn<PerformanceByGroup>(analysisData.performanceByWarehouse, sorts.warehouse),
     };
   }, [analysisData, sorts]);
-
-  const depotDataToDisplay = useMemo(() => {
-    const data = sortedData.performanceByDepot;
-    if (depotViewMode === 'top20' && data.length > 0) {
-        const sortedByTasks = [...data].sort((a,b) => b.totalTasks - a.totalTasks);
-        const top20PercentIndex = Math.ceil(sortedByTasks.length * 0.2);
-        return sortedByTasks.slice(0, top20PercentIndex);
-    }
-    return data;
-  }, [sortedData.performanceByDepot, depotViewMode]);
-
-  const warehouseDataToDisplay = useMemo(() => {
-    const data = sortedData.performanceByWarehouse;
-    if (warehouseViewMode === 'top20' && data.length > 0) {
-        const sortedByTasks = [...data].sort((a,b) => b.totalTasks - a.totalTasks);
-        const top20PercentIndex = Math.ceil(sortedByTasks.length * 0.2);
-        return sortedByTasks.slice(0, top20PercentIndex);
-    }
-    return data;
-  }, [sortedData.performanceByWarehouse, warehouseViewMode]);
-
-  const cityDataToDisplay = useMemo(() => {
-    const data = sortedData.performanceByCity;
-    if (cityViewMode === 'top20' && data.length > 0) {
-        const sortedByTasks = [...data].sort((a,b) => b.totalTasks - a.totalTasks);
-        const top20PercentIndex = Math.ceil(sortedByTasks.length * 0.2);
-        return sortedByTasks.slice(0, top20PercentIndex);
-    }
-    return data;
-  }, [sortedData.performanceByCity, cityViewMode]);
 
 
   if (!analysisData) {
@@ -206,13 +176,33 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     }
   };
   
-  const geoDataToDisplay = activeTab === 'ville' ? sortedData.performanceByCity : sortedData.performanceByPostalCode;
-
   const dayOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const sortedPerformanceByDay = (analysisData.performanceByDayOfWeek || []).sort((a,b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
 
   const slotOrder = ['Matin (06-12h)', 'Après-midi (12-18h)', 'Soir (18-00h)'];
   const sortedPerformanceBySlot = (analysisData.performanceByTimeSlot || []).sort((a,b) => slotOrder.indexOf(a.slot) - slotOrder.indexOf(b.slot));
+
+  const combinedHourlyDelays = (analysisData.delaysByHour || []).map(d => ({ hour: d.hour, delays: d.count, advances: 0 }));
+  const combinedHourlyAdvances = (analysisData.advancesByHour || []).map(a => ({ hour: a.hour, advances: a.count, delays: 0 }));
+  const hourlyDataMap = new Map<string, {delays: number, advances: number}>();
+  [...combinedHourlyDelays, ...combinedHourlyAdvances].forEach(item => {
+    const entry = hourlyDataMap.get(item.hour) || { delays: 0, advances: 0 };
+    entry.delays += item.delays;
+    entry.advances += item.advances;
+    hourlyDataMap.set(item.hour, entry);
+  });
+  const combinedHourlyData = Array.from(hourlyDataMap.entries()).map(([hour, data]) => ({ hour, ...data })).sort((a,b) => a.hour.localeCompare(b.hour));
+
+  const combinedWarehouseDelays = (analysisData.delaysByWarehouse || []).map(d => ({ key: d.key, delays: d.count, advances: 0 }));
+  const combinedWarehouseAdvances = (analysisData.advancesByWarehouse || []).map(a => ({ key: a.key, advances: a.count, delays: 0 }));
+  const warehouseDataMap = new Map<string, {delays: number, advances: number}>();
+  [...combinedWarehouseDelays, ...combinedWarehouseAdvances].forEach(item => {
+      const entry = warehouseDataMap.get(item.key) || { delays: 0, advances: 0 };
+      entry.delays += item.delays;
+      entry.advances += item.advances;
+      warehouseDataMap.set(item.key, entry);
+  });
+  const combinedWarehouseData = Array.from(warehouseDataMap.entries()).map(([key, data]) => ({ key, ...data })).sort((a,b) => (b.delays + b.advances) - (a.delays + a.advances));
 
   return (
     <div className="space-y-8">
@@ -255,7 +245,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
 
       {/* Section 3: Analyse des Causes (Groupes & Anomalies) */}
       <section>
-        <h2 className="text-2xl font-bold mb-4">Analyse des Causes (Groupes & Anomalies)</h2>
+        <h2 className="text-2xl font-bold mb-4">Analyse des Causes (Anomalies & Groupes)</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <Card>
             <CardHeader><CardTitle>Synthèse des Écarts Globaux par Groupe</CardTitle></CardHeader>
@@ -271,265 +261,85 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2"><Building />Analyse des Écarts par Dépôt</CardTitle>
-              <div className="flex items-center gap-2">
-                <Button variant={depotViewMode === 'top20' ? 'secondary' : 'ghost'} size="sm" onClick={() => setDepotViewMode('top20')}>Top 20%</Button>
-                <Button variant={depotViewMode === 'all' ? 'secondary' : 'ghost'} size="sm" onClick={() => setDepotViewMode('all')}>Tout voir</Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-48">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'key')}>Dépôt {renderSortIcon('depot', 'key')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'totalTasks')}>Nb. Tâches {renderSortIcon('depot', 'totalTasks')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('depot', 'punctualityRateRealized')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('depot', 'avgDurationDiscrepancy')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('depot', 'avgWeightDiscrepancy')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'lateWithBadReviewPercentage')}>% Insat. {renderSortIcon('depot', 'lateWithBadReviewPercentage')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(depotDataToDisplay || []).map(item => (
-                      <TableRow key={item.key}>
-                        <TableCell className="font-medium">{item.key}</TableCell>
-                        <TableCell>{item.totalTasks}</TableCell>
-                        <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
-                        <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
-                        <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
-                        <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2"><Warehouse />Analyse des Écarts par Entrepôt</CardTitle>
-              <div className="flex items-center gap-2">
-                <Button variant={warehouseViewMode === 'top20' ? 'secondary' : 'ghost'} size="sm" onClick={() => setWarehouseViewMode('top20')}>Top 20%</Button>
-                <Button variant={warehouseViewMode === 'all' ? 'secondary' : 'ghost'} size="sm" onClick={() => setWarehouseViewMode('all')}>Tout voir</Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-48">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                       <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'key')}>Entrepôt {renderSortIcon('warehouse', 'key')}</TableHead>
-                       <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'totalTasks')}>Nb. Tâches {renderSortIcon('warehouse', 'totalTasks')}</TableHead>
-                       <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'punctualityRatePlanned')}>Ponct. Planifiée {renderSortIcon('warehouse', 'punctualityRatePlanned')}</TableHead>
-                       <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'punctualityRateRealized')}>Ponct. Réalisée {renderSortIcon('warehouse', 'punctualityRateRealized')}</TableHead>
-                       <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('warehouse', 'avgDurationDiscrepancy')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(warehouseDataToDisplay || []).map(item => (
-                      <TableRow key={item.key}>
-                        <TableCell className="font-medium">{item.key}</TableCell>
-                        <TableCell>{item.totalTasks}</TableCell>
-                        <TableCell>{item.punctualityRatePlanned.toFixed(1)}%</TableCell>
-                        <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span></TableCell>
-                        <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2"><MapPin />Analyse des Écarts par Ville</CardTitle>
-                <div className="flex items-center gap-2">
-                    <Button variant={cityViewMode === 'top20' ? 'secondary' : 'ghost'} size="sm" onClick={() => setCityViewMode('top20')}>Top 20%</Button>
-                    <Button variant={cityViewMode === 'all' ? 'secondary' : 'ghost'} size="sm" onClick={() => setCityViewMode('all')}>Tout voir</Button>
-                </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-48">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'key')}>Ville {renderSortIcon('city', 'key')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'totalTasks')}>Nb. Tâches {renderSortIcon('city', 'totalTasks')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('city', 'punctualityRateRealized')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('city', 'avgDurationDiscrepancy')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('city', 'avgWeightDiscrepancy')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'lateWithBadReviewPercentage')}>% Insat. {renderSortIcon('city', 'lateWithBadReviewPercentage')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cityDataToDisplay.map(item => (
-                       <TableRow key={item.key}>
-                        <TableCell className="font-medium">{item.key}</TableCell>
-                        <TableCell>{item.totalTasks}</TableCell>
-                        <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
-                        <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
-                        <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
-                        <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-        <div className="space-y-6">
-        {(analysisData.overloadedTours || []).length > 0 && (
-            <Card>
               <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                       <AlertTriangle className="text-amber-500"/>
-                      Anomalies : Dépassements de Charge
+                      Analyse des Anomalies
                   </CardTitle>
                   <CardDescription>
-                      Tournées dont la charge réelle (poids) dépasse la capacité maximale du véhicule.
+                      Explorez les principaux types d'anomalies opérationnelles.
                   </CardDescription>
               </CardHeader>
               <CardContent>
-                  <ScrollArea className="h-72">
-                      <Table>
-                          <TableHeader>
-                              <TableRow>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'date')}>Date {renderSortIcon('overloaded', 'date')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'nom')}>Tournée {renderSortIcon('overloaded', 'nom')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'entrepot')}>Entrepôt {renderSortIcon('overloaded', 'entrepot')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'livreur')}>Livreur {renderSortIcon('overloaded', 'livreur')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'poidsPrevu')}>Poids Planifié {renderSortIcon('overloaded', 'poidsPrevu')}</TableHead>
-                                  <TableHead>Poids Réel</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'capacitePoids')}>Capacité Poids {renderSortIcon('overloaded', 'capacitePoids')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementPoids')}>Dépassement Poids {renderSortIcon('overloaded', 'tauxDepassementPoids')}</TableHead>
-                              </TableRow>
-                          </TableHeader>
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="overloaded">
+                    <AccordionTrigger>Dépassements de Charge ({(analysisData.overloadedTours || []).length})</AccordionTrigger>
+                    <AccordionContent>
+                      <ScrollArea className="h-60">
+                        <Table>
+                          <TableHeader><TableRow><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Dépassement Poids</TableHead></TableRow></TableHeader>
                           <TableBody>
-                              {sortedData.overloadedTours?.map(tour => (
-                                  <TableRow key={tour.uniqueId}>
-                                      <TableCell>{formatDate(tour.date)}</TableCell>
-                                      <TableCell>{tour.nom}</TableCell>
-                                      <TableCell>{tour.entrepot}</TableCell>
-                                      <TableCell>{tour.livreur}</TableCell>
-                                      <TableCell>{tour.poidsPrevu.toFixed(2)} kg</TableCell>
-                                      <TableCell className={cn(tour.depassementPoids > 0 && "font-bold text-destructive")}>
-                                          {tour.poidsReel.toFixed(2)} kg
-                                      </TableCell>
-                                      <TableCell>{tour.capacitePoids.toFixed(2)} kg</TableCell>
-                                      <TableCell className={cn(tour.depassementPoids > 0 && "font-semibold")}>
-                                          {tour.depassementPoids > 0 ? `+${tour.depassementPoids.toFixed(2)} kg (${tour.tauxDepassementPoids.toFixed(1)}%)` : '-'}
-                                      </TableCell>
-                                  </TableRow>
-                              ))}
-                          </TableBody>
-                      </Table>
-                  </ScrollArea>
-              </CardContent>
-            </Card>
-        )}
-
-        {(analysisData.durationDiscrepancies || []).length > 0 && (
-            <Card>
-              <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                      <Timer className="text-blue-500"/>
-                      Anomalies : Écarts de Durée de Service (Estimée vs. Réelle)
-                  </CardTitle>
-                  <CardDescription>
-                      Comparaison de la durée entre la première et la dernière livraison de chaque tournée. Les écarts positifs importants sont affichés en premier.
-                  </CardDescription>
-              </CardHeader>
-              <CardContent>
-                  <ScrollArea className="h-72">
-                      <Table>
-                          <TableHeader>
-                              <TableRow>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'date')}>Date {renderSortIcon('duration', 'date')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'nom')}>Tournée {renderSortIcon('duration', 'nom')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'entrepot')}>Entrepôt {renderSortIcon('duration', 'entrepot')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'livreur')}>Livreur {renderSortIcon('duration', 'livreur')}</TableHead>
-                                <TableHead className="text-center">Durée Estimée</TableHead>
-                                <TableHead className="text-center">Durée Réelle</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'ecart')}>Écart {renderSortIcon('duration', 'ecart')}</TableHead>
+                            {sortedData.overloadedTours?.map(tour => (
+                              <TableRow key={tour.uniqueId}>
+                                <TableCell>{formatDate(tour.date)} - {tour.nom}</TableCell>
+                                <TableCell>{tour.entrepot}</TableCell>
+                                <TableCell className="font-semibold text-destructive">
+                                  {tour.depassementPoids > 0 ? `+${tour.depassementPoids.toFixed(2)} kg` : '-'}
+                                </TableCell>
                               </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                              {sortedData.durationDiscrepancies?.map(tour => (
-                                  <TableRow key={tour.uniqueId}>
-                                      <TableCell>{formatDate(tour.date)}</TableCell>
-                                      <TableCell>{tour.nom}</TableCell>
-                                      <TableCell>{tour.entrepot}</TableCell>
-                                      <TableCell>{tour.livreur}</TableCell>
-                                      <TableCell className="text-center">{formatSecondsToTime(tour.dureeEstimee)}</TableCell>
-                                      <TableCell className="text-center">{formatSecondsToTime(tour.dureeReelle)}</TableCell>
-                                      <TableCell className={cn(tour.ecart > 300 ? "text-destructive font-semibold" : tour.ecart < -300 ? "text-blue-500 font-semibold" : "")}>
-                                          {tour.ecart >= 0 ? '+' : ''}{formatSecondsToTime(tour.ecart)}
-                                      </TableCell>
-                                  </TableRow>
-                              ))}
+                            ))}
                           </TableBody>
-                      </Table>
-                  </ScrollArea>
-              </CardContent>
-            </Card>
-        )}
-
-        {(analysisData.lateStartAnomalies || []).length > 0 && (
-            <Card>
-              <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                      <Route className="text-violet-500"/>
-                      Anomalies : Parties à l'Heure, Livrées en Retard
-                  </CardTitle>
-                  <CardDescription>
-                      Tournées qui ont démarré à l'heure prévue mais qui ont accumulé des retards pendant la livraison.
-                  </CardDescription>
-              </CardHeader>
-              <CardContent>
-                  <ScrollArea className="h-72">
-                      <Table>
-                          <TableHeader>
-                              <TableRow>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'date')}>Date {renderSortIcon('anomaly', 'date')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'nom')}>Tournée {renderSortIcon('anomaly', 'nom')}</TableHead>
-                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'entrepot')}>Entrepôt {renderSortIcon('anomaly', 'entrepot')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'livreur')}>Livreur {renderSortIcon('anomaly', 'livreur')}</TableHead>
-                                  <TableHead>Départ Prévu</TableHead>
-                                  <TableHead>Départ Réel</TableHead>
-                                  <TableHead>Écart au Départ</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'tasksInDelay')}># Tâches en Retard {renderSortIcon('anomaly', 'tasksInDelay')}</TableHead>
-                              </TableRow>
-                          </TableHeader>
+                        </Table>
+                      </ScrollArea>
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="duration">
+                    <AccordionTrigger>Écarts de Durée ({(analysisData.durationDiscrepancies || []).length})</AccordionTrigger>
+                    <AccordionContent>
+                       <ScrollArea className="h-60">
+                        <Table>
+                          <TableHeader><TableRow><TableHead>Tournée</TableHead><TableHead>Écart</TableHead></TableRow></TableHeader>
                           <TableBody>
-                              {sortedData.lateStartAnomalies?.map(tour => (
-                                  <TableRow key={tour.uniqueId}>
-                                      <TableCell>{formatDate(tour.date)}</TableCell>
-                                      <TableCell>{tour.nom}</TableCell>
-                                      <TableCell>{tour.entrepot}</TableCell>
-                                      <TableCell>{tour.livreur}</TableCell>
-                                      <TableCell>{formatSecondsToClock(tour.heureDepartPrevue)}</TableCell>
-                                      <TableCell>{formatSecondsToClock(tour.heureDepartReelle)}</TableCell>
-                                      <TableCell className="text-green-600 font-semibold">
-                                          {formatSecondsToTime(tour.ecartDepart)}
-                                      </TableCell>
-                                      <TableCell className="font-bold">{tour.tasksInDelay}</TableCell>
-                                  </TableRow>
-                              ))}
+                            {sortedData.durationDiscrepancies?.map(tour => (
+                                <TableRow key={tour.uniqueId}>
+                                  <TableCell>{formatDate(tour.date)} - {tour.nom}</TableCell>
+                                  <TableCell className={cn(tour.ecart > 300 ? "text-destructive font-semibold" : tour.ecart < -300 ? "text-blue-500 font-semibold" : "")}>
+                                      {tour.ecart >= 0 ? '+' : ''}{formatSecondsToTime(tour.ecart)}
+                                  </TableCell>
+                                </TableRow>
+                            ))}
                           </TableBody>
-                      </Table>
-                  </ScrollArea>
+                        </Table>
+                      </ScrollArea>
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="anomaly">
+                    <AccordionTrigger>Anomalies de Planification ({(analysisData.lateStartAnomalies || []).length})</AccordionTrigger>
+                    <AccordionContent>
+                       <ScrollArea className="h-60">
+                         <Table>
+                          <TableHeader><TableRow><TableHead>Tournée</TableHead><TableHead># Tâches en Retard</TableHead></TableRow></TableHeader>
+                          <TableBody>
+                            {sortedData.lateStartAnomalies?.map(tour => (
+                                <TableRow key={tour.uniqueId}>
+                                  <TableCell>{formatDate(tour.date)} - {tour.nom}</TableCell>
+                                  <TableCell className="font-bold">{tour.tasksInDelay}</TableCell>
+                                </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                       </ScrollArea>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </CardContent>
-            </Card>
-        )}
+          </Card>
         </div>
       </section>
 
       {/* Section 4: Analyses Temporelles & Géographiques Détaillées */}
       <section>
-        <h2 className="text-2xl font-bold mb-4">Analyses Temporelles & Géographiques Détaillées</h2>
+        <h2 className="text-2xl font-bold mb-4">Analyses Détaillées</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <Card>
                <CardHeader>
@@ -544,8 +354,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                        <YAxis yAxisId="right" orientation="right" label={{ value: 'Retard Moyen (min)', angle: -90, position: 'insideRight', fontSize: 12, offset: 10 }} />
                        <Tooltip />
                        <Legend wrapperStyle={{fontSize: "12px"}}/>
-                       <Bar yAxisId="left" dataKey="delays" name="Retards" fill={PRIMARY_COLOR} />
-                       <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} />
+                       <Bar yAxisId="left" dataKey="delays" name="Retards" fill={PRIMARY_COLOR} stackId="a" />
+                       <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} stackId="a" />
                        <Line yAxisId="right" type="monotone" dataKey="avgDelay" name="Retard Moyen" stroke="#ff7300" dot={false} strokeWidth={2} />
                      </ComposedChart>
                   </ResponsiveContainer>
@@ -564,8 +374,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                        <YAxis yAxisId="right" orientation="right" label={{ value: 'Retard Moyen (min)', angle: -90, position: 'insideRight', fontSize: 12, offset: 10 }}/>
                        <Tooltip />
                        <Legend wrapperStyle={{fontSize: "12px"}}/>
-                       <Bar yAxisId="left" dataKey="delays" name="Retards" fill={PRIMARY_COLOR} />
-                       <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} />
+                       <Bar yAxisId="left" dataKey="delays" name="Retards" fill={PRIMARY_COLOR} stackId="a" />
+                       <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} stackId="a" />
                        <Line yAxisId="right" type="monotone" dataKey="avgDelay" name="Retard Moyen" stroke="#ff7300" dot={false} strokeWidth={2} />
                      </ComposedChart>
                   </ResponsiveContainer>
@@ -592,137 +402,42 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                </CardContent>
              </Card>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Frown className="text-destructive"/>Répartition des Retards par Heure</CardTitle>
+                <CardTitle className="flex items-center gap-2"><Clock />Écarts par Heure</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={analysisData.delaysByHour} onClick={(e) => handleBarClick(e, 'heure')}>
+                  <BarChart data={combinedHourlyData} onClick={(e) => handleBarClick(e, 'heure')}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="hour" />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="count" fill={PRIMARY_COLOR} name="Nb. Retards" className="cursor-pointer" />
+                    <Legend />
+                    <Bar dataKey="delays" name="Retards" stackId="a" fill={PRIMARY_COLOR} className="cursor-pointer" />
+                    <Bar dataKey="advances" name="Avances" stackId="a" fill={ADVANCE_COLOR} className="cursor-pointer" />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MapPin className="text-destructive"/>Répartition des Retards par Entrepôt</CardTitle>
+                <CardTitle className="flex items-center gap-2"><Warehouse />Écarts par Entrepôt</CardTitle>
               </CardHeader>
               <CardContent>
                   <ScrollArea className="h-80">
-                    <ResponsiveContainer width="100%" height={(analysisData.delaysByWarehouse || []).length * 30}>
-                      <BarChart data={analysisData.delaysByWarehouse} layout="vertical" margin={{ left: 80 }} onClick={(e) => handleBarClick(e, 'entrepot')}>
+                    <ResponsiveContainer width="100%" height={combinedWarehouseData.length * 40}>
+                      <BarChart data={combinedWarehouseData} layout="vertical" margin={{ left: 100 }} onClick={(e) => handleBarClick(e, 'entrepot')}>
                           <XAxis type="number" />
                           <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
                           <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
-                          <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
-                          </Bar>
+                          <Legend />
+                          <Bar dataKey="delays" name="Retards" stackId="a" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer" />
+                          <Bar dataKey="advances" name="Avances" stackId="a" barSize={20} fill={ADVANCE_COLOR} className="cursor-pointer" />
                       </BarChart>
                     </ResponsiveContainer>
                   </ScrollArea>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MapPin className="text-destructive"/>Top 10 Villes (Retards)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={320}>
-                   <BarChart data={(analysisData.delaysByCity || []).slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }} onClick={(e) => handleBarClick(e, 'city')}>
-                      <XAxis type="number" />
-                      <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
-                      <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                      <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
-                      </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Smile style={{color: ADVANCE_COLOR}} />Répartition des Avances par Heure</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={analysisData.advancesByHour}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="hour" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill={ADVANCE_COLOR} name="Nb. Avances" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MapPin style={{color: ADVANCE_COLOR}}/>Répartition des Avances par Entrepôt</CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <ScrollArea className="h-80">
-                    <ResponsiveContainer width="100%" height={(analysisData.advancesByWarehouse || []).length * 30}>
-                      <BarChart data={analysisData.advancesByWarehouse} layout="vertical" margin={{ left: 80 }}>
-                          <XAxis type="number" />
-                          <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
-                          <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}} />
-                          <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR}>
-                          </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ScrollArea>
-              </CardContent>
-            </Card>
-             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MapPin style={{color: ADVANCE_COLOR}}/>Top 10 Villes (Avances)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={320}>
-                   <BarChart data={(analysisData.advancesByCity || []).slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }}>
-                      <XAxis type="number" />
-                      <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
-                      <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                      <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR} className="cursor-pointer">
-                      </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MapPin className="text-destructive"/>Top 10 Codes Postaux (Retards)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={320}>
-                   <BarChart data={(analysisData.delaysByPostalCode || []).slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }} onClick={(e) => handleBarClick(e, 'codePostal')}>
-                      <XAxis type="number" />
-                      <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
-                      <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                      <Bar dataKey="count" name="Retards" barSize={20} fill={PRIMARY_COLOR} className="cursor-pointer">
-                      </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MapPin style={{color: ADVANCE_COLOR}}/>Top 10 Codes Postaux (Avances)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={320}>
-                   <BarChart data={(analysisData.advancesByPostalCode || []).slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }}>
-                      <XAxis type="number" />
-                      <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
-                      <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
-                      <Bar dataKey="count" name="Avances" barSize={20} fill={ADVANCE_COLOR} className="cursor-pointer">
-                      </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
               </CardContent>
             </Card>
         </div>
@@ -731,7 +446,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       {/* Section 5: Analyse de la Charge de Travail & Performance Humaine */}
        <section>
         <h2 className="text-2xl font-bold mb-4">Analyse de la Charge & Performance Humaine</h2>
-         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
              <Card>
                <CardHeader>
                  <CardTitle>Charge, Retards et Avances par Heure</CardTitle>
@@ -758,7 +473,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               <CardHeader>
                 <CardTitle>Intensité du Travail par Heure</CardTitle>
                  <CardDescription className="flex items-center gap-2">
-                  <span>Nb. moyen de tâches / livreur.</span>
+                  <span>Nb. moyen de tâches / tournée active.</span>
                   <span className="font-semibold text-xs rounded bg-muted px-1.5 py-0.5">
                       Moy Plan.: {analysisData.avgWorkload.avgPlanned.toFixed(2)}
                   </span>
@@ -772,84 +487,165 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                   <AreaChart data={analysisData.avgWorkloadByDriverByHour}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="hour" />
-                    <YAxis label={{ value: 'Tâches / Livreur', angle: -90, position: 'insideLeft' }}/>
+                    <YAxis label={{ value: 'Tâches / Tournée', angle: -90, position: 'insideLeft' }}/>
                     <Tooltip />
                     <Legend />
-                    <Area type="monotone" dataKey="avgPlanned" name="Planifié / Livreur" stroke={ACCENT_COLOR} fill={ACCENT_COLOR} fillOpacity={0.3} />
-                    <Area type="monotone" dataKey="avgReal" name="Réalisé / Livreur" stroke={PRIMARY_COLOR} fill={PRIMARY_COLOR} fillOpacity={0.3} />
+                    <Area type="monotone" dataKey="avgPlanned" name="Planifié / Tournée" stroke={ACCENT_COLOR} fill={ACCENT_COLOR} fillOpacity={0.3} />
+                    <Area type="monotone" dataKey="avgReal" name="Réalisé / Tournée" stroke={PRIMARY_COLOR} fill={PRIMARY_COLOR} fillOpacity={0.3} />
                   </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Users />Synthèse par Livreur</CardTitle>
-                    <CardDescription>Performances individuelles pour identifier les axes d'accompagnement.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <ScrollArea className="h-72">
-                         <Table>
+         </div>
+
+         <Card>
+            <CardHeader><CardTitle>Analyse des Performances par Groupe</CardTitle></CardHeader>
+            <CardContent>
+                <Tabs defaultValue="driver" className="w-full">
+                    <TabsList>
+                        <TabsTrigger value="driver">Par Livreur</TabsTrigger>
+                        <TabsTrigger value="depot">Par Dépôt</TabsTrigger>
+                        <TabsTrigger value="warehouse">Par Entrepôt</TabsTrigger>
+                        <TabsTrigger value="city">Par Ville</TabsTrigger>
+                        <TabsTrigger value="postalCode">Par Code Postal</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="driver" className="mt-4">
+                        <ScrollArea className="h-96">
+                             <Table>
+                                  <TableHeader>
+                                      <TableRow>
+                                          <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'key')}>Livreur {renderSortIcon('driver', 'key')}</TableHead>
+                                          <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'totalTours')}>Nb. Tournées {renderSortIcon('driver', 'totalTours')}</TableHead>
+                                          <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'punctualityRate')}>Ponctualité {renderSortIcon('driver', 'punctualityRate')}</TableHead>
+                                          <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('driver', 'avgDelay')}</TableHead>
+                                          <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'overweightToursCount')}>Dépassements Poids {renderSortIcon('driver', 'overweightToursCount')}</TableHead>
+                                          <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgRating')}>Notation Moy. {renderSortIcon('driver', 'avgRating')}</TableHead>
+                                      </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                      {(sortedData.performanceByDriver || []).map(driver => (
+                                          <TableRow key={driver.key}>
+                                              <TableCell>{driver.key}</TableCell>
+                                              <TableCell>{driver.totalTours}</TableCell>
+                                              <TableCell>{driver.punctualityRate.toFixed(1)}%</TableCell>
+                                              <TableCell>{driver.avgDelay.toFixed(1)}</TableCell>
+                                              <TableCell>{driver.overweightToursCount}</TableCell>
+                                              <TableCell>{driver.avgRating?.toFixed(2) || 'N/A'}</TableCell>
+                                          </TableRow>
+                                      ))}
+                                  </TableBody>
+                              </Table>
+                         </ScrollArea>
+                    </TabsContent>
+                    <TabsContent value="depot" className="mt-4">
+                       <ScrollArea className="h-96">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'key')}>Dépôt {renderSortIcon('depot', 'key')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'totalTasks')}>Nb. Tâches {renderSortIcon('depot', 'totalTasks')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('depot', 'punctualityRateRealized')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('depot', 'avgDurationDiscrepancy')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('depot', 'avgWeightDiscrepancy')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'lateWithBadReviewPercentage')}>% Insat. {renderSortIcon('depot', 'lateWithBadReviewPercentage')}</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {(sortedData.performanceByDepot || []).map(item => (
+                                <TableRow key={item.key}>
+                                  <TableCell className="font-medium">{item.key}</TableCell>
+                                  <TableCell>{item.totalTasks}</TableCell>
+                                  <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
+                                  <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
+                                  <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
+                                  <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                       </ScrollArea>
+                    </TabsContent>
+                    <TabsContent value="warehouse" className="mt-4">
+                         <ScrollArea className="h-96">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'key')}>Entrepôt {renderSortIcon('warehouse', 'key')}</TableHead>
+                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'totalTasks')}>Nb. Tâches {renderSortIcon('warehouse', 'totalTasks')}</TableHead>
+                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('warehouse', 'punctualityRateRealized')}</TableHead>
+                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('warehouse', 'avgDurationDiscrepancy')}</TableHead>
+                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('warehouse', 'avgWeightDiscrepancy')}</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {(sortedData.performanceByWarehouse || []).map(item => (
+                                  <TableRow key={item.key}>
+                                    <TableCell className="font-medium">{item.key}</TableCell>
+                                    <TableCell>{item.totalTasks}</TableCell>
+                                    <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
+                                    <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
+                                    <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                         </ScrollArea>
+                    </TabsContent>
+                    <TabsContent value="city" className="mt-4">
+                         <ScrollArea className="h-96">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'key')}>Ville {renderSortIcon('city', 'key')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'totalTasks')}>Nb. Tâches {renderSortIcon('city', 'totalTasks')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('city', 'punctualityRateRealized')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('city', 'avgDurationDiscrepancy')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('city', 'avgWeightDiscrepancy')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'lateWithBadReviewPercentage')}>% Insat. {renderSortIcon('city', 'lateWithBadReviewPercentage')}</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {sortedData.performanceByCity.map(item => (
+                                   <TableRow key={item.key}>
+                                    <TableCell className="font-medium">{item.key}</TableCell>
+                                    <TableCell>{item.totalTasks}</TableCell>
+                                    <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
+                                    <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
+                                    <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
+                                    <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                         </ScrollArea>
+                    </TabsContent>
+                    <TabsContent value="postalCode" className="mt-4">
+                         <ScrollArea className="h-96">
+                             <Table>
                               <TableHeader>
                                   <TableRow>
-                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'key')}>Livreur {renderSortIcon('driver', 'key')}</TableHead>
-                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'totalTours')}>Nb. Tournées {renderSortIcon('driver', 'totalTours')}</TableHead>
-                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'punctualityRate')}>Ponctualité {renderSortIcon('driver', 'punctualityRate')}</TableHead>
-                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('driver', 'avgDelay')}</TableHead>
-                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'overweightToursCount')}>Dépassements Poids {renderSortIcon('driver', 'overweightToursCount')}</TableHead>
-                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgRating')}>Notation Moy. {renderSortIcon('driver', 'avgRating')}</TableHead>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'key')}>Code Postal {renderSortIcon('postalCode', 'key')}</TableHead>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'totalTasks')}>Tâches {renderSortIcon('postalCode', 'totalTasks')}</TableHead>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('postalCode', 'punctualityRateRealized')}</TableHead>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'lateWithBadReviewPercentage')}>% Insat. sur Retard {renderSortIcon('postalCode', 'lateWithBadReviewPercentage')}</TableHead>
                                   </TableRow>
                               </TableHeader>
                               <TableBody>
-                                  {(sortedData.performanceByDriver || []).map(driver => (
-                                      <TableRow key={driver.key}>
-                                          <TableCell>{driver.key}</TableCell>
-                                          <TableCell>{driver.totalTours}</TableCell>
-                                          <TableCell>{driver.punctualityRate.toFixed(1)}%</TableCell>
-                                          <TableCell>{driver.avgDelay.toFixed(1)}</TableCell>
-                                          <TableCell>{driver.overweightToursCount}</TableCell>
-                                          <TableCell>{driver.avgRating?.toFixed(2) || 'N/A'}</TableCell>
+                                  {sortedData.performanceByPostalCode?.map(item => (
+                                      <TableRow key={item.key}>
+                                          <TableCell>{item.key}</TableCell>
+                                          <TableCell>{item.totalTasks}</TableCell>
+                                          <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
+                                          <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
                                       </TableRow>
                                   ))}
                               </TableBody>
                           </Table>
-                     </ScrollArea>
-                </CardContent>
-            </Card>
-             <Card>
-              <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><MapPin />Analyse Comparative Géographique</CardTitle>
-                  <CardDescription>Performances par secteur pour identifier les zones à problèmes.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                  <div className="flex justify-center mb-4 border-b">
-                      <button onClick={() => setActiveTab('ville')} className={cn("px-4 py-2 text-sm font-medium -mb-px", activeTab === 'ville' ? "border-b-2 border-primary text-primary" : "text-muted-foreground")}>Par Ville</button>
-                      <button onClick={() => setActiveTab('codePostal')} className={cn("px-4 py-2 text-sm font-medium -mb-px", activeTab === 'codePostal' ? "border-b-2 border-primary text-primary" : "text-muted-foreground")}>Par Code Postal</button>
-                  </div>
-                  <ScrollArea className="h-72">
-                      <Table>
-                          <TableHeader>
-                              <TableRow>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'key')}>Secteur {renderSortIcon('geo', 'key')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalTasks')}>Tâches {renderSortIcon('geo', 'totalTasks')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('geo', 'punctualityRateRealized')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'lateWithBadReviewPercentage')}>% Insat. sur Retard {renderSortIcon('geo', 'lateWithBadReviewPercentage')}</TableHead>
-                              </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                              {geoDataToDisplay?.map(item => (
-                                  <TableRow key={item.key}>
-                                      <TableCell>{item.key}</TableCell>
-                                      <TableCell>{item.totalTasks}</TableCell>
-                                      <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
-                                      <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
-                                  </TableRow>
-                              ))}
-                          </TableBody>
-                      </Table>
-                  </ScrollArea>
-              </CardContent>
-             </Card>
-         </div>
+                         </ScrollArea>
+                    </TabsContent>
+                </Tabs>
+            </CardContent>
+         </Card>
       </section>
     </div>
   );
