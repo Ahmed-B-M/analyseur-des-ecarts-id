@@ -203,6 +203,16 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       warehouseDataMap.set(item.key, entry);
   });
   const combinedWarehouseData = Array.from(warehouseDataMap.entries()).map(([key, data]) => ({ key, ...data })).sort((a,b) => (b.delays + b.advances) - (a.delays + a.advances));
+  
+  const totalTours = useMemo(() => {
+    const toursKpi = analysisData.generalKpis.find(k => k.title.includes('Tournées'));
+    return toursKpi ? parseInt(toursKpi.value) : 0;
+  }, [analysisData.generalKpis]);
+
+  const overloadedToursCount = (analysisData.overloadedTours || []).length;
+  const durationDiscrepanciesCount = (analysisData.durationDiscrepancies || []).filter(d => Math.abs(d.ecart) > 900).length; // Ecart > 15 min
+  const lateStartAnomaliesCount = (analysisData.lateStartAnomalies || []).length;
+
 
   return (
     <div className="space-y-8">
@@ -273,7 +283,9 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               <CardContent>
                 <Accordion type="single" collapsible className="w-full">
                   <AccordionItem value="overloaded">
-                    <AccordionTrigger>Dépassements de Charge ({(analysisData.overloadedTours || []).length})</AccordionTrigger>
+                    <AccordionTrigger>
+                        Dépassements de Charge ({overloadedToursCount} - {totalTours > 0 ? (overloadedToursCount / totalTours * 100).toFixed(1) : 0}%)
+                    </AccordionTrigger>
                     <AccordionContent>
                       <ScrollArea className="h-60">
                         <Table>
@@ -294,13 +306,15 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     </AccordionContent>
                   </AccordionItem>
                   <AccordionItem value="duration">
-                    <AccordionTrigger>Écarts de Durée ({(analysisData.durationDiscrepancies || []).length})</AccordionTrigger>
+                    <AccordionTrigger>
+                        Écarts de Durée Significatifs ({durationDiscrepanciesCount} - {totalTours > 0 ? (durationDiscrepanciesCount / totalTours * 100).toFixed(1) : 0}%)
+                    </AccordionTrigger>
                     <AccordionContent>
                        <ScrollArea className="h-60">
                         <Table>
                           <TableHeader><TableRow><TableHead>Tournée</TableHead><TableHead>Écart</TableHead></TableRow></TableHeader>
                           <TableBody>
-                            {sortedData.durationDiscrepancies?.map(tour => (
+                            {(sortedData.durationDiscrepancies || []).filter(d => Math.abs(d.ecart) > 900).map(tour => (
                                 <TableRow key={tour.uniqueId}>
                                   <TableCell>{formatDate(tour.date)} - {tour.nom}</TableCell>
                                   <TableCell className={cn(tour.ecart > 300 ? "text-destructive font-semibold" : tour.ecart < -300 ? "text-blue-500 font-semibold" : "")}>
@@ -314,7 +328,9 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     </AccordionContent>
                   </AccordionItem>
                   <AccordionItem value="anomaly">
-                    <AccordionTrigger>Anomalies de Planification ({(analysisData.lateStartAnomalies || []).length})</AccordionTrigger>
+                    <AccordionTrigger>
+                        Anomalies de Planification ({lateStartAnomaliesCount} - {totalTours > 0 ? (lateStartAnomaliesCount / totalTours * 100).toFixed(1) : 0}%)
+                    </AccordionTrigger>
                     <AccordionContent>
                        <ScrollArea className="h-60">
                          <Table>
