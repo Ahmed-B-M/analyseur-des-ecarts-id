@@ -61,6 +61,8 @@ type SortConfig<T> = {
 export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData, filters }: AnalysisDashboardProps) {
   const [activeTab, setActiveTab] = useState('ville');
   const [feedbackAnalysisResult, setFeedbackAnalysisResult] = useState<{ reason: string; count: number }[] | null>(null);
+  const [depotViewMode, setDepotViewMode] = useState<'all' | 'top20'>('all');
+  const [warehouseViewMode, setWarehouseViewMode] = useState<'all' | 'top20'>('all');
   const [cityViewMode, setCityViewMode] = useState<'all' | 'top20'>('all');
   
   const [sorts, setSorts] = useState<{ [key: string]: SortConfig<any> }>({
@@ -142,9 +144,29 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     };
   }, [analysisData, sorts]);
 
+  const depotDataToDisplay = useMemo(() => {
+    const data = sortedData.performanceByDepot;
+    if (depotViewMode === 'top20' && data.length > 0) {
+        const sortedByTasks = [...data].sort((a,b) => b.totalTasks - a.totalTasks);
+        const top20PercentIndex = Math.ceil(sortedByTasks.length * 0.2);
+        return sortedByTasks.slice(0, top20PercentIndex);
+    }
+    return data;
+  }, [sortedData.performanceByDepot, depotViewMode]);
+
+  const warehouseDataToDisplay = useMemo(() => {
+    const data = sortedData.performanceByWarehouse;
+    if (warehouseViewMode === 'top20' && data.length > 0) {
+        const sortedByTasks = [...data].sort((a,b) => b.totalTasks - a.totalTasks);
+        const top20PercentIndex = Math.ceil(sortedByTasks.length * 0.2);
+        return sortedByTasks.slice(0, top20PercentIndex);
+    }
+    return data;
+  }, [sortedData.performanceByWarehouse, warehouseViewMode]);
+
   const cityDataToDisplay = useMemo(() => {
     const data = sortedData.performanceByCity;
-    if (cityViewMode === 'top20') {
+    if (cityViewMode === 'top20' && data.length > 0) {
         const sortedByTasks = [...data].sort((a,b) => b.totalTasks - a.totalTasks);
         const top20PercentIndex = Math.ceil(sortedByTasks.length * 0.2);
         return sortedByTasks.slice(0, top20PercentIndex);
@@ -222,7 +244,13 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Building />Analyse des Écarts par Dépôt</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2"><Building />Analyse des Écarts par Dépôt</CardTitle>
+              <div className="flex items-center gap-2">
+                <Button variant={depotViewMode === 'top20' ? 'secondary' : 'ghost'} size="sm" onClick={() => setDepotViewMode('top20')}>Top 20%</Button>
+                <Button variant={depotViewMode === 'all' ? 'secondary' : 'ghost'} size="sm" onClick={() => setDepotViewMode('all')}>Tout voir</Button>
+              </div>
+            </CardHeader>
             <CardContent>
               <ScrollArea className="h-48">
                 <Table>
@@ -237,7 +265,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(sortedData.performanceByDepot || []).map(item => (
+                    {(depotDataToDisplay || []).map(item => (
                       <TableRow key={item.key}>
                         <TableCell className="font-medium">{item.key}</TableCell>
                         <TableCell>{item.totalTasks}</TableCell>
@@ -253,7 +281,13 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardContent>
           </Card>
            <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Warehouse />Analyse des Écarts par Entrepôt</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2"><Warehouse />Analyse des Écarts par Entrepôt</CardTitle>
+              <div className="flex items-center gap-2">
+                <Button variant={warehouseViewMode === 'top20' ? 'secondary' : 'ghost'} size="sm" onClick={() => setWarehouseViewMode('top20')}>Top 20%</Button>
+                <Button variant={warehouseViewMode === 'all' ? 'secondary' : 'ghost'} size="sm" onClick={() => setWarehouseViewMode('all')}>Tout voir</Button>
+              </div>
+            </CardHeader>
             <CardContent>
               <ScrollArea className="h-48">
                 <Table>
@@ -268,7 +302,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(sortedData.performanceByWarehouse || []).map(item => (
+                    {(warehouseDataToDisplay || []).map(item => (
                       <TableRow key={item.key}>
                         <TableCell className="font-medium">{item.key}</TableCell>
                         <TableCell>{item.totalTasks}</TableCell>
