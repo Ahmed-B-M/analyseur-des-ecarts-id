@@ -204,7 +204,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const rateBadReviewsNonOverloaded = tasksOnNonOverloadedTours.length > 0 ? (negativeReviewsOnNonOverloadedTours.length / tasksOnNonOverloadedTours.length) * 100 : 0;
 
     const badReviewsOnOverloadKpi: ComparisonKpi = {
-        title: 'Taux Avis Négatifs vs Surcharge',
+        title: "Taux d'Avis Négatifs (Surcharge vs. Standard)",
         value1: `${rateBadReviewsOverloaded.toFixed(1)}%`,
         label1: 'Surchargées',
         value2: `${rateBadReviewsNonOverloaded.toFixed(1)}%`,
