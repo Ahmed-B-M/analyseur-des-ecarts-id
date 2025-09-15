@@ -103,6 +103,16 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     
     const negativeReviews = allTasks.filter(t => t.notation != null && t.notation <= 3);
 
+    const overloadedTours = uniqueTournees.filter(tour => tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids);
+    const overweightToursPercentage = uniqueTournees.length > 0 ? (overloadedTours.length / uniqueTournees.length) * 100 : 0;
+    
+    const firstTasksLate = uniqueTournees.filter(tour => {
+        const firstTask = tourneeMap.get(tour.uniqueId)?.tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
+        if (!firstTask) return false;
+        return firstTask.heureArriveeReelle > (firstTask.heureArriveeApprox + toleranceSeconds);
+    });
+    const firstTaskLatePercentage = uniqueTournees.length > 0 ? (firstTasksLate.length / uniqueTournees.length) * 100 : 0;
+
 
     const generalKpis: Kpi[] = [
         { title: 'Tournées Analysées', value: uniqueTournees.length.toString(), icon: 'Truck' },
@@ -311,6 +321,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         globalSummary,
         performanceByDepot,
         performanceByWarehouse,
+        overweightToursPercentage,
+        firstTaskLatePercentage,
     };
 }
 
@@ -343,7 +355,9 @@ function createEmptyAnalysisData(): AnalysisData {
         cities: [],
         globalSummary: { punctualityRatePlanned: 0, punctualityRateRealized: 0, avgDurationDiscrepancyPerTour: 0, avgWeightDiscrepancyPerTour: 0 },
         performanceByDepot: [],
-        performanceByWarehouse: []
+        performanceByWarehouse: [],
+        overweightToursPercentage: 0,
+        firstTaskLatePercentage: 0,
     };
 }
 
@@ -628,5 +642,3 @@ function formatSecondsToTime(seconds: number): string {
     const s = Math.round(seconds % 60);
     return `${isNegative ? '-' : ''}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
-
-    

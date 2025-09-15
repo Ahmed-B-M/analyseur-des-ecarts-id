@@ -222,6 +222,8 @@ export type AnalysisData = {
   globalSummary: GlobalSummary;
   performanceByDepot: PerformanceByGroup[];
   performanceByWarehouse: PerformanceByGroup[];
+  overweightToursPercentage: number;
+  firstTaskLatePercentage: number;
 };
 
 export type AiAnalysisResult = {

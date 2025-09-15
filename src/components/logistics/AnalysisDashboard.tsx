@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
 import AiReportGenerator from './AiReportGenerator';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse, Building } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse, Building, Percent } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
@@ -72,7 +72,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       driver: { key: 'totalTours', direction: 'desc' },
       geo: { key: 'totalTasks', direction: 'desc' },
       depot: { key: 'avgDurationDiscrepancy', direction: 'desc' },
-      warehouse: { key: 'avgDurationDiscrepancy', direction: 'desc' },
+      warehouse: { key: 'punctualityRateRealized', direction: 'asc' },
       city: { key: 'totalTasks', direction: 'desc' },
   });
 
@@ -218,8 +218,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     <div className="space-y-8">
       <section>
         <h2 className="text-2xl font-bold mb-4">KPIs Généraux & Satisfaction Client</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {analysisData.generalKpis.map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
+          <KpiCard title="% Tournées en Surcharge" value={`${analysisData.overweightToursPercentage.toFixed(1)}%`} icon="Percent" description="Tournées dépassant la capacité de poids." />
+          <KpiCard title="% Retard 1ère Tâche" value={`${analysisData.firstTaskLatePercentage.toFixed(1)}%`} icon="Percent" description="Tournées en retard dès la 1ère livraison." />
         </div>
       </section>
       
@@ -295,10 +297,9 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     <TableRow>
                        <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'key')}>Entrepôt {renderSortIcon('warehouse', 'key')}</TableHead>
                        <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'totalTasks')}>Nb. Tâches {renderSortIcon('warehouse', 'totalTasks')}</TableHead>
-                       <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('warehouse', 'punctualityRateRealized')}</TableHead>
+                       <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'punctualityRatePlanned')}>Ponct. Planifiée {renderSortIcon('warehouse', 'punctualityRatePlanned')}</TableHead>
+                       <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'punctualityRateRealized')}>Ponct. Réalisée {renderSortIcon('warehouse', 'punctualityRateRealized')}</TableHead>
                        <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('warehouse', 'avgDurationDiscrepancy')}</TableHead>
-                       <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('warehouse', 'avgWeightDiscrepancy')}</TableHead>
-                       <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'lateWithBadReviewPercentage')}>% Insat. {renderSortIcon('warehouse', 'lateWithBadReviewPercentage')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -306,10 +307,9 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                       <TableRow key={item.key}>
                         <TableCell className="font-medium">{item.key}</TableCell>
                         <TableCell>{item.totalTasks}</TableCell>
-                        <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
+                        <TableCell>{item.punctualityRatePlanned.toFixed(1)}%</TableCell>
+                        <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span></TableCell>
                         <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
-                         <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
-                        <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
