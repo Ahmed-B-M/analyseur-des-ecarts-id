@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Button } from '../ui/button';
 
 interface AnalysisDashboardProps {
   analysisData: AnalysisData | null;
@@ -60,6 +61,8 @@ type SortConfig<T> = {
 export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData, filters }: AnalysisDashboardProps) {
   const [activeTab, setActiveTab] = useState('ville');
   const [feedbackAnalysisResult, setFeedbackAnalysisResult] = useState<{ reason: string; count: number }[] | null>(null);
+  const [cityViewMode, setCityViewMode] = useState<'all' | 'top20'>('all');
+  
   const [sorts, setSorts] = useState<{ [key: string]: SortConfig<any> }>({
       overloaded: { key: 'tauxDepassementPoids', direction: 'desc' },
       duration: { key: 'ecart', direction: 'desc' },
@@ -68,7 +71,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       geo: { key: 'totalTasks', direction: 'desc' },
       depot: { key: 'avgDurationDiscrepancy', direction: 'desc' },
       warehouse: { key: 'avgDurationDiscrepancy', direction: 'desc' },
-      city: { key: 'avgDurationDiscrepancy', direction: 'desc' },
+      city: { key: 'totalTasks', direction: 'desc' },
   });
 
   const handleSort = <T,>(table: string, key: keyof T) => {
@@ -138,6 +141,17 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       performanceByWarehouse: sortFn<PerformanceByGroup>(analysisData.performanceByWarehouse, sorts.warehouse),
     };
   }, [analysisData, sorts]);
+
+  const cityDataToDisplay = useMemo(() => {
+    const data = sortedData.performanceByCity;
+    if (cityViewMode === 'top20') {
+        const sortedByTasks = [...data].sort((a,b) => b.totalTasks - a.totalTasks);
+        const top20PercentIndex = Math.ceil(sortedByTasks.length * 0.2);
+        return sortedByTasks.slice(0, top20PercentIndex);
+    }
+    return data;
+  }, [sortedData.performanceByCity, cityViewMode]);
+
 
   if (!analysisData) {
     return (
@@ -270,7 +284,13 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardContent>
           </Card>
            <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><MapPin />Analyse des Écarts par Ville</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2"><MapPin />Analyse des Écarts par Ville</CardTitle>
+                <div className="flex items-center gap-2">
+                    <Button variant={cityViewMode === 'top20' ? 'secondary' : 'ghost'} size="sm" onClick={() => setCityViewMode('top20')}>Top 20%</Button>
+                    <Button variant={cityViewMode === 'all' ? 'secondary' : 'ghost'} size="sm" onClick={() => setCityViewMode('all')}>Tout voir</Button>
+                </div>
+            </CardHeader>
             <CardContent>
               <ScrollArea className="h-48">
                 <Table>
@@ -285,7 +305,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(sortedData.performanceByCity || []).slice(0, 20).map(item => (
+                    {cityDataToDisplay.map(item => (
                        <TableRow key={item.key}>
                         <TableCell className="font-medium">{item.key}</TableCell>
                         <TableCell>{item.totalTasks}</TableCell>
