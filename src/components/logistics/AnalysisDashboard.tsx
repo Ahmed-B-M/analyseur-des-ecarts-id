@@ -1,12 +1,12 @@
 'use client';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
-import type { AnalysisData, MergedData, OverloadedTourInfo, DurationDiscrepancy, LateStartAnomaly, PerformanceByDriver, PerformanceByGeo } from '@/lib/types';
+import type { AnalysisData, MergedData, OverloadedTourInfo, DurationDiscrepancy, LateStartAnomaly, PerformanceByDriver, PerformanceByGeo, PerformanceByGroup } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, AreaChart, Area, ComposedChart, Line } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
 import AiReportGenerator from './AiReportGenerator';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse, Building } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
@@ -66,6 +66,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       anomaly: { key: 'tasksInDelay', direction: 'desc' },
       driver: { key: 'totalTours', direction: 'desc' },
       geo: { key: 'totalDelays', direction: 'desc' },
+      depot: { key: 'avgDelay', direction: 'desc' },
+      warehouse: { key: 'avgDelay', direction: 'desc' },
   });
 
   const handleSort = <T,>(table: string, key: keyof T) => {
@@ -93,6 +95,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       performanceByDriver: [],
       performanceByCity: [],
       performanceByPostalCode: [],
+      performanceByDepot: [],
+      performanceByWarehouse: [],
     };
     
     const sortFn = <T,>(data: T[] | undefined, config: SortConfig<T>): T[] => {
@@ -139,6 +143,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       performanceByDriver: sortFn<PerformanceByDriver>(analysisData.performanceByDriver, sorts.driver),
       performanceByCity: sortFn<PerformanceByGeo>(analysisData.performanceByCity, sorts.geo),
       performanceByPostalCode: sortFn<PerformanceByGeo>(analysisData.performanceByPostalCode, sorts.geo),
+      performanceByDepot: sortFn<PerformanceByGroup>(analysisData.performanceByDepot, sorts.depot),
+      performanceByWarehouse: sortFn<PerformanceByGroup>(analysisData.performanceByWarehouse, sorts.warehouse),
     };
   }, [analysisData, sorts]);
 
@@ -192,6 +198,106 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       
       <section>
         <AiReportGenerator analysisData={analysisData} allData={allData} filters={filters} aiFeedbackAnalysis={feedbackAnalysisResult} />
+      </section>
+      
+      <section>
+        <h2 className="text-2xl font-bold mb-4">Synthèse des Performances</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader><CardTitle>Récapitulatif Global</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableBody>
+                  <TableRow><TableCell className="font-medium">Taux Ponctualité Planifié</TableCell><TableCell className="text-right font-semibold">{analysisData.globalSummary.punctualityRatePlanned.toFixed(1)}%</TableCell></TableRow>
+                  <TableRow><TableCell className="font-medium">Taux Ponctualité Réalisé</TableCell><TableCell className="text-right font-semibold">{analysisData.globalSummary.punctualityRateRealized.toFixed(1)}%</TableCell></TableRow>
+                  <TableRow><TableCell className="font-medium">Écart Durée Moyen / Tournée</TableCell><TableCell className="text-right font-semibold">{formatSecondsToTime(analysisData.globalSummary.avgDurationDiscrepancyPerTour)}</TableCell></TableRow>
+                  <TableRow><TableCell className="font-medium">Écart Poids Moyen / Tournée</TableCell><TableCell className="text-right font-semibold">{analysisData.globalSummary.avgWeightDiscrepancyPerTour.toFixed(2)} kg</TableCell></TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Building />Performance par Dépôt</CardTitle></CardHeader>
+            <CardContent>
+              <ScrollArea className="h-48">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'key')}>Dépôt {renderSortIcon('depot', 'key')}</TableHead>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'totalTasks')}>Tâches {renderSortIcon('depot', 'totalTasks')}</TableHead>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'punctualityRate')}>Ponctualité {renderSortIcon('depot', 'punctualityRate')}</TableHead>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'avgDelay')}>Retard Moy. (min) {renderSortIcon('depot', 'avgDelay')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(sortedData.performanceByDepot || []).map(item => (
+                      <TableRow key={item.key}>
+                        <TableCell>{item.key}</TableCell>
+                        <TableCell>{item.totalTasks}</TableCell>
+                        <TableCell>{item.punctualityRate.toFixed(1)}%</TableCell>
+                        <TableCell className="font-semibold">{item.avgDelay.toFixed(1)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+           <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Warehouse />Performance par Entrepôt</CardTitle></CardHeader>
+            <CardContent>
+              <ScrollArea className="h-48">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'key')}>Entrepôt {renderSortIcon('warehouse', 'key')}</TableHead>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'totalTasks')}>Tâches {renderSortIcon('warehouse', 'totalTasks')}</TableHead>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'punctualityRate')}>Ponctualité {renderSortIcon('warehouse', 'punctualityRate')}</TableHead>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'avgDelay')}>Retard Moy. (min) {renderSortIcon('warehouse', 'avgDelay')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(sortedData.performanceByWarehouse || []).map(item => (
+                      <TableRow key={item.key}>
+                        <TableCell>{item.key}</TableCell>
+                        <TableCell>{item.totalTasks}</TableCell>
+                        <TableCell>{item.punctualityRate.toFixed(1)}%</TableCell>
+                        <TableCell className="font-semibold">{item.avgDelay.toFixed(1)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+           <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><MapPin />Performance par Ville</CardTitle></CardHeader>
+            <CardContent>
+              <ScrollArea className="h-48">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'key')}>Ville {renderSortIcon('geo', 'key')}</TableHead>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalTasks')}>Tâches {renderSortIcon('geo', 'totalTasks')}</TableHead>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'punctualityRate')}>Ponctualité {renderSortIcon('geo', 'punctualityRate')}</TableHead>
+                      <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'avgDelay')}>Retard Moy. (min) {renderSortIcon('geo', 'avgDelay')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(sortedData.performanceByCity || []).slice(0, 10).map(item => (
+                      <TableRow key={item.key}>
+                        <TableCell>{item.key}</TableCell>
+                        <TableCell>{item.totalTasks}</TableCell>
+                        <TableCell>{item.punctualityRate.toFixed(1)}%</TableCell>
+                        <TableCell className="font-semibold">{item.avgDelay.toFixed(1)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       <section>
@@ -701,5 +807,3 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     </div>
   );
 }
-
-    

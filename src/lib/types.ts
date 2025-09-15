@@ -173,6 +173,20 @@ export type DelayHistogramBin = {
     count: number;
 };
 
+export type GlobalSummary = {
+    punctualityRatePlanned: number;
+    punctualityRateRealized: number;
+    avgDurationDiscrepancyPerTour: number; // in seconds
+    avgWeightDiscrepancyPerTour: number; // in kg
+};
+
+export type PerformanceByGroup = {
+    key: string;
+    totalTasks: number;
+    punctualityRate: number;
+    avgDelay: number; // in minutes
+};
+
 
 export type AnalysisData = {
   generalKpis: Kpi[];
@@ -199,6 +213,9 @@ export type AnalysisData = {
   performanceByTimeSlot: PerformanceByTimeSlot[];
   delayHistogram: DelayHistogramBin[];
   cities: string[];
+  globalSummary: GlobalSummary;
+  performanceByDepot: PerformanceByGroup[];
+  performanceByWarehouse: PerformanceByGroup[];
 };
 
 export type AiAnalysisResult = {

@@ -1,4 +1,4 @@
-import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi, AvgWorkload, PerformanceByDay, PerformanceByTimeSlot, DelayHistogramBin } from './types';
+import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi, AvgWorkload, PerformanceByDay, PerformanceByTimeSlot, DelayHistogramBin, GlobalSummary, PerformanceByGroup } from './types';
 import { fr } from 'date-fns/locale';
 import { format, getDay } from 'date-fns';
 
@@ -264,6 +264,17 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const performanceByTimeSlot = calculatePerformanceByTimeSlot(allTasks, toleranceSeconds);
     const delayHistogram = createDelayHistogram(allTasks);
 
+    // --- New Summary Tables Data ---
+    const globalSummary: GlobalSummary = {
+        punctualityRatePlanned: predictedPunctualityRate,
+        punctualityRateRealized: punctualityRate,
+        avgDurationDiscrepancyPerTour: uniqueTournees.length > 0 ? (totals.dureeReelleCalculee - totals.dureePrevue) / uniqueTournees.length : 0,
+        avgWeightDiscrepancyPerTour: uniqueTournees.length > 0 ? (totals.poidsReel - totals.poidsPrevu) / uniqueTournees.length : 0,
+    };
+    
+    const performanceByDepot = calculatePerformanceByGroup(allTasks, (task) => task.tournee!.entrepot.split(' ')[0], toleranceSeconds);
+    const performanceByWarehouse = calculatePerformanceByGroup(allTasks, (task) => task.tournee!.entrepot, toleranceSeconds);
+
 
     return {
         generalKpis,
@@ -289,7 +300,10 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         performanceByDayOfWeek,
         performanceByTimeSlot,
         delayHistogram,
-        cities: [...new Set(allTasks.map(t => t.ville))].sort()
+        cities: [...new Set(allTasks.map(t => t.ville))].sort(),
+        globalSummary,
+        performanceByDepot,
+        performanceByWarehouse,
     };
 }
 
@@ -319,7 +333,10 @@ function createEmptyAnalysisData(): AnalysisData {
         performanceByDayOfWeek: [],
         performanceByTimeSlot: [],
         delayHistogram: [],
-        cities: []
+        cities: [],
+        globalSummary: { punctualityRatePlanned: 0, punctualityRateRealized: 0, avgDurationDiscrepancyPerTour: 0, avgWeightDiscrepancyPerTour: 0 },
+        performanceByDepot: [],
+        performanceByWarehouse: []
     };
 }
 
@@ -419,6 +436,36 @@ function calculatePerformanceByGeo(tasks: MergedData[], key: 'ville' | 'codePost
         }
     }).sort((a,b) => b.totalDelays - a.totalDelays);
 }
+
+function calculatePerformanceByGroup(tasks: MergedData[], keyGetter: (task: MergedData) => string, toleranceSeconds: number): PerformanceByGroup[] {
+    const groups = new Map<string, { totalTasks: number, lateTasks: MergedData[] }>();
+
+    tasks.forEach(task => {
+        if (!task.tournee) return;
+        const key = keyGetter(task);
+        if (!key) return;
+
+        if (!groups.has(key)) {
+            groups.set(key, { totalTasks: 0, lateTasks: [] });
+        }
+        const group = groups.get(key)!;
+        group.totalTasks++;
+        if (task.retardStatus === 'late') {
+            group.lateTasks.push(task);
+        }
+    });
+
+    return Array.from(groups.entries()).map(([key, data]) => {
+        const sumOfDelays = data.lateTasks.reduce((sum, task) => sum + task.retard, 0);
+        return {
+            key: key,
+            totalTasks: data.totalTasks,
+            punctualityRate: data.totalTasks > 0 ? ((data.totalTasks - data.lateTasks.length) / data.totalTasks) * 100 : 100,
+            avgDelay: data.lateTasks.length > 0 ? (sumOfDelays / data.lateTasks.length) / 60 : 0, // in minutes
+        };
+    }).sort((a, b) => b.avgDelay - a.avgDelay || b.totalTasks - a.totalTasks);
+}
+
 
 function calculatePerformanceByDayOfWeek(tasks: MergedData[], toleranceSeconds: number): PerformanceByDay[] {
     const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
