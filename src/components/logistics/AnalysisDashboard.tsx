@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
 import AiReportGenerator from './AiReportGenerator';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
@@ -95,8 +95,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       performanceByPostalCode: [],
     };
     
-    const sortFn = <T,>(data: T[], config: SortConfig<T>): T[] => {
+    const sortFn = <T,>(data: T[] | undefined, config: SortConfig<T>): T[] => {
+        if (!data) return [];
         if (!config) return data;
+
         const sorted = [...data].sort((a, b) => {
             let aValue = a[config.key];
             let bValue = b[config.key];
@@ -104,20 +106,23 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             if (aValue == null) return 1;
             if (bValue == null) return -1;
             
-            // Specific sort for 'ecart' in durationDiscrepancies
-            if (config.key === 'ecart') {
-              if (aValue >= 0 && bValue < 0) return -1;
-              if (aValue < 0 && bValue >= 0) return 1;
-              return bValue - aValue;
+            // Special sort for 'ecart' in durationDiscrepancies to always show largest positive first
+             if (config.key === 'ecart') {
+              const aEcart = a['ecart' as keyof T] as number;
+              const bEcart = b['ecart' as keyof T] as number;
+              if (aEcart >= 0 && bEcart < 0) return -1;
+              if (aEcart < 0 && bEcart >= 0) return 1;
+              return Math.abs(bEcart) - Math.abs(aEcart);
             }
 
+            if (typeof aValue === 'number' && typeof bValue === 'number') {
+                return aValue - bValue;
+            }
+            
+            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                return aValue.localeCompare(bValue);
+            }
 
-            if (aValue < bValue) {
-                return -1;
-            }
-            if (aValue > bValue) {
-                return 1;
-            }
             return 0;
         });
 
@@ -171,10 +176,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
   const geoDataToDisplay = activeTab === 'ville' ? sortedData.performanceByCity : sortedData.performanceByPostalCode;
 
   const dayOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-  const sortedPerformanceByDay = analysisData.performanceByDayOfWeek.sort((a,b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
+  const sortedPerformanceByDay = (analysisData.performanceByDayOfWeek || []).sort((a,b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
 
   const slotOrder = ['Matin (06-12h)', 'Après-midi (12-18h)', 'Soir (18-00h)'];
-  const sortedPerformanceBySlot = analysisData.performanceByTimeSlot.sort((a,b) => slotOrder.indexOf(a.slot) - slotOrder.indexOf(b.slot));
+  const sortedPerformanceBySlot = (analysisData.performanceByTimeSlot || []).sort((a,b) => slotOrder.indexOf(a.slot) - slotOrder.indexOf(b.slot));
 
   return (
     <div className="space-y-8">
@@ -186,7 +191,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       </section>
       
       <section>
-        <AiReportGenerator analysisData={analysisData} filters={filters} aiFeedbackAnalysis={feedbackAnalysisResult} />
+        <AiReportGenerator analysisData={analysisData} allData={allData} filters={filters} aiFeedbackAnalysis={feedbackAnalysisResult} />
       </section>
 
       <section>
@@ -267,7 +272,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                        <YAxis />
                        <Tooltip />
                        <Bar dataKey="count" name="Nb. de Tâches">
-                          {analysisData.delayHistogram.map((entry, index) => (
+                          {(analysisData.delayHistogram || []).map((entry, index) => (
                              <Cell key={`cell-${index}`} fill={entry.range.includes('retard') ? PRIMARY_COLOR : entry.range.includes('avance') ? ADVANCE_COLOR : '#a0aec0'} />
                           ))}
                        </Bar>
@@ -281,7 +286,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       <section>
         <h2 className="text-2xl font-bold mb-4">Analyse des Anomalies de Tournées</h2>
         <div className="space-y-6">
-        {analysisData.overloadedTours.length > 0 && (
+        {(analysisData.overloadedTours || []).length > 0 && (
             <Card>
               <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -299,13 +304,11 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                               <TableRow>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'date')}>Date {renderSortIcon('overloaded', 'date')}</TableHead>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'nom')}>Tournée {renderSortIcon('overloaded', 'nom')}</TableHead>
+                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'entrepot')}>Entrepôt {renderSortIcon('overloaded', 'entrepot')}</TableHead>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'livreur')}>Livreur {renderSortIcon('overloaded', 'livreur')}</TableHead>
-                                  <TableHead>Capacité Poids</TableHead>
+                                  <TableHead>Poids Prévu</TableHead>
                                   <TableHead>Poids Réel</TableHead>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementPoids')}>Dépassement Poids {renderSortIcon('overloaded', 'tauxDepassementPoids')}</TableHead>
-                                  <TableHead>Capacité Bacs</TableHead>
-                                  <TableHead>Bacs Réels</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('overloaded', 'tauxDepassementBacs')}>Dépassement Bacs {renderSortIcon('overloaded', 'tauxDepassementBacs')}</TableHead>
                               </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -313,20 +316,14 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                   <TableRow key={tour.uniqueId}>
                                       <TableCell>{formatDate(tour.date)}</TableCell>
                                       <TableCell>{tour.nom}</TableCell>
+                                      <TableCell>{tour.entrepot}</TableCell>
                                       <TableCell>{tour.livreur}</TableCell>
-                                      <TableCell>{tour.capacitePoids.toFixed(2)} kg</TableCell>
+                                      <TableCell>{tour.poidsPrevu.toFixed(2)} kg</TableCell>
                                       <TableCell className={cn(tour.depassementPoids > 0 && "font-bold text-destructive")}>
                                           {tour.poidsReel.toFixed(2)} kg
                                       </TableCell>
                                       <TableCell className={cn(tour.depassementPoids > 0 && "font-semibold")}>
                                           {tour.depassementPoids > 0 ? `+${tour.depassementPoids.toFixed(2)} kg (${tour.tauxDepassementPoids.toFixed(1)}%)` : '-'}
-                                      </TableCell>
-                                      <TableCell>{tour.capaciteBacs} bacs</TableCell>
-                                       <TableCell className={cn(tour.depassementBacs > 0 && "font-bold text-destructive")}>
-                                          {tour.bacsReels} bacs
-                                      </TableCell>
-                                      <TableCell className={cn(tour.depassementBacs > 0 && "font-semibold")}>
-                                          {tour.depassementBacs > 0 ? `+${tour.depassementBacs} bacs (${tour.tauxDepassementBacs.toFixed(1)}%)` : '-'}
                                       </TableCell>
                                   </TableRow>
                               ))}
@@ -337,7 +334,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </Card>
         )}
 
-        {analysisData.durationDiscrepancies.length > 0 && (
+        {(analysisData.durationDiscrepancies || []).length > 0 && (
             <Card>
               <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -345,7 +342,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                       Écarts de Durée de Service (Estimée vs. Réelle)
                   </CardTitle>
                   <CardDescription>
-                      Comparaison de la durée entre la première et la dernière livraison de chaque tournée.
+                      Comparaison de la durée entre la première et la dernière livraison de chaque tournée. Les écarts positifs importants sont affichés en premier.
                   </CardDescription>
               </CardHeader>
               <CardContent>
@@ -355,9 +352,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                               <TableRow>
                                 <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'date')}>Date {renderSortIcon('duration', 'date')}</TableHead>
                                 <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'nom')}>Tournée {renderSortIcon('duration', 'nom')}</TableHead>
+                                <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'entrepot')}>Entrepôt {renderSortIcon('duration', 'entrepot')}</TableHead>
                                 <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'livreur')}>Livreur {renderSortIcon('duration', 'livreur')}</TableHead>
-                                <TableHead className="text-center">1ère Livraison (Prévue / Réelle)</TableHead>
-                                <TableHead className="text-center">Dernière Livraison (Prévue / Réelle)</TableHead>
                                 <TableHead className="text-center">Durée Estimée</TableHead>
                                 <TableHead className="text-center">Durée Réelle</TableHead>
                                 <TableHead className="cursor-pointer group" onClick={() => handleSort('duration', 'ecart')}>Écart {renderSortIcon('duration', 'ecart')}</TableHead>
@@ -368,13 +364,12 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                   <TableRow key={tour.uniqueId}>
                                       <TableCell>{formatDate(tour.date)}</TableCell>
                                       <TableCell>{tour.nom}</TableCell>
+                                      <TableCell>{tour.entrepot}</TableCell>
                                       <TableCell>{tour.livreur}</TableCell>
-                                      <TableCell className="text-center">{formatSecondsToClock(tour.heurePremiereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heurePremiereLivraisonReelle)}</span></TableCell>
-                                      <TableCell className="text-center">{formatSecondsToClock(tour.heureDerniereLivraisonPrevue)} / <span className="font-semibold">{formatSecondsToClock(tour.heureDerniereLivraisonReelle)}</span></TableCell>
                                       <TableCell className="text-center">{formatSecondsToTime(tour.dureeEstimee)}</TableCell>
                                       <TableCell className="text-center">{formatSecondsToTime(tour.dureeReelle)}</TableCell>
                                       <TableCell className={cn(tour.ecart > 300 ? "text-destructive font-semibold" : tour.ecart < -300 ? "text-blue-500 font-semibold" : "")}>
-                                          {tour.ecart > 0 ? '+' : ''}{formatSecondsToTime(tour.ecart)}
+                                          {tour.ecart >= 0 ? '+' : ''}{formatSecondsToTime(tour.ecart)}
                                       </TableCell>
                                   </TableRow>
                               ))}
@@ -385,7 +380,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </Card>
         )}
 
-        {analysisData.lateStartAnomalies.length > 0 && (
+        {(analysisData.lateStartAnomalies || []).length > 0 && (
             <Card>
               <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -403,6 +398,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                               <TableRow>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'date')}>Date {renderSortIcon('anomaly', 'date')}</TableHead>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'nom')}>Tournée {renderSortIcon('anomaly', 'nom')}</TableHead>
+                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'entrepot')}>Entrepôt {renderSortIcon('anomaly', 'entrepot')}</TableHead>
                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('anomaly', 'livreur')}>Livreur {renderSortIcon('anomaly', 'livreur')}</TableHead>
                                   <TableHead>Départ Prévu</TableHead>
                                   <TableHead>Départ Réel</TableHead>
@@ -415,9 +411,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                   <TableRow key={tour.uniqueId}>
                                       <TableCell>{formatDate(tour.date)}</TableCell>
                                       <TableCell>{tour.nom}</TableCell>
+                                      <TableCell>{tour.entrepot}</TableCell>
                                       <TableCell>{tour.livreur}</TableCell>
-                                      <TableCell>{new Date(tour.heureDepartPrevue * 1000).toISOString().substr(11, 8)}</TableCell>
-                                      <TableCell>{new Date(tour.heureDepartReelle * 1000).toISOString().substr(11, 8)}</TableCell>
+                                      <TableCell>{formatSecondsToClock(tour.heureDepartPrevue)}</TableCell>
+                                      <TableCell>{formatSecondsToClock(tour.heureDepartReelle)}</TableCell>
                                       <TableCell className="text-green-600 font-semibold">
                                           {formatSecondsToTime(tour.ecartDepart)}
                                       </TableCell>
@@ -455,7 +452,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                   </TableRow>
                               </TableHeader>
                               <TableBody>
-                                  {sortedData.performanceByDriver?.map(driver => (
+                                  {(sortedData.performanceByDriver || []).map(driver => (
                                       <TableRow key={driver.key}>
                                           <TableCell>{driver.key}</TableCell>
                                           <TableCell>{driver.totalTours}</TableCell>
@@ -589,7 +586,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               </CardHeader>
               <CardContent>
                   <ScrollArea className="h-80">
-                    <ResponsiveContainer width="100%" height={analysisData.delaysByWarehouse.length * 30}>
+                    <ResponsiveContainer width="100%" height={(analysisData.delaysByWarehouse || []).length * 30}>
                       <BarChart data={analysisData.delaysByWarehouse} layout="vertical" margin={{ left: 80 }} onClick={(e) => handleBarClick(e, 'entrepot')}>
                           <XAxis type="number" />
                           <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
@@ -607,7 +604,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={320}>
-                   <BarChart data={analysisData.delaysByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }} onClick={(e) => handleBarClick(e, 'city')}>
+                   <BarChart data={(analysisData.delaysByCity || []).slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }} onClick={(e) => handleBarClick(e, 'city')}>
                       <XAxis type="number" />
                       <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
                       <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
@@ -639,7 +636,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               </CardHeader>
               <CardContent>
                   <ScrollArea className="h-80">
-                    <ResponsiveContainer width="100%" height={analysisData.advancesByWarehouse.length * 30}>
+                    <ResponsiveContainer width="100%" height={(analysisData.advancesByWarehouse || []).length * 30}>
                       <BarChart data={analysisData.advancesByWarehouse} layout="vertical" margin={{ left: 80 }}>
                           <XAxis type="number" />
                           <YAxis dataKey="key" type="category" width={100} tickLine={false} axisLine={false} tick={CustomYAxisTick} />
@@ -657,7 +654,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={320}>
-                   <BarChart data={analysisData.advancesByCity.slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }}>
+                   <BarChart data={(analysisData.advancesByCity || []).slice(0,10).reverse()} layout="vertical" margin={{ left: 80 }}>
                       <XAxis type="number" />
                       <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
                       <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
@@ -673,7 +670,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={320}>
-                   <BarChart data={analysisData.delaysByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }} onClick={(e) => handleBarClick(e, 'codePostal')}>
+                   <BarChart data={(analysisData.delaysByPostalCode || []).slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }} onClick={(e) => handleBarClick(e, 'codePostal')}>
                       <XAxis type="number" />
                       <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
                       <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
@@ -689,7 +686,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={320}>
-                   <BarChart data={analysisData.advancesByPostalCode.slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }}>
+                   <BarChart data={(analysisData.advancesByPostalCode || []).slice(0,10).reverse()} layout="vertical" margin={{ left: 60 }}>
                       <XAxis type="number" />
                       <YAxis dataKey="key" type="category" tickLine={false} axisLine={false} />
                       <Tooltip cursor={{fill: 'rgba(206, 206, 206, 0.2)'}}/>
@@ -704,3 +701,5 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     </div>
   );
 }
+
+    
