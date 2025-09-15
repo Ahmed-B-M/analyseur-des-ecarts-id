@@ -78,7 +78,13 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         }
     });
 
-    const uniqueTournees = uniqueTourneesWithTasks.map(t => t.tour);
+    let uniqueTournees = uniqueTourneesWithTasks.map(t => t.tour);
+    uniqueTournees.forEach(tour => {
+        const tourWithTasks = tourneeMap.get(tour.uniqueId);
+        if (tourWithTasks) {
+            tour.poidsReel = tourWithTasks.tasks.reduce((sum, t) => sum + t.poids, 0);
+        }
+    });
     
     // --- KPI Calculations ---
     const tasksOnTime = allTasks.filter(t => t.retardStatus === 'onTime');
