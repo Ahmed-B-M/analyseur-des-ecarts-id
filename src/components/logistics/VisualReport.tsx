@@ -5,9 +5,9 @@ import type { VisualReportData, Kpi, OverloadedTourInfo } from '@/lib/types';
 import { Logo } from './Logo';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Printer, Loader2, AlertCircle, FileText, Target, Search, MapPin, BarChart2, Calendar, Clock, AlertTriangle, Timer, Route, Warehouse, Award, TrendingUp, Hourglass, Lightbulb, Info, Users } from 'lucide-react';
+import { Printer, Loader2, AlertCircle, FileText, Target, Search, MapPin, BarChart2, Calendar, Clock, AlertTriangle, Timer, Route, Warehouse, Award, TrendingUp, Hourglass, Lightbulb, Info, Users, Sigma, Percent } from 'lucide-react';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart, Legend, Line, Area } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart, Legend, Line, Area, Cell } from 'recharts';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,6 +26,7 @@ type ExtendedVisualReportData = VisualReportData & {
         totalCumulativeDelayHours: number;
         totalAdditionalServiceHours: number;
         top20percentWarehousesByOverrun: any[];
+        firstTaskLatePercentage: number;
     }
 }
 
@@ -49,6 +50,15 @@ function formatSecondsToClock(seconds: number): string {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+function formatSecondsToTime(seconds: number): string {
+    const isNegative = seconds < 0;
+    seconds = Math.abs(seconds);
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.round(seconds % 60);
+    return `${isNegative ? '-' : ''}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 function formatDate(dateString: string): string {
     if (!dateString) return '';
     try {
@@ -57,6 +67,11 @@ function formatDate(dateString: string): string {
         return dateString;
     }
 }
+
+const PRIMARY_COLOR = "hsl(var(--primary))";
+const ACCENT_COLOR = "hsl(var(--accent))";
+const ADVANCE_COLOR = "hsl(210 100% 56%)"; // A distinct blue for "advance"
+
 
 export default function VisualReport() {
     const [reportData, setReportData] = useState<ExtendedVisualReportData | null>(null);
@@ -92,6 +107,13 @@ export default function VisualReport() {
         const hour = parseInt(d.hour.split(':')[0]);
         return hour >= 5 && hour <= 23;
     });
+    
+    const dayOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+    const sortedPerformanceByDay = (analysis.performanceByDayOfWeek || []).sort((a,b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
+
+    const slotOrder = ['Matin (06-12h)', 'Après-midi (12-18h)', 'Soir (18-00h)'];
+    const sortedPerformanceBySlot = (analysis.performanceByTimeSlot || []).sort((a,b) => slotOrder.indexOf(a.slot) - slotOrder.indexOf(b.slot));
+
 
     return (
         <div className="max-w-4xl mx-auto p-4 sm:p-8 bg-white print:shadow-none font-sans text-gray-800">
@@ -128,22 +150,32 @@ export default function VisualReport() {
                     </Card>
 
                     <ReportBlock title="Indicateurs Clés (KPIs)" icon={Target} aiComment={ai.kpiComments.punctuality}>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                             <KpiCard {...(analysis.generalKpis || []).find(k => k.title.includes('Ponctualité'))!} />
+                             <KpiCard {...(analysis.generalKpis || []).find(k => k.title.includes('Tournées'))!} />
                             <KpiCard {...extra.negativeReviewsKpi} />
                             <KpiCard {...(analysis.generalKpis || []).find(k => k.title.includes('Retard'))!} />
-                        </div>
-                    </ReportBlock>
-
-                    <ReportBlock title="Impact des Écarts sur la Qualité" icon={TrendingUp} aiComment={ai.kpiComments.quality}>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {(analysis.qualityKpis || []).map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
+                            <KpiCard title="% Tournées en Dépassement de Poids" value={`${extra.overloadedToursPercentage.toFixed(1)}%`} icon="Percent" description="Tournées dépassant la capacité de poids." />
+                            <KpiCard title="% Anomalies 1ère Tâche" value={`${extra.firstTaskLatePercentage.toFixed(1)}%`} icon="Percent" description="Parti à l'heure, 1ère livraison en retard." />
                         </div>
                     </ReportBlock>
 
                     <ReportBlock title="Écarts Planifié vs. Réalisé" icon={BarChart2} aiComment={ai.kpiComments.discrepancy}>
+                        <Card className="print:shadow-none mb-4">
+                            <CardHeader><CardTitle className="text-base">Synthèse des Écarts Globaux</CardTitle></CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableBody>
+                                        <TableRow><TableCell className="font-medium">Taux Ponctualité Planifié</TableCell><TableCell className="text-right font-semibold">{analysis.globalSummary.punctualityRatePlanned.toFixed(1)}%</TableCell></TableRow>
+                                        <TableRow><TableCell className="font-medium">Taux Ponctualité Réalisé</TableCell><TableCell className="text-right font-semibold">{analysis.globalSummary.punctualityRateRealized.toFixed(1)}%</TableCell></TableRow>
+                                        <TableRow><TableCell className="font-medium">Écart Durée Moyen / Tournée</TableCell><TableCell className="text-right font-semibold">{formatSecondsToTime(analysis.globalSummary.avgDurationDiscrepancyPerTour)}</TableCell></TableRow>
+                                        <TableRow><TableCell className="font-medium">Écart Poids Moyen / Tournée</TableCell><TableCell className="text-right font-semibold">{analysis.globalSummary.avgWeightDiscrepancyPerTour.toFixed(2)} kg</TableCell></TableRow>
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {(analysis.discrepancyKpis || []).filter(k => !k.title.toLowerCase().includes('distance')).map(kpi => <ComparisonKpiCard key={kpi.title} {...kpi} />)}
+                            {(analysis.discrepancyKpis || []).filter(k => !k.title.toLowerCase().includes('distance') && !k.title.toLowerCase().includes('tâches')).map(kpi => <ComparisonKpiCard key={kpi.title} {...kpi} />)}
                         </div>
                     </ReportBlock>
                     
@@ -157,27 +189,64 @@ export default function VisualReport() {
 
                 {/* --- PAGE 2: Graphical Analysis --- */}
                 <div className="break-after-page space-y-8">
-                     <ReportBlock title="Analyse de la Charge & Performance Temporelle" icon={Clock} aiComment={ai.chartsInsights.workloadAnalysis}>
+                     <ReportBlock title="Analyse de la Charge & Performance Globale" icon={Clock} aiComment={ai.chartsInsights.workloadAnalysis}>
                         <Card className="print:shadow-none"><CardHeader><CardTitle className="text-base">Charge & Écarts par Heure</CardTitle></CardHeader><CardContent>
                             <ResponsiveContainer width="100%" height={250}>
                                 <ComposedChart data={workloadByHourData}>
                                     <XAxis dataKey="hour" fontSize={10} /><YAxis yAxisId="left" label={{ value: 'Nb. Tâches', angle: -90, position: 'insideLeft', fontSize: 12 }} fontSize={10} /><YAxis yAxisId="right" orientation="right" label={{ value: 'Nb. Écarts', angle: -90, position: 'insideRight', fontSize: 12 }} fontSize={10} /><Tooltip /><Legend />
-                                    <Area yAxisId="left" type="monotone" dataKey="planned" name="Planifié" stroke="#a1a1aa" fill="#a1a1aa" fillOpacity={0.3} />
-                                    <Area yAxisId="left" type="monotone" dataKey="real" name="Réalisé" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
-                                    <Line yAxisId="right" type="monotone" dataKey="delays" name="Retards" stroke="hsl(var(--accent))" dot={false} strokeWidth={2} />
-                                    <Line yAxisId="right" type="monotone" dataKey="advances" name="Avances" stroke="#2563eb" dot={false} strokeWidth={2} />
+                                    <Area yAxisId="left" type="monotone" dataKey="planned" name="Planifié" stroke={ACCENT_COLOR} fill={ACCENT_COLOR} fillOpacity={0.3} />
+                                    <Area yAxisId="left" type="monotone" dataKey="real" name="Réalisé" stroke={PRIMARY_COLOR} fill={PRIMARY_COLOR} fillOpacity={0.3} />
+                                    <Line yAxisId="right" type="monotone" dataKey="delays" name="Retards" stroke={ACCENT_COLOR} dot={false} strokeWidth={2} />
+                                    <Line yAxisId="right" type="monotone" dataKey="advances" name="Avances" stroke={ADVANCE_COLOR} dot={false} strokeWidth={2} />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </CardContent></Card>
                     </ReportBlock>
-                     <ReportBlock title="Performance par Entrepôt" icon={Warehouse} aiComment={ai.chartsInsights.warehouseOverrun}>
-                        <Card className="print:shadow-none"><CardHeader><CardTitle className="text-base">Top 20% des Entrepôts par Dépassements Cumulés</CardTitle></CardHeader><CardContent>
-                            <ResponsiveContainer width="100%" height={250}>
-                                <ComposedChart data={extra.top20percentWarehousesByOverrun}>
-                                    <XAxis dataKey="entrepot" fontSize={10} /><YAxis yAxisId="left" label={{ value: 'Poids (kg)', angle: -90, position: 'insideLeft', fontSize: 12 }} fontSize={10} /><YAxis yAxisId="right" orientation="right" label={{ value: 'Temps (h)', angle: -90, position: 'insideRight', fontSize: 12 }} fontSize={10} /><Tooltip /><Legend />
-                                    <Bar yAxisId="left" dataKey="totalWeightOverrun" name="Dépassement Poids" fill="hsl(var(--primary))" />
-                                    <Line yAxisId="right" type="monotone" dataKey="totalTimeOverrun" name="Dépassement Temps" stroke="hsl(var(--accent))" strokeWidth={2} />
-                                </ComposedChart>
+                     <ReportBlock title="Analyse Temporelle Détaillée" icon={Calendar} aiComment={ai.temporalAnalysisComments.byDay}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Card className="print:shadow-none"><CardHeader><CardTitle className="text-base">Performance par Jour</CardTitle></CardHeader><CardContent>
+                                <ResponsiveContainer width="100%" height={200}>
+                                     <ComposedChart data={sortedPerformanceByDay}>
+                                       <XAxis dataKey="day" fontSize={10} />
+                                       <YAxis yAxisId="left" label={{ value: 'Nb. Écarts', angle: -90, position: 'insideLeft', fontSize: 10, offset: 10 }} fontSize={10}/>
+                                       <YAxis yAxisId="right" orientation="right" label={{ value: 'Retard Moyen (min)', angle: -90, position: 'insideRight', fontSize: 10, offset: 10 }} fontSize={10}/>
+                                       <Tooltip />
+                                       <Legend wrapperStyle={{fontSize: "10px"}}/>
+                                       <Bar yAxisId="left" dataKey="delays" name="Retards" fill={ACCENT_COLOR} />
+                                       <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} />
+                                       <Line yAxisId="right" type="monotone" dataKey="avgDelay" name="Retard Moyen" stroke="#ff7300" dot={false} strokeWidth={2} />
+                                     </ComposedChart>
+                                </ResponsiveContainer>
+                            </CardContent></Card>
+                            <Card className="print:shadow-none"><CardHeader><CardTitle className="text-base">Performance par Créneau</CardTitle><CardDescription>{ai.temporalAnalysisComments.bySlot}</CardDescription></CardHeader><CardContent>
+                                <ResponsiveContainer width="100%" height={200}>
+                                     <ComposedChart data={sortedPerformanceBySlot}>
+                                       <XAxis dataKey="slot" fontSize={10}/>
+                                       <YAxis yAxisId="left" label={{ value: 'Nb. Écarts', angle: -90, position: 'insideLeft', fontSize: 10, offset: 10 }} fontSize={10}/>
+                                       <YAxis yAxisId="right" orientation="right" label={{ value: 'Retard Moyen (min)', angle: -90, position: 'insideRight', fontSize: 10, offset: 10 }} fontSize={10}/>
+                                       <Tooltip />
+                                       <Legend wrapperStyle={{fontSize: "10px"}}/>
+                                       <Bar yAxisId="left" dataKey="delays" name="Retards" fill={ACCENT_COLOR} />
+                                       <Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} />
+                                       <Line yAxisId="right" type="monotone" dataKey="avgDelay" name="Retard Moyen" stroke="#ff7300" dot={false} strokeWidth={2} />
+                                     </ComposedChart>
+                                </ResponsiveContainer>
+                            </CardContent></Card>
+                        </div>
+                    </ReportBlock>
+                     <ReportBlock title="Répartition des Écarts" icon={Sigma} aiComment={ai.temporalAnalysisComments.histogram}>
+                        <Card className="print:shadow-none"><CardContent className="pt-6">
+                            <ResponsiveContainer width="100%" height={200}>
+                                <BarChart data={analysis.delayHistogram}>
+                                    <XAxis dataKey="range" fontSize={10} angle={-30} textAnchor="end" height={50} />
+                                    <YAxis fontSize={10}/>
+                                    <Tooltip />
+                                    <Bar dataKey="count" name="Nb. de Tâches">
+                                      {(analysis.delayHistogram || []).map((entry, index) => (
+                                         <Cell key={`cell-${index}`} fill={entry.range.includes('retard') ? ACCENT_COLOR : entry.range.includes('avance') ? ADVANCE_COLOR : '#a0aec0'} />
+                                      ))}
+                                    </Bar>
+                                </BarChart>
                             </ResponsiveContainer>
                         </CardContent></Card>
                     </ReportBlock>
@@ -188,21 +257,21 @@ export default function VisualReport() {
                     <ReportBlock title="Analyse Détaillée des Anomalies" icon={Search}>
                         <div className="space-y-6">
                             <Card className="print:shadow-none"><CardHeader>
-                                <CardTitle className="text-base flex items-center justify-between"><span><AlertTriangle className="inline mr-2" />Dépassements de Charge</span> <span className="font-bold text-lg text-red-600">{extra.overloadedToursPercentage.toFixed(1)}% des tournées</span></CardTitle>
+                                <CardTitle className="text-base flex items-center justify-between"><span><AlertTriangle className="inline mr-2 text-amber-600" />Dépassements de Charge</span> <span className="font-bold text-lg text-red-600">{extra.overloadedToursPercentage.toFixed(1)}% des tournées</span></CardTitle>
                                 <CardDescription>{ai.anomaliesComments.overloaded}</CardDescription></CardHeader><CardContent>
                                 <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Poids Planifié</TableHead><TableHead>Poids Réel</TableHead><TableHead>Dépassement</TableHead></TableRow></TableHeader>
                                     <TableBody>{(extra.top10Overloaded || []).map((t: OverloadedTourInfo, i: number) => (<TableRow key={i}><TableCell>{formatDate(t.date)}</TableCell><TableCell>{t.nom}</TableCell><TableCell>{t.entrepot}</TableCell><TableCell>{t.poidsPrevu.toFixed(2)} kg</TableCell><TableCell className="font-bold text-red-600">{t.poidsReel.toFixed(2)} kg</TableCell><TableCell className="font-bold text-red-600">+{t.depassementPoids.toFixed(2)} kg</TableCell></TableRow>))}</TableBody></Table>
                             </CardContent></Card>
 
                             <Card className="print:shadow-none mt-6"><CardHeader>
-                                <CardTitle className="text-base flex items-center justify-between"><span><Timer className="inline mr-2" />Écarts de Durée de Service</span><span className="font-bold text-lg text-red-600">{extra.durationDiscrepancyPercentage.toFixed(1)}% des tournées</span></CardTitle>
+                                <CardTitle className="text-base flex items-center justify-between"><span><Timer className="inline mr-2 text-blue-600" />Écarts de Durée de Service</span><span className="font-bold text-lg text-red-600">{extra.durationDiscrepancyPercentage.toFixed(1)}% des tournées</span></CardTitle>
                                 <CardDescription>{ai.anomaliesComments.duration}</CardDescription></CardHeader><CardContent>
                                 <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Prévu</TableHead><TableHead>Réalisé</TableHead><TableHead>Écart</TableHead></TableRow></TableHeader>
                                     <TableBody>{(extra.top10PositiveDuration || []).map((t: any, i: number) => (<TableRow key={i}><TableCell>{formatDate(t.date)}</TableCell><TableCell>{t.nom}</TableCell><TableCell>{t.entrepot}</TableCell><TableCell>{formatSecondsToClock(t.dureeEstimee)}</TableCell><TableCell>{formatSecondsToClock(t.dureeReelle)}</TableCell><TableCell className="font-bold text-red-600">+{formatSecondsToClock(t.ecart)}</TableCell></TableRow>))}</TableBody></Table>
                             </CardContent></Card>
 
                             <Card className="print:shadow-none mt-6"><CardHeader>
-                                <CardTitle className="text-base flex items-center justify-between"><span><Route className="inline mr-2" />Anomalies de Planification</span><span className="font-bold text-lg text-red-600">{extra.planningAnomalyPercentage.toFixed(1)}% des tournées</span></CardTitle>
+                                <CardTitle className="text-base flex items-center justify-between"><span><Route className="inline mr-2 text-violet-600" />Anomalies de Planification</span><span className="font-bold text-lg text-red-600">{extra.planningAnomalyPercentage.toFixed(1)}% des tournées</span></CardTitle>
                                 <CardDescription>{ai.anomaliesComments.planning}</CardDescription></CardHeader><CardContent>
                                 <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Départ Prévu</TableHead><TableHead>Départ Réel</TableHead><TableHead># Tâches en Retard</TableHead></TableRow></TableHeader>
                                     <TableBody>{(extra.top10Anomalies || []).map((t: any, i: number) => (<TableRow key={i}><TableCell>{formatDate(t.date)}</TableCell><TableCell>{t.nom}</TableCell><TableCell>{t.entrepot}</TableCell><TableCell>{formatSecondsToClock(t.heureDepartPrevue)}</TableCell><TableCell className="text-blue-600 font-semibold">{formatSecondsToClock(t.heureDepartReelle)}</TableCell><TableCell className="font-bold">{t.tasksInDelay}</TableCell></TableRow>))}</TableBody></Table>
@@ -212,7 +281,7 @@ export default function VisualReport() {
                 </div>
                  {/* --- PAGE 4: Geo, Drivers & Recommendations --- */}
                 <div className="space-y-8">
-                     <ReportBlock title="Analyse Géographique" icon={MapPin}>
+                     <ReportBlock title="Analyse Géographique & Performance Entrepôt" icon={MapPin}>
                          <Card className="print:shadow-none mb-6">
                             <CardHeader><CardTitle className="text-base">Synthèse IA par Zone</CardTitle></CardHeader>
                             <CardContent className="space-y-2">
@@ -224,15 +293,14 @@ export default function VisualReport() {
                         </Card>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Card className="print:shadow-none">
-                                <CardHeader><CardTitle className="text-base">Top 5 Entrepôts par Retards</CardTitle></CardHeader>
+                                <CardHeader><CardTitle className="text-base">Top 20% Entrepôts par Dépassements</CardTitle><CardDescription>{ai.chartsInsights.warehouseOverrun}</CardDescription></CardHeader>
                                 <CardContent>
                                      <ResponsiveContainer width="100%" height={200}>
-                                        <BarChart layout="vertical" data={(analysis.delaysByWarehouse || []).slice(0, 5).reverse()} margin={{ left: 80 }}>
-                                            <XAxis type="number" fontSize={10} />
-                                            <YAxis dataKey="key" type="category" fontSize={10} width={80} />
-                                            <Tooltip />
-                                            <Bar dataKey="count" name="Retards" fill="hsl(var(--accent))" />
-                                        </BarChart>
+                                        <ComposedChart data={extra.top20percentWarehousesByOverrun}>
+                                            <XAxis dataKey="entrepot" fontSize={10} /><YAxis yAxisId="left" label={{ value: 'Poids (kg)', angle: -90, position: 'insideLeft', fontSize: 12 }} fontSize={10} /><YAxis yAxisId="right" orientation="right" label={{ value: 'Temps (h)', angle: -90, position: 'insideRight', fontSize: 12 }} fontSize={10} /><Tooltip /><Legend />
+                                            <Bar yAxisId="left" dataKey="totalWeightOverrun" name="Dépassement Poids" fill={PRIMARY_COLOR} />
+                                            <Line yAxisId="right" type="monotone" dataKey="totalTimeOverrun" name="Dépassement Temps" stroke={ACCENT_COLOR} strokeWidth={2} />
+                                        </ComposedChart>
                                     </ResponsiveContainer>
                                 </CardContent>
                             </Card>
@@ -244,7 +312,7 @@ export default function VisualReport() {
                                             <XAxis type="number" fontSize={10} />
                                             <YAxis dataKey="key" type="category" fontSize={10} width={80} />
                                             <Tooltip />
-                                            <Bar dataKey="count" name="Retards" fill="hsl(var(--accent))" />
+                                            <Bar dataKey="count" name="Retards" fill={ACCENT_COLOR} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </CardContent>
@@ -266,7 +334,7 @@ export default function VisualReport() {
                                         <Tooltip />
                                         <Legend />
                                         <Bar yAxisId="right" dataKey="overweightToursCount" name="Tournées Surchargées" fill="#a1a1aa" />
-                                        <Line yAxisId="left" type="monotone" dataKey="punctualityRate" name="Ponctualité" stroke="hsl(var(--primary))" strokeWidth={2} />
+                                        <Line yAxisId="left" type="monotone" dataKey="punctualityRate" name="Ponctualité" stroke={PRIMARY_COLOR} strokeWidth={2} />
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             </CardContent>
@@ -300,5 +368,7 @@ export default function VisualReport() {
         </div>
     );
 }
+
+    
 
     

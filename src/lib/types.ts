@@ -234,4 +234,20 @@ export type VisualReportData = {
   analysis: AnalysisData;
   ai: GenerateLogisticsReportOutput;
   filters: Record<string, any>;
+  extra: {
+    negativeReviewsKpi: Kpi;
+    overloadedToursPercentage: number;
+    durationDiscrepancyPercentage: number;
+    planningAnomalyPercentage: number;
+    top10PositiveDuration: any[];
+    top10Anomalies: any[];
+    top10Overloaded: OverloadedTourInfo[];
+    exemplaryDrivers: any[];
+    totalCumulativeDelayHours: number;
+    totalAdditionalServiceHours: number;
+    top20percentWarehousesByOverrun: any[];
+    firstTaskLatePercentage: number;
+  };
 };
+
+    

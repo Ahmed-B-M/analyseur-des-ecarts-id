@@ -66,6 +66,33 @@ const WarehouseOverrunSchema = z.object({
     totalTimeOverrun: z.number().describe("Dépassement de temps total en heures.")
 });
 
+const GlobalSummarySchema = z.object({
+    punctualityRatePlanned: z.number(),
+    punctualityRateRealized: z.number(),
+    avgDurationDiscrepancyPerTour: z.number(),
+    avgWeightDiscrepancyPerTour: z.number(),
+});
+
+const PerformanceByDaySchema = z.object({
+    day: z.string(),
+    delays: z.number(),
+    advances: z.number(),
+    avgDelay: z.number(),
+});
+
+const PerformanceByTimeSlotSchema = z.object({
+    slot: z.string(),
+    delays: z.number(),
+    advances: z.number(),
+    avgDelay: z.number(),
+});
+
+const DelayHistogramSchema = z.object({
+    range: z.string(),
+    count: z.number(),
+});
+
+
 const ReportInputSchema = z.object({
   totalTours: z.number(),
   generalKpis: z.array(KpiSchema).describe("KPIs généraux."),
@@ -81,6 +108,7 @@ const ReportInputSchema = z.object({
   overloadedToursPercentage: z.number().describe("Pourcentage de tournées en surcharge sur le total."),
   durationDiscrepancyPercentage: z.number().describe("Pourcentage de tournées avec écart de durée positif significatif."),
   planningAnomalyPercentage: z.number().describe("Pourcentage de tournées en anomalie de planification."),
+  firstTaskLatePercentage: z.number().describe("Pourcentage de tournées parties à l'heure mais arrivées en retard au premier client."),
 
   // Top 10 examples from detailed tables
   top10OverloadedTours: z.array(OverloadedTourSchema).describe("Top 10 des tournées en dépassement de charge."),
@@ -96,13 +124,19 @@ const ReportInputSchema = z.object({
   // Data for charts - just the key facts
   topWarehouseByDelay: z.string().optional().describe("L'entrepôt avec le plus de retards."),
   topCityByDelay: z.string().optional().describe("La ville avec le plus de retards."),
+  
+  // New data
+  globalSummary: GlobalSummarySchema.describe("Synthèse des écarts globaux par groupe."),
+  performanceByDayOfWeek: z.array(PerformanceByDaySchema).describe("Performance par jour de la semaine."),
+  performanceByTimeSlot: z.array(PerformanceByTimeSlotSchema).describe("Performance par créneau horaire."),
+  delayHistogram: z.array(DelayHistogramSchema).describe("Histogramme de répartition des écarts."),
 });
 export type GenerateLogisticsReportInput = z.infer<typeof ReportInputSchema>;
 
 const ReportOutputSchema = z.object({
     title: z.string().describe("Titre très court et factuel. Ex: 'Rapport Opérationnel - Semaine 24'."),
     
-    globalSynthesis: z.string().describe("Une synthèse globale et factuelle de toutes les données. Elle doit être détaillée, neutre, sans opinion, sans blâme et sans suggestion."),
+    globalSynthesis: z.string().describe("Une synthèse globale et factuelle de toutes les données. Elle doit être détaillée, neutre, sans opinion, sans blâme et sans suggestion, en se basant sur TOUTES les données fournies (surtout les KPIs, pourcentages d'anomalies, et la synthèse globale)."),
     
     kpiComments: z.object({
         punctuality: z.string().describe("Commentaire sur la ponctualité. Ex: 'Ponctualité sous l'objectif, principalement due aux...'"),
@@ -113,9 +147,14 @@ const ReportOutputSchema = z.object({
     }),
 
     chartsInsights: z.object({
-        temporalAnalysis: z.string().describe("Insight sur le graphique temporel heure/heure. Ex: 'Le pic de retards se situe entre 10h et 14h.'"),
         workloadAnalysis: z.string().describe("Insight sur le graphique de charge. Y a-t-il un lien entre le pic de charge (différence planifié/réel) et les pics de retards/avances ?"),
         warehouseOverrun: z.string().describe("Commentaire sur le graphique des dépassements par entrepôt, identifiant le ou les entrepôts les plus critiques.")
+    }),
+
+    temporalAnalysisComments: z.object({
+        byDay: z.string().describe("Analyse de la performance par jour de la semaine. Quel jour est le plus critique ? Y a-t-il une tendance ?"),
+        bySlot: z.string().describe("Analyse de la performance par créneau horaire. Quel créneau est le plus difficile ?"),
+        histogram: z.string().describe("Analyse de l'histogramme des écarts. La majorité des livraisons sont-elles en avance, à l'heure, ou en retard ? Quelle est l'ampleur des retards ?")
     }),
 
     anomaliesComments: z.object({
@@ -157,29 +196,39 @@ const prompt = ai.definePrompt({
     - KPIs Qualité: {{{json qualityKpis}}}
     - KPIs Écarts: {{{json discrepancyKpis}}}
     - KPI "Avis négatifs liés aux retards": {{{json negativeReviewsFromLateness}}}
+    - Synthèse Globale: {{{json globalSummary}}}
     - Heures de retard cumulées: {{{totalCumulativeDelayHours}}}h
     - Heures de service additionnelles: {{{totalAdditionalServiceHours}}}h
     - Pourcentage de tournées en surcharge: {{{overloadedToursPercentage}}}%
+    - Pourcentage d'anomalies de planification: {{{planningAnomalyPercentage}}}%
+    - Pourcentage d'anomalies 1ère tâche: {{{firstTaskLatePercentage}}}%
     - Top 20% des entrepôts par dépassement: {{{json top20percentWarehousesByOverrun}}}
     - Entrepôt avec le plus de retards : {{{topWarehouseByDelay}}}
     - Ville avec le plus de retards : {{{topCityByDelay}}}
     - Top livreurs exemplaires : {{{json topExemplaryDrivers}}}
+    - Performance par jour: {{{json performanceByDayOfWeek}}}
+    - Performance par créneau: {{{json performanceByTimeSlot}}}
+    - Répartition des écarts: {{{json delayHistogram}}}
     
     ## Instructions Détaillées :
     - **title**: "Rapport de Performance Opérationnelle".
-    - **globalSynthesis**: Rédige une synthèse managériale et factuelle de la situation. Sois exhaustif et mentionne les chiffres clés (ponctualité, retard moyen, écart de durée, etc.).
+    - **globalSynthesis**: Rédige une synthèse managériale et factuelle de la situation. Sois exhaustif et mentionne les chiffres clés (ponctualité, retard moyen, écart de durée, % anomalies, etc.).
     
     - **kpiComments**: Pour chaque section, un commentaire court et percutant.
         - **punctuality**: Commente le taux de ponctualité global.
         - **rating**: Impact des retards sur les avis négatifs.
-        - **quality**: Corrélation entre problèmes opérationnels et satisfaction client.
+        - **quality**: Corrélation entre problèmes opérationnels (surcharge, etc.) et satisfaction client.
         - **discrepancy**: Analyse des écarts planifié/réalisé (durée, poids).
         - **inefficiency**: Explique ce que les heures perdues représentent.
         
     - **chartsInsights**:
-        - **temporalAnalysis**: Insight principal du graphique heure par heure.
         - **workloadAnalysis**: Lien entre charge de travail et retards/avances.
         - **warehouseOverrun**: Identifie les entrepôts les plus critiques en combinant les dépassements de poids et de temps.
+
+    - **temporalAnalysisComments**:
+        - **byDay**: Quel est le jour de la semaine avec le plus de retards et le retard moyen le plus élevé ?
+        - **bySlot**: Quel créneau horaire est le plus problématique ?
+        - **histogram**: La majorité des écarts sont-ils des retards ou des avances ? Quelle est la tranche de retard la plus fréquente ?
         
     - **anomaliesComments**: Commente chaque anomalie et son impact.
         - **overloaded**: Dépassement de charge.
@@ -211,3 +260,5 @@ const generateLogisticsReportFlow = ai.defineFlow(
     return output!;
   }
 );
+
+    

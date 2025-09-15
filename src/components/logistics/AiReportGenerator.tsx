@@ -107,6 +107,7 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
             overloadedToursPercentage,
             durationDiscrepancyPercentage,
             planningAnomalyPercentage,
+            firstTaskLatePercentage: analysisData.firstTaskLatePercentage,
             top10OverloadedTours: top10Overloaded.map(t => ({
                 date: t.date,
                 nom: t.nom,
@@ -122,6 +123,10 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
             top20percentWarehousesByOverrun: top20percentWarehouses,
             topWarehouseByDelay: analysisData.delaysByWarehouse?.[0]?.key,
             topCityByDelay: analysisData.delaysByCity?.[0]?.key,
+            globalSummary: analysisData.globalSummary,
+            performanceByDayOfWeek: analysisData.performanceByDayOfWeek,
+            performanceByTimeSlot: analysisData.performanceByTimeSlot,
+            delayHistogram: analysisData.delayHistogram,
         };
 
         const generatedReport: GenerateLogisticsReportOutput = await generateLogisticsReport(input);
@@ -142,7 +147,8 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
                 exemplaryDrivers,
                 totalCumulativeDelayHours,
                 totalAdditionalServiceHours,
-                top20percentWarehousesByOverrun: top20percentWarehouses
+                top20percentWarehousesByOverrun: top20percentWarehouses,
+                firstTaskLatePercentage: analysisData.firstTaskLatePercentage
             }
         };
         sessionStorage.setItem('visualReportData', JSON.stringify(reportData));
@@ -202,3 +208,6 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
     
 
 
+
+
+    
