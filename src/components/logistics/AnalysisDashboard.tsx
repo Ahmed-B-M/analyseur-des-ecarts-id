@@ -201,10 +201,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       </section>
       
       <section>
-        <h2 className="text-2xl font-bold mb-4">Synthèse des Performances</h2>
+        <h2 className="text-2xl font-bold mb-4">Analyse des Écarts par Groupe</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
-            <CardHeader><CardTitle>Récapitulatif Global</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Synthèse des Écarts Globaux</CardTitle></CardHeader>
             <CardContent>
               <Table>
                 <TableBody>
@@ -217,25 +217,25 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Building />Performance par Dépôt</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Building />Analyse des Écarts par Dépôt</CardTitle></CardHeader>
             <CardContent>
               <ScrollArea className="h-48">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'key')}>Dépôt {renderSortIcon('depot', 'key')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'totalTasks')}>Tâches {renderSortIcon('depot', 'totalTasks')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'punctualityRate')}>Ponctualité {renderSortIcon('depot', 'punctualityRate')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'avgDelay')}>Retard Moy. (min) {renderSortIcon('depot', 'avgDelay')}</TableHead>
+                      <TableHead>Dépôt</TableHead>
+                      <TableHead>Ponct. Plan. / Réal.</TableHead>
+                      <TableHead>Écart Durée Moy.</TableHead>
+                      <TableHead>% Insat. sur Retard</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {(sortedData.performanceByDepot || []).map(item => (
                       <TableRow key={item.key}>
-                        <TableCell>{item.key}</TableCell>
-                        <TableCell>{item.totalTasks}</TableCell>
-                        <TableCell>{item.punctualityRate.toFixed(1)}%</TableCell>
-                        <TableCell className="font-semibold">{item.avgDelay.toFixed(1)}</TableCell>
+                        <TableCell className="font-medium">{item.key}</TableCell>
+                        <TableCell>{item.punctualityRatePlanned.toFixed(1)}% → <span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span></TableCell>
+                        <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
+                        <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -244,25 +244,25 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardContent>
           </Card>
            <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Warehouse />Performance par Entrepôt</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Warehouse />Analyse des Écarts par Entrepôt</CardTitle></CardHeader>
             <CardContent>
               <ScrollArea className="h-48">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'key')}>Entrepôt {renderSortIcon('warehouse', 'key')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'totalTasks')}>Tâches {renderSortIcon('warehouse', 'totalTasks')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'punctualityRate')}>Ponctualité {renderSortIcon('warehouse', 'punctualityRate')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'avgDelay')}>Retard Moy. (min) {renderSortIcon('warehouse', 'avgDelay')}</TableHead>
+                       <TableHead>Entrepôt</TableHead>
+                       <TableHead>Ponct. Plan. / Réal.</TableHead>
+                       <TableHead>Écart Durée Moy.</TableHead>
+                       <TableHead>% Insat. sur Retard</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {(sortedData.performanceByWarehouse || []).map(item => (
                       <TableRow key={item.key}>
-                        <TableCell>{item.key}</TableCell>
-                        <TableCell>{item.totalTasks}</TableCell>
-                        <TableCell>{item.punctualityRate.toFixed(1)}%</TableCell>
-                        <TableCell className="font-semibold">{item.avgDelay.toFixed(1)}</TableCell>
+                        <TableCell className="font-medium">{item.key}</TableCell>
+                        <TableCell>{item.punctualityRatePlanned.toFixed(1)}% → <span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span></TableCell>
+                        <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
+                        <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -271,25 +271,25 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
             </CardContent>
           </Card>
            <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><MapPin />Performance par Ville</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><MapPin />Analyse des Écarts par Ville</CardTitle></CardHeader>
             <CardContent>
               <ScrollArea className="h-48">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'key')}>Ville {renderSortIcon('geo', 'key')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalTasks')}>Tâches {renderSortIcon('geo', 'totalTasks')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'punctualityRate')}>Ponctualité {renderSortIcon('geo', 'punctualityRate')}</TableHead>
-                      <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'avgDelay')}>Retard Moy. (min) {renderSortIcon('geo', 'avgDelay')}</TableHead>
+                      <TableHead>Ville</TableHead>
+                      <TableHead>Ponct. Plan. / Réal.</TableHead>
+                      <TableHead>Écart Durée Moy.</TableHead>
+                      <TableHead>% Insat. sur Retard</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(sortedData.performanceByCity || []).slice(0, 10).map(item => (
-                      <TableRow key={item.key}>
-                        <TableCell>{item.key}</TableCell>
-                        <TableCell>{item.totalTasks}</TableCell>
-                        <TableCell>{item.punctualityRate.toFixed(1)}%</TableCell>
-                        <TableCell className="font-semibold">{item.avgDelay.toFixed(1)}</TableCell>
+                    {(sortedData.performanceByCity || []).slice(0, 20).map(item => (
+                       <TableRow key={item.key}>
+                        <TableCell className="font-medium">{item.key}</TableCell>
+                        <TableCell>{item.punctualityRatePlanned.toFixed(1)}% → <span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span></TableCell>
+                        <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
+                        <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -587,11 +587,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                       <Table>
                           <TableHeader>
                               <TableRow>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'key')}>Secteur {renderSortIcon('geo', 'key')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalTasks')}>Tâches {renderSortIcon('geo', 'totalTasks')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'punctualityRate')}>Ponctualité {renderSortIcon('geo', 'punctualityRate')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'totalDelays')}>Retards {renderSortIcon('geo', 'totalDelays')}</TableHead>
-                                  <TableHead className="cursor-pointer group" onClick={() => handleSort('geo', 'avgDelay')}>Retard Moy. (min) {renderSortIcon('geo', 'avgDelay')}</TableHead>
+                                  <TableHead>Secteur</TableHead>
+                                  <TableHead>Tâches</TableHead>
+                                  <TableHead>Ponctualité</TableHead>
+                                  <TableHead>% Insat. sur Retard</TableHead>
                               </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -599,9 +598,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                   <TableRow key={item.key}>
                                       <TableCell>{item.key}</TableCell>
                                       <TableCell>{item.totalTasks}</TableCell>
-                                      <TableCell>{item.punctualityRate.toFixed(1)}%</TableCell>
-                                      <TableCell>{item.totalDelays}</TableCell>
-                                      <TableCell>{item.avgDelay.toFixed(1)}</TableCell>
+                                      <TableCell>{item.punctualityRatePlanned.toFixed(1)}% → <span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span></TableCell>
+                                      <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
                                   </TableRow>
                               ))}
                           </TableBody>

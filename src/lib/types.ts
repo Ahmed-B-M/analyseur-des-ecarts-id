@@ -55,6 +55,7 @@ export type Tache = {
   retard: number; // in seconds
   retardPrevisionnelS?: number; // in seconds
   retardStatus?: 'late' | 'early' | 'onTime';
+  retardPrevisionnelStatus?: 'late' | 'early' | 'onTime';
   poids: number; // in kg
   ville: string;
   notation: number | null;
@@ -72,7 +73,7 @@ export type Kpi = {
 };
 
 export type ComparisonKpi = {
-  title: string;
+  title:string;
   value1: string;
   label1: string;
   value2: string;
@@ -93,9 +94,11 @@ export type PerformanceByDriver = {
 export type PerformanceByGeo = {
     key: string; // city or postal code
     totalTasks: number;
-    punctualityRate: number;
-    avgDelay: number; // in minutes
-    totalDelays: number;
+    punctualityRatePlanned: number;
+    punctualityRateRealized: number;
+    avgDurationDiscrepancy: number; // in seconds
+    avgWeightDiscrepancy: number; // in kg
+    lateWithBadReviewPercentage: number;
 }
 
 export type OverloadedTourInfo = Tournee & {
@@ -181,10 +184,13 @@ export type GlobalSummary = {
 };
 
 export type PerformanceByGroup = {
-    key: string;
+    key: string; // group name (e.g., depot name)
     totalTasks: number;
-    punctualityRate: number;
-    avgDelay: number; // in minutes
+    punctualityRatePlanned: number;
+    punctualityRateRealized: number;
+    avgDurationDiscrepancy: number; // in seconds
+    avgWeightDiscrepancy: number; // in kg
+    lateWithBadReviewPercentage: number;
 };
 
 
