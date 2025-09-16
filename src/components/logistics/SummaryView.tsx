@@ -2,13 +2,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Wand2, Loader2, AlertCircle, FileText, Target, Search, BarChart2, Calendar, Clock, Lightbulb, Info } from 'lucide-react';
+import { Wand2, Loader2, AlertCircle, FileText, Target, Search, BarChart2, Calendar, Clock, Lightbulb, Info, Users, Sigma, Percent } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateLogisticsReport, GenerateLogisticsReportInput, GenerateLogisticsReportOutput } from '@/ai/flows/generate-logistics-report';
 import type { AnalysisData, MergedData, Kpi } from '@/lib/types';
 import { KpiCard } from './KpiCard';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart, Legend, Line, Area, Cell } from 'recharts';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 
 
 interface SummaryViewProps {
@@ -20,6 +21,17 @@ interface SummaryViewProps {
 const PRIMARY_COLOR = "hsl(var(--primary))";
 const ACCENT_COLOR = "hsl(var(--accent))";
 const ADVANCE_COLOR = "hsl(210 100% 56%)";
+
+const ReportBlock = ({ title, icon: Icon, children }: { title: string, icon: React.ElementType, children: React.ReactNode }) => (
+    <div>
+        <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+            <Icon className="w-5 h-5 text-primary"/>
+            {title}
+        </h3>
+        {children}
+    </div>
+);
+
 
 export default function SummaryView({ analysisData, allData, filters }: SummaryViewProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +47,7 @@ export default function SummaryView({ analysisData, allData, filters }: SummaryV
     
     try {
         const totalTours = analysisData.generalKpis?.find(k => k.title.includes('Tournées'))?.value ? parseInt(analysisData.generalKpis.find(k => k.title.includes('Tournées'))!.value) : 0;
-        const lateTasksWithBadReview = allData.filter(d => d.notation && d.notation <= 3 && d.retardStatus === 'late');
+        const lateTasksWithBadReview = allData.filter(d => d.notation != null && d.notation <= 3 && d.retardStatus === 'late');
         const negativeReviewsKpi = {
             title: "Avis Négatifs sur Retards",
             value: `${lateTasksWithBadReview.length}`,
@@ -165,7 +177,7 @@ export default function SummaryView({ analysisData, allData, filters }: SummaryV
         </Alert>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-             {analysisData?.generalKpis.filter(k => ['Ponctualité', 'Avis Négatifs', 'Tournées en Retard'].some(t => k.title.includes(t))).map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
+             {(analysisData?.generalKpis || []).filter(k => ['Ponctualité', 'Avis Négatifs', 'Tournées en Retard'].some(t => k.title.includes(t))).map(kpi => <KpiCard key={kpi.title} {...kpi} />)}
              <KpiCard title="% Tournées en Surcharge" value={`${(analysisData?.overloadedTours.length || 0) * 100 / (analysisData?.generalKpis.find(k=>k.title.includes("Tournées"))?.value ? parseInt(analysisData.generalKpis.find(k=>k.title.includes("Tournées"))!.value) : 1)  }%`} icon="Percent" />
         </div>
 
@@ -187,6 +199,7 @@ export default function SummaryView({ analysisData, allData, filters }: SummaryV
                                 <ul className="list-disc pl-5 space-y-1 text-sm">
                                     <li><span className="font-semibold">Surcharge:</span> {report.anomaliesComments.overloaded}</li>
                                     <li><span className="font-semibold">Durée:</span> {report.anomaliesComments.duration}</li>
+                                    <li><span className="font-semibold">Planification:</span> {report.anomaliesComments.planning}</li>
                                 </ul>
                             </AccordionContent>
                         </AccordionItem>
@@ -242,7 +255,7 @@ export default function SummaryView({ analysisData, allData, filters }: SummaryV
                            <Tooltip />
                            <Bar dataKey="count" name="Nb. de Tâches">
                               {(analysisData?.delayHistogram || []).map((entry, index) => (
-                                 <Cell key={`cell-${index}`} fill={entry.range.includes('retard') ? ACCENT_COLOR : entry.range.includes('avance') ? ADVANCE_COLOR : '#a0aec0'} />
+                                 <Cell key={`cell-${index}`} fill={entry.range.includes('retard') ? ACCENT_COLOR : entry.range.includes('avance') ? ADVANCE_COLOR : '#48bb78'} />
                               ))}
                            </Bar>
                          </BarChart>

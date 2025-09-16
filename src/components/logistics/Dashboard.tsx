@@ -9,13 +9,14 @@ import DetailedDataView from '@/components/logistics/DetailedDataView';
 import { Logo } from '@/components/logistics/Logo';
 import { analyzeData } from '@/lib/dataAnalyzer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, AlertCircle, BarChart2, Calendar, List, LayoutDashboard } from 'lucide-react';
+import { Loader2, AlertCircle, BarChart2, Calendar, List, LayoutDashboard, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
 import { DateRangePicker } from './DateRangePicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import CalendarView from './CalendarView';
 import SummaryView from './SummaryView';
+import ComparisonView from './ComparisonView';
 
 type State = {
   tourneesFile: File | null;
@@ -277,14 +278,15 @@ export default function Dashboard() {
               cities={(analysisData?.cities || [])}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 max-w-2xl mx-auto">
+              <TabsList className="grid w-full grid-cols-5 max-w-3xl mx-auto">
                 <TabsTrigger value="summary"><LayoutDashboard className="w-4 h-4 mr-2" />Résumé</TabsTrigger>
                 <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
+                <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
                 <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Analyse par Période</TabsTrigger>
                 <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
               </TabsList>
               <TabsContent value="summary" className="mt-6">
-                 <SummaryView analysisData={analysisData} allData={mergedData} filters={state.filters} />
+                 <SummaryView analysisData={analysisData} allData={filteredData} filters={state.filters} />
               </TabsContent>
               <TabsContent value="dashboard" className="mt-6">
                 <AnalysisDashboard 
@@ -292,6 +294,12 @@ export default function Dashboard() {
                   onFilterAndSwitch={applyFilterAndSwitchTab}
                   allData={mergedData}
                   filters={state.filters}
+                />
+              </TabsContent>
+              <TabsContent value="comparison" className="mt-6">
+                <ComparisonView
+                    allData={mergedData}
+                    filters={state.filters}
                 />
               </TabsContent>
               <TabsContent value="calendar" className="mt-6">

@@ -195,6 +195,18 @@ export type PerformanceByGroup = {
     lateWithBadReviewPercentage: number;
 };
 
+export type WeeklyAnalysis = {
+    weekLabel: string;
+    dateRange: { from: Date; to: Date };
+    analysis: AnalysisData;
+};
+
+export type ComparisonData = {
+    kpiTitle: string;
+    values: { weekLabel: string; value: number | string }[];
+};
+
+
 
 export type AnalysisData = {
   generalKpis: Kpi[];
@@ -238,6 +250,6 @@ export type VisualReportData = {
     extra: Record<string, any>
 }
 
-export type GenerateLogisticsReportOutput = import('./flows/generate-logistics-report').GenerateLogisticsReportOutput
+export type GenerateLogisticsReportOutput = import('@/ai/flows/generate-logistics-report').GenerateLogisticsReportOutput
 
     
