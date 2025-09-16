@@ -1,4 +1,5 @@
 
+
 import type { LucideProps } from "lucide-react";
 import type { ForwardRefExoticComponent, RefAttributes } from "react";
 
@@ -142,8 +143,8 @@ export type WorkloadByHour = {
   advances: number;
 }
 
-export type AvgWorkloadByHour = {
-  hour: string;
+export type AvgWorkloadBySlot = {
+  slot: string;
   avgPlanned: number;
   avgReal: number;
 }
@@ -242,7 +243,7 @@ export type AnalysisData = {
   advancesByCity: DelayCount[];
   advancesByPostalCode: DelayCount[];
   workloadByHour: WorkloadByHour[];
-  avgWorkloadByDriverByHour: AvgWorkloadByHour[];
+  avgWorkloadByDriverBySlot: AvgWorkloadBySlot[];
   avgWorkload: AvgWorkload;
   performanceByDayOfWeek: PerformanceByDay[];
   performanceByTimeSlot: PerformanceByTimeSlot[];

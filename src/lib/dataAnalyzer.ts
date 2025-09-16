@@ -1,6 +1,6 @@
 
 
-import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi, AvgWorkload, PerformanceByDay, PerformanceByTimeSlot, DelayHistogramBin, GlobalSummary, PerformanceByGroup } from './types';
+import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadBySlot, Kpi, DurationDiscrepancy, ComparisonKpi, AvgWorkload, PerformanceByDay, PerformanceByTimeSlot, DelayHistogramBin, GlobalSummary, PerformanceByGroup } from './types';
 import { fr } from 'date-fns/locale';
 import { format, getDay } from 'date-fns';
 
@@ -232,62 +232,70 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
       
     // --- Workload Charts ---
     const workloadByHour: WorkloadByHour[] = [];
-    const avgWorkloadByHour: AvgWorkloadByHour[] = [];
-    const tasksByHour: Record<string, { 
-        planned: number, 
-        real: number, 
-        delays: number, 
-        advances: number, 
-        plannedTours: Set<string>, 
-        realTours: Set<string> 
-    }> = {};
-
+    const avgWorkloadBySlot: AvgWorkloadBySlot[] = [];
+    
+    const tasksByHour: Record<string, { planned: number, real: number, delays: number, advances: number }> = {};
     for (let i = 0; i < 24; i++) {
         const hourStr = `${String(i).padStart(2, '0')}:00`;
-        tasksByHour[hourStr] = { planned: 0, real: 0, delays: 0, advances: 0, plannedTours: new Set(), realTours: new Set() };
+        tasksByHour[hourStr] = { planned: 0, real: 0, delays: 0, advances: 0 };
     }
-
     completedTasks.forEach(task => {
-        // Realized
         const realHourIndex = new Date(task.heureCloture * 1000).getUTCHours();
         const realHourStr = `${String(realHourIndex).padStart(2, '0')}:00`;
         if (tasksByHour[realHourStr]) {
             tasksByHour[realHourStr].real++;
-            tasksByHour[realHourStr].realTours.add(task.tourneeUniqueId);
-            if (task.retardStatus === 'late') {
-                tasksByHour[realHourStr].delays++;
-            } else if (task.retardStatus === 'early') {
-                tasksByHour[realHourStr].advances++;
-            }
+            if (task.retardStatus === 'late') tasksByHour[realHourStr].delays++;
+            else if (task.retardStatus === 'early') tasksByHour[realHourStr].advances++;
         }
-
-        // Planned (based on approximate arrival time)
         const plannedHourIndex = new Date(task.heureArriveeApprox * 1000).getUTCHours();
         const plannedHourStr = `${String(plannedHourIndex).padStart(2, '0')}:00`;
         if (tasksByHour[plannedHourStr]) {
             tasksByHour[plannedHourStr].planned++;
-            tasksByHour[plannedHourStr].plannedTours.add(task.tourneeUniqueId);
+        }
+    });
+    Object.entries(tasksByHour).forEach(([hour, data]) => {
+        workloadByHour.push({ hour, ...data });
+    });
+
+    const tasksBySlot: Record<string, { planned: number, real: number, plannedTours: Set<string>, realTours: Set<string> }> = {};
+    for (let i = 0; i < 24; i += 2) {
+        const start = String(i).padStart(2, '0');
+        const end = String(i + 2).padStart(2, '0');
+        tasksBySlot[`${start}h-${end}h`] = { planned: 0, real: 0, plannedTours: new Set(), realTours: new Set() };
+    }
+    completedTasks.forEach(task => {
+        const realHourIndex = new Date(task.heureCloture * 1000).getUTCHours();
+        const realSlotIndex = Math.floor(realHourIndex / 2) * 2;
+        const realSlotKey = `${String(realSlotIndex).padStart(2, '0')}h-${String(realSlotIndex + 2).padStart(2, '0')}h`;
+        if (tasksBySlot[realSlotKey]) {
+            tasksBySlot[realSlotKey].real++;
+            tasksBySlot[realSlotKey].realTours.add(task.tourneeUniqueId);
+        }
+
+        const plannedHourIndex = new Date(task.heureArriveeApprox * 1000).getUTCHours();
+        const plannedSlotIndex = Math.floor(plannedHourIndex / 2) * 2;
+        const plannedSlotKey = `${String(plannedSlotIndex).padStart(2, '0')}h-${String(plannedSlotIndex + 2).padStart(2, '0')}h`;
+        if (tasksBySlot[plannedSlotKey]) {
+            tasksBySlot[plannedSlotKey].planned++;
+            tasksBySlot[plannedSlotKey].plannedTours.add(task.tourneeUniqueId);
         }
     });
 
-    Object.entries(tasksByHour).forEach(([hour, data]) => {
-        workloadByHour.push({ hour, planned: data.planned, real: data.real, delays: data.delays, advances: data.advances });
-        
+    Object.entries(tasksBySlot).forEach(([slot, data]) => {
         const plannedTourCount = data.plannedTours.size;
         const realTourCount = data.realTours.size;
-        
-        avgWorkloadByHour.push({ 
-            hour, 
+        avgWorkloadBySlot.push({
+            slot,
             avgPlanned: plannedTourCount > 0 ? data.planned / plannedTourCount : 0,
-            avgReal: realTourCount > 0 ? data.real / realTourCount : 0 
+            avgReal: realTourCount > 0 ? data.real / realTourCount : 0
         });
     });
 
-    const totalAvgPlanned = avgWorkloadByHour.reduce((sum, item) => sum + item.avgPlanned, 0);
-    const totalAvgReal = avgWorkloadByHour.reduce((sum, item) => sum + item.avgReal, 0);
+    const totalAvgPlanned = avgWorkloadBySlot.reduce((sum, item) => sum + item.avgPlanned, 0);
+    const totalAvgReal = avgWorkloadBySlot.reduce((sum, item) => sum + item.avgReal, 0);
     const avgWorkload: AvgWorkload = {
-      avgPlanned: avgWorkloadByHour.length > 0 ? totalAvgPlanned / avgWorkloadByHour.filter(h => h.avgPlanned > 0).length : 0,
-      avgReal: avgWorkloadByHour.length > 0 ? totalAvgReal / avgWorkloadByHour.filter(h => h.avgReal > 0).length : 0
+      avgPlanned: avgWorkloadBySlot.length > 0 ? totalAvgPlanned / avgWorkloadBySlot.filter(s => s.avgPlanned > 0).length : 0,
+      avgReal: avgWorkloadBySlot.length > 0 ? totalAvgReal / avgWorkloadBySlot.filter(s => s.avgReal > 0).length : 0
     }
     
     // --- New Analyses ---
@@ -328,7 +336,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         advancesByPostalCode,
         advancesByHour,
         workloadByHour,
-        avgWorkloadByDriverByHour: avgWorkloadByHour,
+        avgWorkloadByDriverBySlot,
         avgWorkload,
         performanceByDayOfWeek,
         performanceByTimeSlot,
@@ -362,7 +370,7 @@ function createEmptyAnalysisData(): AnalysisData {
         advancesByPostalCode: [],
         advancesByHour: [],
         workloadByHour: [],
-        avgWorkloadByDriverByHour: [],
+        avgWorkloadByDriverBySlot: [],
         avgWorkload: { avgPlanned: 0, avgReal: 0 },
         performanceByDayOfWeek: [],
         performanceByTimeSlot: [],

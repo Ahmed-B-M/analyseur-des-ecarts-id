@@ -535,7 +535,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
              </Card>
              <Card>
               <CardHeader>
-                <CardTitle>Intensité du Travail par Heure</CardTitle>
+                <CardTitle>Intensité du Travail par Créneau de 2h</CardTitle>
                  <CardDescription className="flex items-center gap-2">
                   <span>Nb. moyen de tâches / tournée active.</span>
                   <span className="font-semibold text-xs rounded bg-muted px-1.5 py-0.5">
@@ -548,9 +548,9 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={320}>
-                  <AreaChart data={analysisData.avgWorkloadByDriverByHour}>
+                  <AreaChart data={analysisData.avgWorkloadByDriverBySlot}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="hour" />
+                    <XAxis dataKey="slot" />
                     <YAxis label={{ value: 'Tâches / Tournée', angle: -90, position: 'insideLeft' }}/>
                     <Tooltip />
                     <Legend />
