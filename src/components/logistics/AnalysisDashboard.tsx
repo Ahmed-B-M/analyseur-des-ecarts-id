@@ -361,8 +361,10 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                             Anomalies de Planification ({lateStartAnomaliesCount} - {totalTours > 0 ? (lateStartAnomaliesCount / totalTours * 100).toFixed(1) : 0}%)
                             <TooltipProvider>
                                 <UiTooltip>
-                                    <TooltipTrigger>
-                                        <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                                    <TooltipTrigger asChild>
+                                        <div onClick={(e) => e.stopPropagation()}>
+                                            <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                                        </div>
                                     </TooltipTrigger>
                                     <TooltipContent>
                                         <p>Tournées parties à l'heure (ou en avance) mais dont au moins une<br/> livraison est arrivée en retard. Signale des problèmes de temps de parcours.</p>
