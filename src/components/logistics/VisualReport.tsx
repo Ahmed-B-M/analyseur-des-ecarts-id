@@ -100,11 +100,6 @@ export default function VisualReport() {
         if (parts.length === 0) return "Filtres: Aucun";
         return `Filtres: ${parts.join(' | ')}`;
     }
-
-    const workloadByHourData = (analysis.workloadByHour || []).filter(d => {
-        const hour = parseInt(d.hour.split(':')[0]);
-        return hour >= 5 && hour <= 23;
-    });
     
     const dayOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
     const sortedPerformanceByDay = (analysis.performanceByDayOfWeek || []).sort((a,b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
@@ -153,7 +148,6 @@ export default function VisualReport() {
                         </ReportBlock>
                     )}
 
-<<<<<<< HEAD
                     {config.sections.qualityImpact && extra.negativeReviewsKpi && (
                          <ReportBlock title="Impact Qualité" icon={Award} aiComment={ai.kpiComments?.quality}>
                             <div className="grid grid-cols-1 gap-4">
@@ -171,56 +165,6 @@ export default function VisualReport() {
                                         <XAxis dataKey="day" fontSize={10} /><YAxis yAxisId="left" fontSize={10}/><YAxis yAxisId="right" orientation="right" fontSize={10}/><Tooltip /><Legend wrapperStyle={{fontSize: "10px"}}/>
                                         <Bar yAxisId="left" dataKey="delays" name="Retards" fill={ACCENT_COLOR} /><Bar yAxisId="left" dataKey="advances" name="Avances" fill={ADVANCE_COLOR} />
                                         <Line yAxisId="right" type="monotone" dataKey="avgDelay" name="Retard Moyen" stroke="#ff7300" dot={false} strokeWidth={2} />
-=======
-                {/* --- PAGE 3: Detailed Anomalies --- */}
-                <div className="break-after-page space-y-8">
-                    <ReportBlock title="Analyse Détaillée des Anomalies" icon={Search}>
-                        <div className="space-y-6">
-                            <Card className="print:shadow-none"><CardHeader>
-                                <CardTitle className="text-base flex items-center justify-between"><span><AlertTriangle className="inline mr-2 text-amber-600" />Top 10 Dépassements de Charge</span> <span className="font-bold text-lg text-red-600">{extra.overloadedToursPercentage.toFixed(1)}% des tournées</span></CardTitle>
-                                <CardDescription>{ai.anomaliesComments.overloaded}</CardDescription></CardHeader><CardContent>
-                                <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Poids Planifié</TableHead><TableHead>Poids Réel</TableHead><TableHead>Dépassement</TableHead></TableRow></TableHeader>
-                                    <TableBody>{(extra.top10Overloaded || []).map((t: OverloadedTourInfo, i: number) => (<TableRow key={i}><TableCell>{formatDate(t.date)}</TableCell><TableCell>{t.nom}</TableCell><TableCell>{t.entrepot}</TableCell><TableCell>{t.poidsPrevu.toFixed(2)} kg</TableCell><TableCell className="font-bold text-red-600">{t.poidsReel.toFixed(2)} kg</TableCell><TableCell className="font-bold text-red-600">+{t.depassementPoids.toFixed(2)} kg</TableCell></TableRow>))}</TableBody></Table>
-                            </CardContent></Card>
-
-                            <Card className="print:shadow-none mt-6"><CardHeader>
-                                <CardTitle className="text-base flex items-center justify-between"><span><Timer className="inline mr-2 text-blue-600" />Top 10 Écarts de Durée de Service</span><span className="font-bold text-lg text-red-600">{extra.durationDiscrepancyPercentage.toFixed(1)}% des tournées</span></CardTitle>
-                                <CardDescription>{ai.anomaliesComments.duration}</CardDescription></CardHeader><CardContent>
-                                <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Prévu</TableHead><TableHead>Réalisé</TableHead><TableHead>Écart</TableHead></TableRow></TableHeader>
-                                    <TableBody>{(extra.top10PositiveDuration || []).map((t: any, i: number) => (<TableRow key={i}><TableCell>{formatDate(t.date)}</TableCell><TableCell>{t.nom}</TableCell><TableCell>{t.entrepot}</TableCell><TableCell>{formatSecondsToClock(t.dureeEstimee)}</TableCell><TableCell>{formatSecondsToClock(t.dureeReelle)}</TableCell><TableCell className="font-bold text-red-600">+{formatSecondsToClock(t.ecart)}</TableCell></TableRow>))}</TableBody></Table>
-                            </CardContent></Card>
-
-                            <Card className="print:shadow-none mt-6"><CardHeader>
-                                <CardTitle className="text-base flex items-center justify-between"><span><Route className="inline mr-2 text-violet-600" />Top 10 Anomalies de Planification</span><span className="font-bold text-lg text-red-600">{extra.planningAnomalyPercentage.toFixed(1)}% des tournées</span></CardTitle>
-                                <CardDescription>{ai.anomaliesComments.planning}</CardDescription></CardHeader><CardContent>
-                                <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Tournée</TableHead><TableHead>Entrepôt</TableHead><TableHead>Départ Prévu</TableHead><TableHead>Départ Réel</TableHead><TableHead># Tâches en Retard</TableHead></TableRow></TableHeader>
-                                    <TableBody>{(extra.top10Anomalies || []).map((t: any, i: number) => (<TableRow key={i}><TableCell>{formatDate(t.date)}</TableCell><TableCell>{t.nom}</TableCell><TableCell>{t.entrepot}</TableCell><TableCell>{formatSecondsToClock(t.heureDepartPrevue)}</TableCell><TableCell className="text-blue-600 font-semibold">{formatSecondsToClock(t.heureDepartReelle)}</TableCell><TableCell className="font-bold">{t.tasksInDelay}</TableCell></TableRow>))}</TableBody></Table>
-                            </CardContent></Card>
-                        </div>
-                    </ReportBlock>
-                </div>
-                 {/* --- PAGE 4: Geo, Drivers --- */}
-                <div className="break-after-page space-y-8">
-                     <ReportBlock title="Analyse Géographique & Performance Entrepôt" icon={MapPin}>
-                         <Card className="print:shadow-none mb-6">
-                            <CardHeader><CardTitle className="text-base">Synthèse IA par Zone</CardTitle></CardHeader>
-                            <CardContent className="space-y-2">
-                                <h4 className="font-semibold">Entrepôts</h4>
-                                <p className="text-sm text-gray-600 italic">"{ai.geoDriverComments.warehouse}"</p>
-                                <h4 className="font-semibold mt-4">Villes</h4>
-                                <p className="text-sm text-gray-600 italic">"{ai.geoDriverComments.city}"</p>
-                            </CardContent>
-                        </Card>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Card className="print:shadow-none">
-                                <CardHeader><CardTitle className="text-base">Top 20% Entrepôts par Dépassements</CardTitle><CardDescription>{ai.chartsInsights.warehouseOverrun}</CardDescription></CardHeader>
-                                <CardContent>
-                                     <ResponsiveContainer width="100%" height={200}>
-                                        <ComposedChart data={extra.top20percentWarehousesByOverrun}>
-                                            <XAxis dataKey="entrepot" fontSize={10} /><YAxis yAxisId="left" label={{ value: 'Poids (kg)', angle: -90, position: 'insideLeft', fontSize: 12 }} fontSize={10} /><YAxis yAxisId="right" orientation="right" label={{ value: 'Temps (h)', angle: -90, position: 'insideRight', fontSize: 12 }} fontSize={10} /><Tooltip /><Legend />
-                                            <Bar yAxisId="left" dataKey="totalWeightOverrun" name="Dépassement Poids" fill={PRIMARY_COLOR} />
-                                            <Line yAxisId="right" type="monotone" dataKey="totalTimeOverrun" name="Dépassement Temps" stroke={ACCENT_COLOR} strokeWidth={2} />
->>>>>>> 8120bf3 (QuotaExceededError: Failed to execute 'setItem' on 'Storage': Setting th)
                                         </ComposedChart>
                                     </ResponsiveContainer>
                                 </CardContent></Card>

@@ -73,9 +73,9 @@ const AnalysisDataSchema = z.object({
     generalKpis: z.array(KpiSchema).optional().describe("KPIs généraux."),
     discrepancyKpis: z.array(ComparisonKpiSchema).optional().describe("KPIs comparant le planifié et le réalisé."),
     negativeReviewsFromLateness: KpiSchema.optional().describe("KPI spécifique sur les avis négatifs dus aux retards."),
-    overloadedToursPercentage: z.number().optional().describe("Pourcentage de tournées en surcharge."),
-    durationDiscrepancyPercentage: z.number().optional().describe("Pourcentage de tournées avec écart de durée positif significatif."),
-    planningAnomalyPercentage: z.number().optional().describe("Pourcentage de tournées en anomalie de planification."),
+    overloadedToursPercentage: z.string().optional().describe("Pourcentage de tournées en surcharge."),
+    durationDiscrepancyPercentage: z.string().optional().describe("Pourcentage de tournées avec écart de durée positif significatif."),
+    planningAnomalyPercentage: z.string().optional().describe("Pourcentage de tournées en anomalie de planification."),
     top10OverloadedTours: z.array(OverloadedTourSchema).optional().describe("Top des tournées en dépassement de charge."),
     performanceByDayOfWeek: z.array(PerformanceByDaySchema).optional().describe("Performance par jour de la semaine."),
     performanceByTimeSlot: z.array(PerformanceByTimeSlotSchema).optional().describe("Performance par créneau horaire."),
@@ -85,47 +85,8 @@ const AnalysisDataSchema = z.object({
 });
 
 const ReportInputSchema = z.object({
-<<<<<<< HEAD
   config: ReportConfigSchema.describe("Configuration du rapport demandée par l'utilisateur."),
   analysis: AnalysisDataSchema.describe("Données d'analyse calculées à partir des filtres de l'utilisateur.")
-=======
-  totalTours: z.number(),
-  generalKpis: z.array(KpiSchema).describe("KPIs généraux."),
-  qualityKpis: z.array(KpiSchema.merge(ComparisonKpiSchema).partial()).describe("KPIs sur l'impact qualité."),
-  negativeReviewsFromLateness: KpiSchema.describe("KPI spécifique sur les avis négatifs dus aux retards."),
-  discrepancyKpis: z.array(ComparisonKpiSchema).describe("KPIs comparant le planifié et le réalisé."),
-  
-  // Inefficiency KPIs
-  totalCumulativeDelayHours: z.number().describe("Total des heures de retard cumulées."),
-  totalAdditionalServiceHours: z.number().describe("Total des heures de service additionnelles (écarts de durée positifs)."),
-
-  // Anomaly percentages
-  overloadedToursPercentage: z.number().describe("Pourcentage de tournées en surcharge sur le total."),
-  durationDiscrepancyPercentage: z.number().describe("Pourcentage de tournées avec écart de durée positif significatif."),
-  planningAnomalyPercentage: z.number().describe("Pourcentage de tournées en anomalie de planification."),
-  firstTaskLatePercentage: z.number().describe("Pourcentage de tournées parties à l'heure mais arrivées en retard au premier client."),
-
-  // Top 10 examples from detailed tables
-  top10OverloadedTours: z.array(OverloadedTourSchema).describe("Top 10 des tournées en dépassement de charge."),
-  top10PositiveDurationDiscrepancies: z.array(DurationDiscrepancySchema).describe("Top 10 des tournées avec les plus grands écarts de durée POSITIFS."),
-  top10LateStartAnomalies: z.array(LateStartAnomalySchema).describe("Top 10 des tournées 'parties en avance, arrivées en retard'."),
-  
-  // New driver analysis
-  topExemplaryDrivers: z.array(ExemplaryDriverSchema).describe("Top livreurs qui restent performants (haute ponctualité) malgré la surcharge."),
-
-  // New warehouse analysis
-  top20percentWarehousesByOverrun: z.array(WarehouseOverrunSchema).describe("Top 20% des entrepôts avec les plus forts dépassements (poids et temps)."),
-
-  // Data for charts - just the key facts
-  topWarehouseByDelay: z.string().optional().describe("L'entrepôt avec le plus de retards."),
-  topCityByDelay: z.string().optional().describe("La ville avec le plus de retards."),
-  
-  // New data
-  globalSummary: GlobalSummarySchema.describe("Synthèse des écarts globaux par groupe."),
-  performanceByDayOfWeek: z.array(PerformanceByDaySchema).describe("Performance par jour de la semaine."),
-  performanceByTimeSlot: z.array(PerformanceByTimeSlotSchema).describe("Performance par créneau horaire."),
-  delayHistogram: z.array(DelayHistogramSchema).describe("Histogramme de répartition des écarts."),
->>>>>>> 6b67520 (GenkitError: INVALID_ARGUMENT: Schema validation failed. Parse Errors:)
 });
 export type GenerateLogisticsReportInput = z.infer<typeof ReportInputSchema>;
 
@@ -186,8 +147,8 @@ const prompt = ai.definePrompt({
     - KPIs Généraux: {{{json analysis.generalKpis}}}
     - KPIs Écarts: {{{json analysis.discrepancyKpis}}}
     - KPI "Avis négatifs liés aux retards": {{{json analysis.negativeReviewsFromLateness}}}
-    - Pourcentage de tournées en surcharge: {{{analysis.overloadedToursPercentage}}}%
-    - Pourcentage d'anomalies de planification: {{{analysis.planningAnomalyPercentage}}}%
+    - Pourcentage de tournées en surcharge: {{{analysis.overloadedToursPercentage}}}
+    - Pourcentage d'anomalies de planification: {{{analysis.planningAnomalyPercentage}}}
     - Top tournées en surcharge : {{{json analysis.top10OverloadedTours}}}
     - Entrepôt avec le plus de retards : {{{analysis.topWarehouseByDelay}}}
     - Ville avec le plus de retards : {{{analysis.topCityByDelay}}}
@@ -234,9 +195,5 @@ const generateLogisticsReportFlow = ai.defineFlow(
     return output!;
   }
 );
-
-    
-
-    
 
     
