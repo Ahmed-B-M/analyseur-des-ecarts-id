@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { getWeek, startOfWeek, endOfWeek, format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import type { MergedData, AnalysisData, WeeklyAnalysis, Kpi } from '@/lib/types';
+import type { MergedData, AnalysisData, WeeklyAnalysis, Kpi, ComparisonKpi } from '@/lib/types';
 import { analyzeData } from '@/lib/dataAnalyzer';
 import { ArrowDown, ArrowUp, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -21,14 +21,40 @@ interface ComparisonViewProps {
 const PRIMARY_COLOR = "hsl(var(--primary))";
 const ACCENT_COLOR = "hsl(var(--accent))";
 
-const kpiConfig: { key: keyof AnalysisData; title: string; type: 'kpi' | 'sub' | 'percent' | 'rating' | 'count'; kpiTitle?: string }[] = [
+const kpiConfig: {
+    key: keyof AnalysisData;
+    title: string;
+    type: 'kpi' | 'percent' | 'rating' | 'count' | 'complex_percent' | 'comparison_kpi';
+    kpiTitle?: string; // For simple KPIs
+    subKey?: keyof AnalysisData[keyof AnalysisData]; // For nested values
+    valueExtractor?: (analysis: AnalysisData) => number | undefined; // For complex extractions
+}[] = [
     { key: 'generalKpis', kpiTitle: 'Taux de Ponctualité (Réalisé)', title: 'Taux de Ponctualité', type: 'percent' },
     { key: 'generalKpis', kpiTitle: 'Livraisons en Retard', title: 'Nb. Retards', type: 'count' },
-    { key: 'generalKpis', kpiTitle: 'Livraisons en Avance', title: 'Nb. Avances', type: 'count' },
-    { key: 'generalKpis', kpiTitle: 'Notation Moyenne Client', title: 'Notation Moyenne', type: 'rating' },
     { key: 'generalKpis', kpiTitle: 'Avis Négatifs', title: 'Nb. Avis Négatifs', type: 'count' },
-    { key: 'globalSummary', key2: 'weightOverrunPercentage', title: '% Dépassement Poids', type: 'percent' },
-    { key: 'globalSummary', key2: 'durationOverrunPercentage', title: '% Dépassement Durée', type: 'percent' },
+    { key: 'globalSummary', subKey: 'weightOverrunPercentage', title: '% Dépassement Poids', type: 'complex_percent' },
+    { key: 'globalSummary', subKey: 'durationOverrunPercentage', title: '% Dépassement Durée', type: 'complex_percent' },
+    { key: 'firstTaskLatePercentage', title: '% Retard 1ère Tâche', type: 'complex_percent' },
+    { 
+        key: 'lateStartAnomalies', 
+        title: '% Anomalies Planification', 
+        type: 'complex_percent',
+        valueExtractor: (analysis) => {
+            const totalToursKpi = analysis.generalKpis.find(k => k.title.includes('Tournées'));
+            const totalTours = totalToursKpi ? parseInt(totalToursKpi.value) : 0;
+            return totalTours > 0 ? (analysis.lateStartAnomalies.length / totalTours) * 100 : 0;
+        }
+    },
+    { 
+        key: 'qualityKpis', 
+        title: 'Taux Insat. Surcharge', 
+        type: 'comparison_kpi', 
+        kpiTitle: "Taux d'Avis Négatifs (Surcharge vs. Standard)",
+        valueExtractor: (analysis) => {
+            const kpi = analysis.qualityKpis.find(k => k.title === "Taux d'Avis Négatifs (Surcharge vs. Standard)") as ComparisonKpi | undefined;
+            return kpi ? parseFloat(kpi.value1) : undefined;
+        }
+    },
 ];
 
 
@@ -86,11 +112,19 @@ export default function ComparisonView({ allData, filters }: ComparisonViewProps
         const values = weeklyAnalyses.map(wa => {
             let rawValue: string | number | undefined;
 
-            if (config.type === 'kpi' || config.type === 'percent' || config.type === 'rating' || config.type === 'count') {
-                const kpi = (wa.analysis.generalKpis as Kpi[]).find(k => k.title === config.kpiTitle);
+            if (config.type === 'percent' || config.type === 'rating' || config.type === 'count') {
+                const kpi = (wa.analysis[config.key] as Kpi[]).find(k => k.title === config.kpiTitle);
                 rawValue = kpi?.value;
-            } else if (config.key2) {
-                 rawValue = wa.analysis.globalSummary[config.key2 as keyof typeof wa.analysis.globalSummary];
+            } else if (config.type === 'complex_percent') {
+                 if(config.subKey && config.key === 'globalSummary') {
+                    rawValue = wa.analysis.globalSummary[config.subKey as keyof typeof wa.analysis.globalSummary];
+                } else if (config.key === 'firstTaskLatePercentage') {
+                    rawValue = wa.analysis.firstTaskLatePercentage;
+                } else if (config.valueExtractor) {
+                    rawValue = config.valueExtractor(wa.analysis);
+                }
+            } else if (config.type === 'comparison_kpi' && config.valueExtractor) {
+                rawValue = config.valueExtractor(wa.analysis);
             }
             
             let value: number;
@@ -116,31 +150,45 @@ export default function ComparisonView({ allData, filters }: ComparisonViewProps
     const lastWeek = weeklyAnalyses[weeklyAnalyses.length - 1].analysis;
     const previousWeek = weeklyAnalyses[weeklyAnalyses.length - 2].analysis;
 
-    return kpiConfig.map(config => {
-        const findValue = (analysis: AnalysisData) => {
-            if (config.type === 'kpi' || config.type === 'percent' || config.type === 'rating' || config.type === 'count') {
-                const kpi = (analysis.generalKpis as Kpi[]).find(k => k.title === config.kpiTitle);
-                return kpi?.value;
-            } else if (config.key2) {
-                const val = analysis.globalSummary[config.key2 as keyof typeof analysis.globalSummary];
-                return `${val.toFixed(1)}%`;
-            }
-        };
+    const findValue = (analysis: AnalysisData, config: (typeof kpiConfig)[0]): string => {
+        let rawValue: string | number | undefined;
 
-        const lastValueStr = findValue(lastWeek) || '0';
-        const prevValueStr = findValue(previousWeek) || '0';
+        if (config.type === 'percent' || config.type === 'rating' || config.type === 'count') {
+            const kpi = (analysis[config.key] as Kpi[]).find(k => k.title === config.kpiTitle);
+            rawValue = kpi?.value;
+        } else if (config.type === 'complex_percent') {
+            if(config.subKey && config.key === 'globalSummary') {
+                rawValue = analysis.globalSummary[config.subKey as keyof typeof analysis.globalSummary];
+            } else if (config.key === 'firstTaskLatePercentage') {
+                rawValue = analysis.firstTaskLatePercentage;
+            } else if (config.valueExtractor) {
+                rawValue = config.valueExtractor(analysis);
+            }
+        } else if (config.type === 'comparison_kpi' && config.valueExtractor) {
+            rawValue = config.valueExtractor(analysis);
+        }
+        
+        if (typeof rawValue === 'number') {
+            return `${rawValue.toFixed(1)}%`;
+        }
+        return rawValue || '0';
+    };
+
+    return kpiConfig.map(config => {
+        const lastValueStr = findValue(lastWeek, config);
+        const prevValueStr = findValue(previousWeek, config);
 
         const lastValue = parseFloat(lastValueStr.replace('%', ''));
         const prevValue = parseFloat(prevValueStr.replace('%', ''));
         
         let change: number | null = null;
         if (!isNaN(lastValue) && !isNaN(prevValue) && prevValue !== 0) {
-            change = ((lastValue - prevValue) / prevValue) * 100;
+            change = ((lastValue - prevValue) / Math.abs(prevValue)) * 100;
         }
 
-        const isGoodChange = (config.title.includes('Ponctualité') || config.title.includes('Notation'))
-            ? change > 0 
-            : change < 0;
+        const isGoodChange = (config.title.includes('Ponctualité'))
+            ? change !== null && change > 0 
+            : change !== null && change < 0;
 
         return {
             kpi: config.title,
@@ -236,8 +284,8 @@ export default function ComparisonView({ allData, filters }: ComparisonViewProps
                                 <TableCell>
                                     {item.change !== null ? (
                                         <span className={cn("flex items-center gap-1", item.isGoodChange ? "text-green-600" : "text-red-600")}>
-                                            {item.isGoodChange ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-                                            {item.change.toFixed(1)}%
+                                            {item.change > 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                                            {Math.abs(item.change).toFixed(1)}%
                                         </span>
                                     ) : 'N/A'}
                                 </TableCell>
