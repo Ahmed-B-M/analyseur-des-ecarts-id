@@ -61,6 +61,7 @@ export type Tache = {
   notation: number | null;
   commentaire: string | null;
   avancement?: string;
+  completedBy?: string;
 };
 
 export type MergedData = Tache & { tournee: Tournee | null };

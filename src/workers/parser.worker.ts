@@ -33,6 +33,7 @@ const headerAliases: Record<string, Record<string, string[]>> = {
     livreur: ['Livreur', 'livreur'],
     sequence: ['Séquence', 'séquence'],
     avancement: ['Avancement', 'avancement'],
+    completedBy: ['Complété par', 'complété par'],
     poids: ['Poids', 'poids', 'poids (kg)'],
     items: ['Items', 'items'],
     heureDebutCreneau: ['Départ', 'départ'],
@@ -182,7 +183,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
       const key = headerMap[colIndex];
       let value = row[colIndex];
       
-      const isOptionalNullable = key === 'notation' || key === 'commentaire' || key === 'livreur';
+      const isOptionalNullable = ['notation', 'commentaire', 'livreur', 'completedBy'].includes(key);
 
       if (value === null || value === undefined || String(value).toLowerCase().trim() === 'null' || String(value).trim() === '') {
         newRow[key] = isOptionalNullable ? null : 0;

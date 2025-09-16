@@ -42,6 +42,7 @@ const initialState: State = {
   data: null,
   filters: { 
     punctualityThreshold: 15,
+    tours100Mobile: false,
   },
 };
 
@@ -117,8 +118,30 @@ export default function Dashboard() {
 
   const filteredData = useMemo(() => {
     if (!state.data) return [];
+
+    let dataToFilter = mergedData;
+
+    // Special filter for "100% mobile" tours
+    if (state.filters.tours100Mobile) {
+        const tourTasks = new Map<string, Tache[]>();
+        mergedData.forEach(task => {
+            if (!tourTasks.has(task.tourneeUniqueId)) {
+                tourTasks.set(task.tourneeUniqueId, []);
+            }
+            tourTasks.get(task.tourneeUniqueId)!.push(task);
+        });
+
+        const mobileTourIds = new Set<string>();
+        for (const [tourId, tasks] of tourTasks.entries()) {
+            if (tasks.every(t => t.completedBy && t.completedBy.toLowerCase() === 'mobile')) {
+                mobileTourIds.add(tourId);
+            }
+        }
+        
+        dataToFilter = mergedData.filter(task => mobileTourIds.has(task.tourneeUniqueId));
+    }
     
-    return mergedData.filter(item => {
+    return dataToFilter.filter(item => {
         if (!item.tournee) return false;
 
         // Date filters

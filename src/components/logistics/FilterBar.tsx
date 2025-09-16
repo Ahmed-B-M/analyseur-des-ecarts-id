@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { DateRangePicker } from './DateRangePicker';
 import { DateRange } from 'react-day-picker';
+import { Switch } from '../ui/switch';
 
 interface FilterBarProps {
   filters: Record<string, any>;
@@ -54,7 +55,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
   }
   
   const clearAllFilters = () => {
-    const persistentFilters = ['punctualityThreshold'];
+    const persistentFilters = ['punctualityThreshold', 'tours100Mobile'];
     const newFilters: Record<string, any> = {};
     persistentFilters.forEach(key => {
         if(filters[key] !== undefined) {
@@ -65,7 +66,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
   }
 
   const activeFilters = Object.keys(filters).filter(key => 
-    !['punctualityThreshold'].includes(key) && filters[key] !== undefined && filters[key] !== null
+    !['punctualityThreshold'].includes(key) && filters[key] !== undefined && filters[key] !== null && filters[key] !== false
   );
   
   const getFilterLabel = (key: string) => {
@@ -77,6 +78,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
           case 'city': return 'Ville';
           case 'codePostal': return 'Code Postal';
           case 'heure': return 'Heure';
+          case 'tours100Mobile': return '100% Mobile';
           default: return key;
       }
   }
@@ -100,12 +102,15 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
        if (key === 'dateRange' && typeof value === 'object' && value && value.to) {
         return `Jusqu'au ${format(value.to, 'd MMMM yyyy', { locale: fr })}`;
       }
+      if (key === 'tours100Mobile' && value === true) {
+        return "Oui";
+      }
       return value;
   }
 
   return (
     <div className="p-4 bg-card rounded-lg border shadow-sm space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 lg:grid-cols-5 gap-4 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 items-end">
         <div>
           <Label>Période d'Analyse</Label>
           <DateRangePicker 
@@ -174,6 +179,14 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
             value={filters.punctualityThreshold || ''}
             onChange={(e) => handleFilterChange('punctualityThreshold', e.target.value ? parseInt(e.target.value) : undefined)}
            />
+        </div>
+        <div className="flex items-center space-x-2 pb-2">
+            <Switch 
+                id="tours-100-mobile"
+                checked={filters.tours100Mobile || false}
+                onCheckedChange={(checked) => handleFilterChange('tours100Mobile', checked)}
+            />
+            <Label htmlFor="tours-100-mobile">Tournées 100% mobile</Label>
         </div>
       </div>
       {activeFilters.length > 0 && (
