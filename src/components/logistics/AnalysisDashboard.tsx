@@ -1,4 +1,3 @@
-
 'use client';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
 import type { AnalysisData, MergedData, OverloadedTourInfo, DurationDiscrepancy, LateStartAnomaly, PerformanceByDriver, PerformanceByGeo, PerformanceByGroup } from '@/lib/types';
@@ -7,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
 import AiReportGenerator from './AiReportGenerator';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse, Building, Percent } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse, Building, Percent, Filter } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
@@ -16,6 +15,8 @@ import { fr } from 'date-fns/locale';
 import { Button } from '../ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '../ui/switch';
+import { Label } from '../ui/label';
 
 
 interface AnalysisDashboardProps {
@@ -65,6 +66,7 @@ type SortConfig<T> = {
 export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData, filters }: AnalysisDashboardProps) {
   const [activeGeoTab, setActiveGeoTab] = useState('ville');
   const [feedbackAnalysisResult, setFeedbackAnalysisResult] = useState<{ reason: string; count: number }[] | null>(null);
+  const [showTop20Only, setShowTop20Only] = useState(false);
   
   const [sorts, setSorts] = useState<{ [key: string]: SortConfig<any> }>({
       overloaded: { key: 'tauxDepassementPoids', direction: 'desc' },
@@ -132,18 +134,27 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
 
         return sorted;
     }
+
+    const maybeSlice = <T extends { totalTasks: number }>(data: T[] | undefined): T[] => {
+        if (!data) return [];
+        if (!showTop20Only) return data;
+
+        const sortedByVolume = [...data].sort((a, b) => b.totalTasks - a.totalTasks);
+        const sliceCount = Math.ceil(sortedByVolume.length * 0.2);
+        return sortedByVolume.slice(0, sliceCount);
+    }
     
     return {
       overloadedTours: sortFn<OverloadedTourInfo>(analysisData.overloadedTours, sorts.overloaded),
       durationDiscrepancies: sortFn<DurationDiscrepancy>(analysisData.durationDiscrepancies, sorts.duration),
       lateStartAnomalies: sortFn<LateStartAnomaly>(analysisData.lateStartAnomalies, sorts.anomaly),
-      performanceByDriver: sortFn<PerformanceByDriver>(analysisData.performanceByDriver, sorts.driver),
-      performanceByCity: sortFn<PerformanceByGeo>(analysisData.performanceByCity, sorts.city),
-      performanceByPostalCode: sortFn<PerformanceByGeo>(analysisData.performanceByPostalCode, sorts.postalCode),
-      performanceByDepot: sortFn<PerformanceByGroup>(analysisData.performanceByDepot, sorts.depot),
-      performanceByWarehouse: sortFn<PerformanceByGroup>(analysisData.performanceByWarehouse, sorts.warehouse),
+      performanceByDriver: sortFn<PerformanceByDriver>(analysisData.performanceByDriver, sorts.driver), // not slicing drivers
+      performanceByCity: sortFn<PerformanceByGeo>(maybeSlice(analysisData.performanceByCity), sorts.city),
+      performanceByPostalCode: sortFn<PerformanceByGeo>(maybeSlice(analysisData.performanceByPostalCode), sorts.postalCode),
+      performanceByDepot: sortFn<PerformanceByGroup>(maybeSlice(analysisData.performanceByDepot), sorts.depot),
+      performanceByWarehouse: sortFn<PerformanceByGroup>(maybeSlice(analysisData.performanceByWarehouse), sorts.warehouse),
     };
-  }, [analysisData, sorts]);
+  }, [analysisData, sorts, showTop20Only]);
 
 
   if (!analysisData) {
@@ -210,7 +221,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
   }, [analysisData.generalKpis]);
 
   const overloadedToursCount = (analysisData.overloadedTours || []).length;
-  const durationDiscrepanciesCount = (analysisData.durationDiscrepancies || []).length;
+  const durationDiscrepanciesCount = (analysisData.durationDiscrepancies || []).filter(d => d.ecart > 0).length;
   const lateStartAnomaliesCount = (analysisData.lateStartAnomalies || []).length;
 
 
@@ -522,7 +533,20 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
          </div>
 
          <Card>
-            <CardHeader><CardTitle>Analyse des Performances par Groupe</CardTitle></CardHeader>
+            <CardHeader className="flex-row items-center justify-between">
+                <CardTitle>Analyse des Performances par Groupe</CardTitle>
+                <div className="flex items-center space-x-2">
+                    <Switch
+                        id="top-20-filter"
+                        checked={showTop20Only}
+                        onCheckedChange={setShowTop20Only}
+                    />
+                    <Label htmlFor="top-20-filter" className="flex items-center gap-2">
+                        <Filter className="w-4 h-4"/>
+                        Afficher uniquement le Top 20% (par volume)
+                    </Label>
+                </div>
+            </CardHeader>
             <CardContent>
                 <Tabs defaultValue="driver" className="w-full">
                     <TabsList>
