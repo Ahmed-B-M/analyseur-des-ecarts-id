@@ -598,6 +598,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                    <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('warehouse', 'punctualityRateRealized')}</TableHead>
                                    <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('warehouse', 'avgDurationDiscrepancy')}</TableHead>
                                    <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('warehouse', 'avgWeightDiscrepancy')}</TableHead>
+                                   <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'lateWithBadReviewPercentage')}>% Insat. {renderSortIcon('warehouse', 'lateWithBadReviewPercentage')}</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -608,6 +609,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                     <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
                                     <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
                                     <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
+                                    <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>
@@ -650,6 +652,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                       <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'key')}>Code Postal {renderSortIcon('postalCode', 'key')}</TableHead>
                                       <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'totalTasks')}>Tâches {renderSortIcon('postalCode', 'totalTasks')}</TableHead>
                                       <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('postalCode', 'punctualityRateRealized')}</TableHead>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('postalCode', 'avgDurationDiscrepancy')}</TableHead>
+                                      <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('postalCode', 'avgWeightDiscrepancy')}</TableHead>
                                       <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'lateWithBadReviewPercentage')}>% Insat. sur Retard {renderSortIcon('postalCode', 'lateWithBadReviewPercentage')}</TableHead>
                                   </TableRow>
                               </TableHeader>
@@ -659,6 +663,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                                           <TableCell>{item.key}</TableCell>
                                           <TableCell>{item.totalTasks}</TableCell>
                                           <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
+                                          <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
+                                          <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
                                           <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
                                       </TableRow>
                                   ))}
