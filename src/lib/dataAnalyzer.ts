@@ -1,4 +1,5 @@
 
+
 import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi, AvgWorkload, PerformanceByDay, PerformanceByTimeSlot, DelayHistogramBin, GlobalSummary, PerformanceByGroup } from './types';
 import { fr } from 'date-fns/locale';
 import { format, getDay } from 'date-fns';
@@ -165,23 +166,16 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
 
     const lateStartAnomalies: LateStartAnomaly[] = Array.from(tourneeMap.values())
-        .map(({tour, tasks}) => {
-             const firstTask = tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
-             const isFirstTaskLate = firstTask && firstTask.retard > toleranceSeconds;
-             return {
-                 tour,
-                 tasksInDelay: tasks.filter(t => t.retardStatus === 'late').length,
-                 isFirstTaskLate
-             };
-         })
-         .filter(({ tour, isFirstTaskLate }) => {
+         .filter(({ tour, tasks }) => {
              const startDeparture = tour.heureDepartReelle || tour.demarre || 0;
              const plannedDeparture = tour.heureDepartPrevue || 0;
+             const firstTask = tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
+             const isFirstTaskLate = firstTask && firstTask.retard > toleranceSeconds;
              return startDeparture <= plannedDeparture && isFirstTaskLate;
          })
-         .map(({tour, tasksInDelay}) => ({
+         .map(({tour, tasks}) => ({
              ...tour,
-             tasksInDelay
+             tasksInDelay: tasks.filter(t => t.retardStatus === 'late').length
          }))
         .sort((a, b) => b.tasksInDelay - a.tasksInDelay);
 
@@ -211,14 +205,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const negativeReviewsOnLateTasks = negativeReviews.filter(t => t.retardStatus === 'late');
     const correlationDelays = negativeReviews.length > 0 ? (negativeReviewsOnLateTasks.length / negativeReviews.length) * 100 : 0;
     
-    const totalToursWithStartAnomalies = Array.from(tourneeMap.values()).filter(({ tour, tasks }) => {
-        const startDeparture = tour.heureDepartReelle || tour.demarre || 0;
-        const plannedDeparture = tour.heureDepartPrevue || 0;
-        const firstTask = tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
-        const isFirstTaskLate = firstTask && firstTask.retard > toleranceSeconds;
-        return startDeparture <= plannedDeparture && isFirstTaskLate;
-    }).length;
-    const firstTaskLatePercentage = uniqueTournees.length > 0 ? (totalToursWithStartAnomalies / uniqueTournees.length) * 100 : 0;
+    const firstTaskLatePercentage = uniqueTournees.length > 0 ? (lateStartAnomalies.length / uniqueTournees.length) * 100 : 0;
 
 
     const qualityKpis: (Kpi | ComparisonKpi)[] = [
@@ -305,7 +292,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     // --- New Analyses ---
     const performanceByDayOfWeek = calculatePerformanceByDayOfWeek(completedTasks, toleranceSeconds);
     const performanceByTimeSlot = calculatePerformanceByTimeSlot(completedTasks);
-    const delayHistogram = createDelayHistogram(completedTasks, toleranceSeconds);
+    const delayHistogram = createDelayHistogram(completedTasks, toleranceSeconds, toleranceMinutes);
 
     // --- New Summary Tables Data ---
     const globalSummary: GlobalSummary = {
@@ -620,7 +607,7 @@ function calculatePerformanceByTimeSlot(tasks: MergedData[]): PerformanceByTimeS
 }
 
 
-function createDelayHistogram(tasks: MergedData[], toleranceSeconds: number): DelayHistogramBin[] {
+function createDelayHistogram(tasks: MergedData[], toleranceSeconds: number, toleranceMinutes: number): DelayHistogramBin[] {
     const bins: { [key: string]: { min: number, max: number, count: number } } = {
         '> 60 min en avance': { min: -Infinity, max: -3601, count: 0 },
         '30-60 min en avance': { min: -3600, max: -1801, count: 0 },
