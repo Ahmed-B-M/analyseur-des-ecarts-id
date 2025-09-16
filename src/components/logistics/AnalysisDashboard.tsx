@@ -1,3 +1,4 @@
+
 'use client';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
 import type { AnalysisData, MergedData, OverloadedTourInfo, DurationDiscrepancy, LateStartAnomaly, PerformanceByDriver, PerformanceByGeo, PerformanceByGroup } from '@/lib/types';
@@ -179,8 +180,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
   const dayOrder = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const sortedPerformanceByDay = (analysisData.performanceByDayOfWeek || []).sort((a,b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
 
-  const slotOrder = ['Matin (06-12h)', 'Après-midi (12-18h)', 'Soir (18-00h)'];
-  const sortedPerformanceBySlot = (analysisData.performanceByTimeSlot || []).sort((a,b) => slotOrder.indexOf(a.slot) - slotOrder.indexOf(b.slot));
+  const sortedPerformanceBySlot = analysisData.performanceByTimeSlot || [];
 
   const combinedHourlyDelays = (analysisData.delaysByHour || []).map(d => ({ hour: d.hour, delays: d.count, advances: 0 }));
   const combinedHourlyAdvances = (analysisData.advancesByHour || []).map(a => ({ hour: a.hour, advances: a.count, delays: 0 }));
@@ -210,7 +210,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
   }, [analysisData.generalKpis]);
 
   const overloadedToursCount = (analysisData.overloadedTours || []).length;
-  const durationDiscrepanciesCount = (analysisData.durationDiscrepancies || []).filter(d => Math.abs(d.ecart) > 900).length; // Ecart > 15 min
+  const durationDiscrepanciesCount = (analysisData.durationDiscrepancies || []).length;
   const lateStartAnomaliesCount = (analysisData.lateStartAnomalies || []).length;
 
 
@@ -264,8 +264,8 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 <TableBody>
                   <TableRow><TableCell className="font-medium">Taux Ponctualité Planifié</TableCell><TableCell className="text-right font-semibold">{analysisData.globalSummary.punctualityRatePlanned.toFixed(1)}%</TableCell></TableRow>
                   <TableRow><TableCell className="font-medium">Taux Ponctualité Réalisé</TableCell><TableCell className="text-right font-semibold">{analysisData.globalSummary.punctualityRateRealized.toFixed(1)}%</TableCell></TableRow>
-                  <TableRow><TableCell className="font-medium">Écart Durée Moyen / Tournée</TableCell><TableCell className="text-right font-semibold">{formatSecondsToTime(analysisData.globalSummary.avgDurationDiscrepancyPerTour)}</TableCell></TableRow>
-                  <TableRow><TableCell className="font-medium">Écart Poids Moyen / Tournée</TableCell><TableCell className="text-right font-semibold">{analysisData.globalSummary.avgWeightDiscrepancyPerTour.toFixed(2)} kg</TableCell></TableRow>
+                  <TableRow><TableCell className="font-medium">Écart Durée Moyen / Tournée</TableCell><TableCell className="text-right font-semibold">{formatSecondsToTime(analysisData.globalSummary.avgDurationDiscrepancyPerTour)} ({analysisData.globalSummary.durationOverrunPercentage.toFixed(1)}%)</TableCell></TableRow>
+                  <TableRow><TableCell className="font-medium">Écart Poids Moyen / Tournée</TableCell><TableCell className="text-right font-semibold">{analysisData.globalSummary.avgWeightDiscrepancyPerTour.toFixed(2)} kg ({analysisData.globalSummary.weightOverrunPercentage.toFixed(1)}%)</TableCell></TableRow>
                 </TableBody>
               </Table>
             </CardContent>
@@ -307,18 +307,18 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                   </AccordionItem>
                   <AccordionItem value="duration">
                     <AccordionTrigger>
-                        Écarts de Durée Significatifs ({durationDiscrepanciesCount} - {totalTours > 0 ? (durationDiscrepanciesCount / totalTours * 100).toFixed(1) : 0}%)
+                        Écarts de Durée Positifs ({durationDiscrepanciesCount} - {totalTours > 0 ? (durationDiscrepanciesCount / totalTours * 100).toFixed(1) : 0}%)
                     </AccordionTrigger>
                     <AccordionContent>
                        <ScrollArea className="h-60">
                         <Table>
                           <TableHeader><TableRow><TableHead>Tournée</TableHead><TableHead>Écart</TableHead></TableRow></TableHeader>
                           <TableBody>
-                            {(sortedData.durationDiscrepancies || []).filter(d => Math.abs(d.ecart) > 900).map(tour => (
+                            {(sortedData.durationDiscrepancies || []).map(tour => (
                                 <TableRow key={tour.uniqueId}>
                                   <TableCell>{formatDate(tour.date)} - {tour.nom}</TableCell>
-                                  <TableCell className={cn(tour.ecart > 300 ? "text-destructive font-semibold" : tour.ecart < -300 ? "text-blue-500 font-semibold" : "")}>
-                                      {tour.ecart >= 0 ? '+' : ''}{formatSecondsToTime(tour.ecart)}
+                                  <TableCell className="text-destructive font-semibold">
+                                      +{formatSecondsToTime(tour.ecart)}
                                   </TableCell>
                                 </TableRow>
                             ))}
@@ -331,14 +331,17 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     <AccordionTrigger>
                         Anomalies de Planification ({lateStartAnomaliesCount} - {totalTours > 0 ? (lateStartAnomaliesCount / totalTours * 100).toFixed(1) : 0}%)
                     </AccordionTrigger>
-                    <AccordionContent>
+                     <AccordionContent>
+                        <p className="text-xs text-muted-foreground mb-2">Tournées parties à l'heure (ou en avance) mais dont au moins une livraison est arrivée en retard. Signale des problèmes de temps de parcours.</p>
                        <ScrollArea className="h-60">
                          <Table>
-                          <TableHeader><TableRow><TableHead>Tournée</TableHead><TableHead># Tâches en Retard</TableHead></TableRow></TableHeader>
+                          <TableHeader><TableRow><TableHead>Tournée</TableHead><TableHead>Départ Prévu</TableHead><TableHead>Départ Réel</TableHead><TableHead># Tâches Retard</TableHead></TableRow></TableHeader>
                           <TableBody>
                             {sortedData.lateStartAnomalies?.map(tour => (
                                 <TableRow key={tour.uniqueId}>
                                   <TableCell>{formatDate(tour.date)} - {tour.nom}</TableCell>
+                                  <TableCell>{formatSecondsToClock(tour.heureDepartPrevue)}</TableCell>
+                                  <TableCell className="font-semibold text-blue-600">{formatSecondsToClock(tour.heureDepartReelle)}</TableCell>
                                   <TableCell className="font-bold">{tour.tasksInDelay}</TableCell>
                                 </TableRow>
                             ))}
@@ -379,7 +382,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
              </Card>
              <Card>
                <CardHeader>
-                 <CardTitle className="flex items-center gap-2"><Clock/>Performance par Créneau</CardTitle>
+                 <CardTitle className="flex items-center gap-2"><Clock/>Performance par Créneau de 2h</CardTitle>
                </CardHeader>
                <CardContent>
                   <ResponsiveContainer width="100%" height={250}>
@@ -405,13 +408,17 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                   <ResponsiveContainer width="100%" height={250}>
                      <BarChart data={analysisData.delayHistogram}>
                        <CartesianGrid strokeDasharray="3 3" />
-                       <XAxis dataKey="range" fontSize={12} angle={-30} textAnchor="end" height={60} />
+                       <XAxis dataKey="range" fontSize={10} angle={-45} textAnchor="end" height={80} interval={0} />
                        <YAxis />
                        <Tooltip />
                        <Bar dataKey="count" name="Nb. de Tâches">
-                          {(analysisData.delayHistogram || []).map((entry, index) => (
-                             <Cell key={`cell-${index}`} fill={entry.range.includes('retard') ? PRIMARY_COLOR : entry.range.includes('avance') ? ADVANCE_COLOR : '#a0aec0'} />
-                          ))}
+                          {(analysisData.delayHistogram || []).map((entry, index) => {
+                             let color = '#a0aec0'; // default grey
+                             if (entry.range.includes('retard')) color = PRIMARY_COLOR;
+                             if (entry.range.includes('avance')) color = ADVANCE_COLOR;
+                             if (entry.range.includes('À l\'heure')) color = '#48bb78'; // green
+                             return <Cell key={`cell-${index}`} fill={color} />;
+                          })}
                        </Bar>
                      </BarChart>
                   </ResponsiveContainer>

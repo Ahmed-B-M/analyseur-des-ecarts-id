@@ -1,3 +1,4 @@
+
 import type { MergedData, AnalysisData, Tournee, OverloadedTourInfo, DelayCount, DelayByHour, PerformanceByDriver, PerformanceByGeo, LateStartAnomaly, WorkloadByHour, AvgWorkloadByHour, Kpi, DurationDiscrepancy, ComparisonKpi, AvgWorkload, PerformanceByDay, PerformanceByTimeSlot, DelayHistogramBin, GlobalSummary, PerformanceByGroup } from './types';
 import { fr } from 'date-fns/locale';
 import { format, getDay } from 'date-fns';
@@ -154,12 +155,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         heurePremiereLivraisonReelle: tour.heurePremiereLivraisonReelle || 0,
         heureDerniereLivraisonPrevue: tour.heureDerniereLivraisonPrevue || 0,
         heureDerniereLivraisonReelle: tour.heureDerniereLivraisonReelle || 0,
-    })).sort((a, b) => {
-      // Sort by positive écart descending, then negative écart descending (closer to 0)
-      if (a.ecart >= 0 && b.ecart < 0) return -1;
-      if (a.ecart < 0 && b.ecart >= 0) return 1;
-      return b.ecart - a.ecart;
-    });
+    })).filter(t => t.ecart > 0).sort((a, b) => b.ecart - a.ecart);
+
 
     const lateStartAnomalies: LateStartAnomaly[] = Array.from(tourneeMap.values())
         .map(({tour, tasks}) => ({ 
@@ -283,7 +280,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     
     // --- New Analyses ---
     const performanceByDayOfWeek = calculatePerformanceByDayOfWeek(completedTasks, toleranceSeconds);
-    const performanceByTimeSlot = calculatePerformanceByTimeSlot(completedTasks, toleranceSeconds);
+    const performanceByTimeSlot = calculatePerformanceByTimeSlot(completedTasks);
     const delayHistogram = createDelayHistogram(completedTasks);
 
     // --- New Summary Tables Data ---
@@ -292,6 +289,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         punctualityRateRealized: punctualityRate,
         avgDurationDiscrepancyPerTour: uniqueTournees.length > 0 ? (totals.dureeReelleCalculee - totals.dureePrevue) / uniqueTournees.length : 0,
         avgWeightDiscrepancyPerTour: uniqueTournees.length > 0 ? (totals.poidsReel - totals.poidsPrevu) / uniqueTournees.length : 0,
+        weightOverrunPercentage: totals.poidsPrevu > 0 ? ((totals.poidsReel - totals.poidsPrevu) / totals.poidsPrevu) * 100 : 0,
+        durationOverrunPercentage: totals.dureePrevue > 0 ? ((totals.dureeReelleCalculee - totals.dureePrevue) / totals.dureePrevue) * 100 : 0,
     };
     
     const performanceByDepot = calculatePerformanceByGroup(completedTasks, tourneeMap, (task) => task.tournee!.entrepot.split(' ')[0], toleranceSeconds);
@@ -356,7 +355,7 @@ function createEmptyAnalysisData(): AnalysisData {
         performanceByTimeSlot: [],
         delayHistogram: [],
         cities: [],
-        globalSummary: { punctualityRatePlanned: 0, punctualityRateRealized: 0, avgDurationDiscrepancyPerTour: 0, avgWeightDiscrepancyPerTour: 0 },
+        globalSummary: { punctualityRatePlanned: 0, punctualityRateRealized: 0, avgDurationDiscrepancyPerTour: 0, avgWeightDiscrepancyPerTour: 0, weightOverrunPercentage: 0, durationOverrunPercentage: 0 },
         performanceByDepot: [],
         performanceByWarehouse: []
     };
@@ -549,21 +548,25 @@ function calculatePerformanceByDayOfWeek(tasks: MergedData[], toleranceSeconds: 
     });
 }
 
-function calculatePerformanceByTimeSlot(tasks: MergedData[], toleranceSeconds: number): PerformanceByTimeSlot[] {
-    const slots = {
-        'Matin (06-12h)': { totalTasks: 0, lateTasks: [], earlyTasks: [] },
-        'Après-midi (12-18h)': { totalTasks: 0, lateTasks: [], earlyTasks: [] },
-        'Soir (18-00h)': { totalTasks: 0, lateTasks: [], earlyTasks: [] }
-    };
+function calculatePerformanceByTimeSlot(tasks: MergedData[]): PerformanceByTimeSlot[] {
+    const slots: Record<string, { totalTasks: number; lateTasks: MergedData[]; earlyTasks: MergedData[] }> = {};
+
+    // Create 2-hour slots from 00:00 to 22:00
+    for (let i = 0; i < 24; i += 2) {
+        const start = String(i).padStart(2, '0');
+        const end = String(i + 2).padStart(2, '0');
+        slots[`${start}h-${end}h`] = { totalTasks: 0, lateTasks: [], earlyTasks: [] };
+    }
 
     tasks.forEach(task => {
-        const startHour = task.heureDebutCreneau / 3600;
-        let slotKey: keyof typeof slots | null = null;
-        if (startHour >= 6 && startHour < 12) slotKey = 'Matin (06-12h)';
-        else if (startHour >= 12 && startHour < 18) slotKey = 'Après-midi (12-18h)';
-        else if (startHour >= 18 && startHour < 24) slotKey = 'Soir (18-00h)';
+        const startHour = Math.floor(task.heureDebutCreneau / 3600);
+        // Find the correct 2-hour slot
+        const slotHour = Math.floor(startHour / 2) * 2;
+        const startSlot = String(slotHour).padStart(2, '0');
+        const endSlot = String(slotHour + 2).padStart(2, '0');
+        const slotKey = `${startSlot}h-${endSlot}h`;
 
-        if (slotKey) {
+        if (slots[slotKey]) {
             slots[slotKey].totalTasks++;
             if (task.retardStatus === 'late') {
                 slots[slotKey].lateTasks.push(task);
@@ -587,15 +590,16 @@ function calculatePerformanceByTimeSlot(tasks: MergedData[], toleranceSeconds: n
             delays,
             advances
         };
-    });
+    }).filter(s => s.totalTasks > 0); // Only return slots with data
 }
+
 
 function createDelayHistogram(tasks: MergedData[]): DelayHistogramBin[] {
     const bins: { [key: string]: { min: number, max: number, count: number } } = {
         '> 60 min en avance': { min: -Infinity, max: -3601, count: 0 },
         '30-60 min en avance': { min: -3600, max: -1801, count: 0 },
-        '0-30 min en avance': { min: -1800, max: -1, count: 0 },
-        'À l\'heure (0-15 min)': { min: 0, max: 900, count: 0 },
+        '15-30 min en avance': { min: -1800, max: -901, count: 0 },
+        'À l\'heure (-15 à +15 min)': { min: -900, max: 900, count: 0 },
         '15-30 min de retard': { min: 901, max: 1800, count: 0 },
         '30-60 min de retard': { min: 1801, max: 3600, count: 0 },
         '> 60 min de retard': { min: 3601, max: Infinity, count: 0 },
@@ -610,12 +614,11 @@ function createDelayHistogram(tasks: MergedData[]): DelayHistogramBin[] {
         }
     });
     
-    // Sort bins for logical display order
     const sortedBinKeys = [
         '> 60 min en avance',
         '30-60 min en avance',
-        '0-30 min en avance',
-        'À l\'heure (0-15 min)',
+        '15-30 min en avance',
+        'À l\'heure (-15 à +15 min)',
         '15-30 min de retard',
         '30-60 min de retard',
         '> 60 min de retard'
@@ -626,6 +629,7 @@ function createDelayHistogram(tasks: MergedData[]): DelayHistogramBin[] {
         count: bins[key].count
     }));
 }
+
 
 
 function formatSeconds(seconds: number): string {

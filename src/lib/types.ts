@@ -1,3 +1,4 @@
+
 import type { LucideProps } from "lucide-react";
 import type { ForwardRefExoticComponent, RefAttributes } from "react";
 
@@ -180,6 +181,8 @@ export type GlobalSummary = {
     punctualityRateRealized: number;
     avgDurationDiscrepancyPerTour: number; // in seconds
     avgWeightDiscrepancyPerTour: number; // in kg
+    weightOverrunPercentage: number; // as percentage
+    durationOverrunPercentage: number; // as percentage
 };
 
 export type PerformanceByGroup = {
