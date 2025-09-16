@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
 import AiReportGenerator from './AiReportGenerator';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse, Building, Percent, Filter, HelpCircle } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse, Building, Percent, Filter, HelpCircle, TrendingDown } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
@@ -228,18 +228,17 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
 
   const performanceFocusData = useMemo(() => {
     const data = [
-        ...(analysisData.performanceByDepot || []).map(d => ({ ...d, type: 'Dépôt' })),
-        ...(analysisData.performanceByWarehouse || []).map(d => ({ ...d, type: 'Entrepôt' })),
-        ...(analysisData.performanceByCity || []).map(d => ({ ...d, type: 'Ville' })),
+      ...(analysisData.performanceByDepot || []).map(d => ({ ...d, type: 'Dépôt' })),
+      ...(analysisData.performanceByWarehouse || []).map(d => ({ ...d, type: 'Entrepôt' })),
+      ...(analysisData.performanceByCity || []).map(d => ({ ...d, type: 'Ville' })),
     ];
     return data
-        .map(d => ({
-            key: `${d.type}: ${d.key}`,
-            punctualityDiscrepancy: d.punctualityRateRealized - d.punctualityRatePlanned,
-        }))
-        .filter(d => d.punctualityDiscrepancy < 0)
-        .sort((a, b) => a.punctualityDiscrepancy - b.punctualityDiscrepancy)
-        .slice(0, 5);
+      .map(d => ({
+        key: `${d.type}: ${d.key}`,
+        numberOfDelays: Math.round(d.totalTasks * (1 - d.punctualityRateRealized / 100)),
+      }))
+      .sort((a, b) => b.numberOfDelays - a.numberOfDelays)
+      .slice(0, 10);
   }, [analysisData]);
 
 
@@ -733,21 +732,20 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
         {performanceFocusData.length > 0 && (
             <Card className="mt-6">
                 <CardHeader>
-                    <CardTitle>Focus sur les Écarts de Ponctualité par Groupe</CardTitle>
+                    <CardTitle className="flex items-center gap-2"><TrendingDown /> Focus : Top 10 Groupes par Nombre de Retards</CardTitle>
                     <CardDescription>
-                        Top 5 des groupes avec les plus grands écarts négatifs entre la ponctualité planifiée et réalisée.
+                        Les 10 groupes (dépôt, entrepôt, ville) qui contribuent le plus au nombre total de retards.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <ResponsiveContainer width="100%" height={250}>
                         <BarChart layout="vertical" data={performanceFocusData} margin={{ left: 150 }}>
-                            <XAxis type="number" dataKey="punctualityDiscrepancy" domain={['auto', 0]} formatter={(value) => `${value.toFixed(1)}%`} />
-                            <YAxis type="category" dataKey="key" width={150} tickLine={false} />
-                            <Tooltip formatter={(value: number) => [`${value.toFixed(2)}%`, "Écart de Ponctualité"]} />
-                            <Legend />
-                            <Bar dataKey="punctualityDiscrepancy" name="Écart Planifié/Réalisé" fill={ACCENT_COLOR}>
+                            <XAxis type="number" dataKey="numberOfDelays" />
+                            <YAxis type="category" dataKey="key" width={150} tickLine={false} fontSize={12} />
+                            <Tooltip formatter={(value: number) => [`${value} retards`, "Nombre de retards"]} />
+                            <Bar dataKey="numberOfDelays" name="Nombre de Retards" fill={PRIMARY_COLOR}>
                                 {performanceFocusData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={cn(entry.punctualityDiscrepancy < -5 ? "hsl(var(--destructive))" : "hsl(var(--accent))")} />
+                                    <Cell key={`cell-${index}`} fill={cn(entry.numberOfDelays > 50 ? "hsl(var(--destructive))" : "hsl(var(--primary))")} />
                                 ))}
                             </Bar>
                         </BarChart>
