@@ -14,8 +14,10 @@ import { ArrowDown, ArrowUp, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ComparisonViewProps {
-  allData: MergedData[];
-  filters: Record<string, any>;
+  allData?: MergedData[];
+  filters?: Record<string, any>;
+  weeklyAnalyses?: WeeklyAnalysis[];
+  isForReport?: boolean;
 }
 
 const PRIMARY_COLOR = "hsl(var(--primary))";
@@ -58,15 +60,17 @@ const kpiConfig: {
 ];
 
 
-export default function ComparisonView({ allData, filters }: ComparisonViewProps) {
+export default function ComparisonView({ allData, filters, weeklyAnalyses: propWeeklyAnalyses, isForReport = false }: ComparisonViewProps) {
   const [numberOfWeeks, setNumberOfWeeks] = useState(4);
-  const [weeklyAnalyses, setWeeklyAnalyses] = useState<WeeklyAnalysis[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [weeklyAnalyses, setWeeklyAnalyses] = useState<WeeklyAnalysis[]>(propWeeklyAnalyses || []);
+  const [isLoading, setIsLoading] = useState(!isForReport);
 
   useEffect(() => {
+    if (isForReport) return;
+
     const processData = async () => {
       setIsLoading(true);
-      if (allData.length === 0) {
+      if (!allData || allData.length === 0) {
           setWeeklyAnalyses([]);
           setIsLoading(false);
           return;
@@ -74,14 +78,18 @@ export default function ComparisonView({ allData, filters }: ComparisonViewProps
       
       const weeks: Record<string, MergedData[]> = {};
       allData.forEach(item => {
-        const date = parseISO(item.date);
-        const weekNumber = getWeek(date, { weekStartsOn: 1 });
-        const year = date.getFullYear();
-        const weekKey = `${year}-W${String(weekNumber).padStart(2, '0')}`;
-        if (!weeks[weekKey]) {
-          weeks[weekKey] = [];
+        try {
+          const date = parseISO(item.date);
+          const weekNumber = getWeek(date, { weekStartsOn: 1 });
+          const year = date.getFullYear();
+          const weekKey = `${year}-W${String(weekNumber).padStart(2, '0')}`;
+          if (!weeks[weekKey]) {
+            weeks[weekKey] = [];
+          }
+          weeks[weekKey].push(item);
+        } catch(e) {
+            // silent fail for invalid dates
         }
-        weeks[weekKey].push(item);
       });
 
       const sortedWeekKeys = Object.keys(weeks).sort().slice(-numberOfWeeks);
@@ -90,7 +98,7 @@ export default function ComparisonView({ allData, filters }: ComparisonViewProps
         const weekData = weeks[weekKey];
         const weekStart = startOfWeek(parseISO(weekData[0].date), { weekStartsOn: 1 });
         const weekEnd = endOfWeek(parseISO(weekData[0].date), { weekStartsOn: 1 });
-        const analysis = analyzeData(weekData, filters);
+        const analysis = analyzeData(weekData, filters || {});
         return {
           weekLabel: weekKey,
           dateRange: { from: weekStart, to: weekEnd },
@@ -103,7 +111,7 @@ export default function ComparisonView({ allData, filters }: ComparisonViewProps
     };
 
     processData();
-  }, [allData, filters, numberOfWeeks]);
+  }, [allData, filters, numberOfWeeks, isForReport]);
 
   const evolutionData = useMemo(() => {
     if (weeklyAnalyses.length === 0) return [];
@@ -212,39 +220,41 @@ export default function ComparisonView({ allData, filters }: ComparisonViewProps
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-                <CardTitle>Analyse Comparative Hebdomadaire</CardTitle>
-                <CardDescription>Évolution des indicateurs clés sur les dernières semaines.</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Comparer les</span>
-                <Select value={String(numberOfWeeks)} onValueChange={(val) => setNumberOfWeeks(Number(val))}>
-                    <SelectTrigger className="w-[80px]">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="2">2</SelectItem>
-                        <SelectItem value="4">4</SelectItem>
-                        <SelectItem value="8">8</SelectItem>
-                        <SelectItem value="12">12</SelectItem>
-                    </SelectContent>
-                </Select>
-                 <span className="text-sm font-medium">dernières semaines</span>
-            </div>
-        </CardHeader>
-      </Card>
+      {!isForReport && (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Analyse Comparative Hebdomadaire</CardTitle>
+                    <CardDescription>Évolution des indicateurs clés sur les dernières semaines.</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Comparer les</span>
+                    <Select value={String(numberOfWeeks)} onValueChange={(val) => setNumberOfWeeks(Number(val))}>
+                        <SelectTrigger className="w-[80px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="2">2</SelectItem>
+                            <SelectItem value="4">4</SelectItem>
+                            <SelectItem value="8">8</SelectItem>
+                            <SelectItem value="12">12</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <span className="text-sm font-medium">dernières semaines</span>
+                </div>
+            </CardHeader>
+        </Card>
+      )}
       
-       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+       <div className={cn("grid grid-cols-1 gap-6", !isForReport && "lg:grid-cols-3")}>
+        <div className={cn("grid grid-cols-1 gap-6", isForReport ? "md:grid-cols-2" : "lg:col-span-2 md:grid-cols-2")}>
             {evolutionData.map(chart => (
-                <Card key={chart.title}>
+                <Card key={chart.title} className={cn(isForReport && "print:shadow-none")}>
                     <CardHeader>
-                        <CardTitle className="text-base">{chart.title}</CardTitle>
+                        <CardTitle className={cn(isForReport ? "text-sm" : "text-base")}>{chart.title}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <ResponsiveContainer width="100%" height={200}>
+                        <ResponsiveContainer width="100%" height={isForReport ? 150 : 200}>
                             <LineChart data={chart.data}>
                                 <XAxis dataKey="week" fontSize={10} />
                                 <YAxis fontSize={10} domain={['auto', 'auto']} />
@@ -256,9 +266,9 @@ export default function ComparisonView({ allData, filters }: ComparisonViewProps
                 </Card>
             ))}
         </div>
-        <Card className="lg:col-span-1">
+        <Card className={cn("lg:col-span-1", isForReport && "print:shadow-none")}>
             <CardHeader>
-                <CardTitle>Synthèse Semaine vs S-1</CardTitle>
+                <CardTitle className={cn(isForReport ? "text-base" : "")}>Synthèse Semaine vs S-1</CardTitle>
                 <CardDescription>
                     {weeklyAnalyses.length >= 2 
                         ? `Comparaison de ${weeklyAnalyses[weeklyAnalyses.length - 1].weekLabel} et ${weeklyAnalyses[weeklyAnalyses.length - 2].weekLabel}`
@@ -278,13 +288,13 @@ export default function ComparisonView({ allData, filters }: ComparisonViewProps
                     <TableBody>
                         {comparisonTableData?.map(item => (
                             <TableRow key={item.kpi}>
-                                <TableCell className="font-medium">{item.kpi}</TableCell>
-                                <TableCell className="font-semibold">{item.lastWeek}</TableCell>
-                                <TableCell>{item.previousWeek}</TableCell>
+                                <TableCell className="font-medium text-xs">{item.kpi}</TableCell>
+                                <TableCell className="font-semibold text-xs">{item.lastWeek}</TableCell>
+                                <TableCell className="text-xs">{item.previousWeek}</TableCell>
                                 <TableCell>
                                     {item.change !== null ? (
-                                        <span className={cn("flex items-center gap-1", item.isGoodChange ? "text-green-600" : "text-red-600")}>
-                                            {item.change > 0 ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                                        <span className={cn("flex items-center gap-1 text-xs", item.isGoodChange ? "text-green-600" : "text-red-600")}>
+                                            {item.change > 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
                                             {Math.abs(item.change).toFixed(1)}%
                                         </span>
                                     ) : 'N/A'}

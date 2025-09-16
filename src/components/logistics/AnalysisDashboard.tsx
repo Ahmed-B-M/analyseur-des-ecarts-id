@@ -25,6 +25,7 @@ interface AnalysisDashboardProps {
   onFilterAndSwitch: (filter: Record<string, any>) => void;
   allData: MergedData[];
   filters: Record<string, any>;
+  depots: string[];
 }
 
 const ACCENT_COLOR = "hsl(var(--accent))";
@@ -64,7 +65,7 @@ type SortConfig<T> = {
     direction: 'asc' | 'desc';
 } | null;
 
-export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData, filters }: AnalysisDashboardProps) {
+export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData, filters, depots }: AnalysisDashboardProps) {
   const [activeGeoTab, setActiveGeoTab] = useState('ville');
   const [feedbackAnalysisResult, setFeedbackAnalysisResult] = useState<{ reason: string; count: number }[] | null>(null);
   const [showTop20Only, setShowTop20Only] = useState(false);
@@ -276,7 +277,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
           </div>
           <div className="lg:col-span-2 space-y-6">
               <AiAnalysis allData={allData} onAnalysisComplete={setFeedbackAnalysisResult}/>
-              <AiReportGenerator analysisData={analysisData} allData={allData} filters={filters} aiFeedbackAnalysis={feedbackAnalysisResult} />
+              <AiReportGenerator analysisData={analysisData} allData={allData} filters={filters} aiFeedbackAnalysis={feedbackAnalysisResult} depots={depots} />
           </div>
         </div>
       </section>

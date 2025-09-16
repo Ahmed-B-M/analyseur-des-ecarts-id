@@ -201,6 +201,15 @@ export type WeeklyAnalysis = {
     analysis: AnalysisData;
 };
 
+export type DepotWeeklyAnalysis = {
+    depot: string;
+    weeklyData: {
+        weekLabel: string;
+        analysis: PerformanceByGroup | null;
+    }[];
+};
+
+
 export type ComparisonData = {
     kpiTitle: string;
     values: { weekLabel: string; value: number | string }[];

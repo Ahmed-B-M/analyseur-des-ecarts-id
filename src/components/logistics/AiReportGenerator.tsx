@@ -6,20 +6,75 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Wand2, Loader2, FileText, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateLogisticsReport, GenerateLogisticsReportInput, GenerateLogisticsReportOutput } from '@/ai/flows/generate-logistics-report';
-import type { AnalysisData, MergedData } from '@/lib/types';
+import type { AnalysisData, MergedData, WeeklyAnalysis, DepotWeeklyAnalysis } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { getWeek, startOfWeek, endOfWeek, parseISO } from 'date-fns';
+import { analyzeData } from '@/lib/dataAnalyzer';
 
 interface AiReportGeneratorProps {
   analysisData: AnalysisData;
   allData: MergedData[];
   filters: Record<string, any>;
   aiFeedbackAnalysis: { reason: string; count: number }[] | null;
+  depots: string[];
 }
 
-export default function AiReportGenerator({ analysisData, allData, filters, aiFeedbackAnalysis }: AiReportGeneratorProps) {
+export default function AiReportGenerator({ analysisData, allData, filters, aiFeedbackAnalysis, depots }: AiReportGeneratorProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+
+  const generateWeeklyAnalyses = (numberOfWeeks: number): WeeklyAnalysis[] => {
+      const weeks: Record<string, MergedData[]> = {};
+      allData.forEach(item => {
+        try {
+          const date = parseISO(item.date);
+          const weekNumber = getWeek(date, { weekStartsOn: 1 });
+          const year = date.getFullYear();
+          const weekKey = `${year}-W${String(weekNumber).padStart(2, '0')}`;
+          if (!weeks[weekKey]) weeks[weekKey] = [];
+          weeks[weekKey].push(item);
+        } catch (e) {
+          // ignore invalid dates
+        }
+      });
+
+      const sortedWeekKeys = Object.keys(weeks).sort().slice(-numberOfWeeks);
+
+      return sortedWeekKeys.map(weekKey => {
+        const weekData = weeks[weekKey];
+        const weekStart = startOfWeek(parseISO(weekData[0].date), { weekStartsOn: 1 });
+        const weekEnd = endOfWeek(parseISO(weekData[0].date), { weekStartsOn: 1 });
+        const analysis = analyzeData(weekData, filters);
+        return {
+          weekLabel: weekKey,
+          dateRange: { from: weekStart, to: weekEnd },
+          analysis,
+        };
+      });
+  };
+  
+  const generateDepotWeeklyAnalyses = (numberOfWeeks: number): DepotWeeklyAnalysis[] => {
+    const weeklyAnalyses = generateWeeklyAnalyses(numberOfWeeks);
+    const depotAnalyses: DepotWeeklyAnalysis[] = [];
+
+    depots.forEach(depot => {
+        const weeklyData = weeklyAnalyses.map(wa => {
+            const depotAnalysis = wa.analysis.performanceByDepot.find(d => d.key === depot);
+            return {
+                weekLabel: wa.weekLabel,
+                analysis: depotAnalysis || null
+            };
+        });
+        depotAnalyses.push({
+            depot,
+            weeklyData
+        })
+    });
+
+    return depotAnalyses;
+  };
+
 
   const handleGenerateAndOpenReport = async () => {
     setIsLoading(true);
@@ -95,11 +150,14 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
         
         const top20percentWarehouses = sortedWarehouses.slice(0, Math.ceil(sortedWarehouses.length * 0.2));
 
+        const weeklyAnalyses = generateWeeklyAnalyses(4);
+        const depotWeeklyAnalyses = generateDepotWeeklyAnalyses(4);
+
         // --- Constructing the input for the AI report ---
         const input: GenerateLogisticsReportInput = {
             totalTours,
             generalKpis: (analysisData.generalKpis || []).map(({icon, ...kpi}) => kpi),
-            qualityKpis: (analysisData.qualityKpis || []).map(({icon, ...kpi}) => kpi),
+            qualityKpis: (analysisData.qualityKpis || []).map(({...kpi}) => kpi),
             negativeReviewsFromLateness: negativeReviewsKpi,
             discrepancyKpis: (analysisData.discrepancyKpis || []).map(({changeType, ...kpi}) => kpi).filter(kpi => !kpi.title.toLowerCase().includes('distance')),
             totalCumulativeDelayHours,
@@ -148,7 +206,10 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
                 totalCumulativeDelayHours,
                 totalAdditionalServiceHours,
                 top20percentWarehousesByOverrun: top20percentWarehouses,
-                firstTaskLatePercentage: analysisData.firstTaskLatePercentage
+                firstTaskLatePercentage: analysisData.firstTaskLatePercentage,
+                weeklyAnalyses: weeklyAnalyses,
+                depotWeeklyAnalyses: depotWeeklyAnalyses,
+                depots: depots,
             }
         };
         sessionStorage.setItem('visualReportData', JSON.stringify(reportData));
@@ -202,12 +263,3 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
     </Card>
   );
 }
-
-    
-
-    
-
-
-
-
-    

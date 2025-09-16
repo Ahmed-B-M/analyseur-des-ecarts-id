@@ -1,17 +1,20 @@
 
 'use client';
 import { useEffect, useState } from 'react';
-import type { VisualReportData, Kpi, OverloadedTourInfo } from '@/lib/types';
+import type { VisualReportData, Kpi, OverloadedTourInfo, WeeklyAnalysis, DepotWeeklyAnalysis, PerformanceByGroup } from '@/lib/types';
 import { Logo } from './Logo';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
-import { Printer, Loader2, AlertCircle, FileText, Target, Search, MapPin, BarChart2, Calendar, Clock, AlertTriangle, Timer, Route, Warehouse, Award, TrendingUp, Hourglass, Lightbulb, Info, Users, Sigma, Percent } from 'lucide-react';
+import { Printer, Loader2, AlertCircle, FileText, Target, Search, MapPin, BarChart2, Calendar, Clock, AlertTriangle, Timer, Route, Warehouse, Award, TrendingUp, Hourglass, Lightbulb, Info, Users, Sigma, Percent, ArrowDown, ArrowUp } from 'lucide-react';
 import { KpiCard, ComparisonKpiCard } from './KpiCard';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ComposedChart, Legend, Line, Area, Cell } from 'recharts';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
+import ComparisonView from './ComparisonView';
+import DepotComparison from './DepotComparison';
 
 type ExtendedVisualReportData = VisualReportData & {
     extra: {
@@ -27,6 +30,9 @@ type ExtendedVisualReportData = VisualReportData & {
         totalAdditionalServiceHours: number;
         top20percentWarehousesByOverrun: any[];
         firstTaskLatePercentage: number;
+        weeklyAnalyses: WeeklyAnalysis[];
+        depotWeeklyAnalyses: DepotWeeklyAnalysis[];
+        depots: string[];
     }
 }
 
@@ -132,7 +138,7 @@ export default function VisualReport() {
                   <AlertDescription>
                     <ul className="list-disc list-inside">
                         <li>Cliquez sur **Imprimer / PDF** pour générer un fichier PDF de haute qualité, idéal pour l'archivage et le partage.</li>
-                        <li>Pour une consultation future interactive (graphiques), sauvegardez cette page via `Fichier &gt; Enregistrer la page sous...` dans votre navigateur.</li>
+                        <li>Pour une consultation future interactive (graphiques), sauvegardez cette page via `Fichier > Enregistrer la page sous...` dans votre navigateur.</li>
                     </ul>
                   </AlertDescription>
                 </Alert>
@@ -279,8 +285,8 @@ export default function VisualReport() {
                         </div>
                     </ReportBlock>
                 </div>
-                 {/* --- PAGE 4: Geo, Drivers & Recommendations --- */}
-                <div className="space-y-8">
+                 {/* --- PAGE 4: Geo, Drivers --- */}
+                <div className="break-after-page space-y-8">
                      <ReportBlock title="Analyse Géographique & Performance Entrepôt" icon={MapPin}>
                          <Card className="print:shadow-none mb-6">
                             <CardHeader><CardTitle className="text-base">Synthèse IA par Zone</CardTitle></CardHeader>
@@ -340,7 +346,23 @@ export default function VisualReport() {
                             </CardContent>
                         </Card>
                     </ReportBlock>
+                </div>
+                 {/* --- PAGE 5: Weekly Comparison --- */}
+                <div className="break-after-page space-y-8">
+                     <ReportBlock title="Analyse Comparative Hebdomadaire" icon={TrendingUp}>
+                        <ComparisonView weeklyAnalyses={extra.weeklyAnalyses} isForReport={true} />
+                     </ReportBlock>
+                </div>
 
+                {/* --- PAGE 6: Depot Comparison --- */}
+                <div className="break-after-page space-y-8">
+                     <ReportBlock title="Analyse Comparative par Dépôt" icon={Warehouse}>
+                        <DepotComparison depotWeeklyAnalyses={extra.depotWeeklyAnalyses} isForReport={true} />
+                    </ReportBlock>
+                </div>
+
+                {/* --- PAGE 7: Recommendations --- */}
+                <div className="space-y-8">
                      <ReportBlock title="Recommandations" icon={Lightbulb}>
                         <Card className="print:shadow-none bg-amber-50 border-amber-200">
                             <CardContent className="pt-6 space-y-4">
@@ -368,7 +390,3 @@ export default function VisualReport() {
         </div>
     );
 }
-
-    
-
-    

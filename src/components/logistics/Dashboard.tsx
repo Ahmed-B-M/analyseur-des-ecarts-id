@@ -16,6 +16,7 @@ import { DateRangePicker } from './DateRangePicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import CalendarView from './CalendarView';
 import ComparisonView from './ComparisonView';
+import DepotComparison from './DepotComparison'; // New import
 
 type State = {
   tourneesFile: File | null;
@@ -290,9 +291,10 @@ export default function Dashboard() {
               allData={mergedData}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 max-w-3xl mx-auto">
+              <TabsList className="grid w-full grid-cols-5 max-w-4xl mx-auto">
                 <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
                 <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
+                <TabsTrigger value="depotComparison"><LayoutDashboard className="w-4 h-4 mr-2" />Comparaison Dépôts</TabsTrigger>
                 <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Analyse par Période</TabsTrigger>
                 <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
               </TabsList>
@@ -308,6 +310,13 @@ export default function Dashboard() {
                 <ComparisonView
                     allData={mergedData}
                     filters={state.filters}
+                />
+              </TabsContent>
+              <TabsContent value="depotComparison" className="mt-6">
+                <DepotComparison
+                    allData={mergedData}
+                    filters={state.filters}
+                    depots={depots}
                 />
               </TabsContent>
               <TabsContent value="calendar" className="mt-6">

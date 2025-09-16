@@ -171,12 +171,12 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
              const startDeparture = tour.heureDepartReelle || tour.demarre || 0;
              const plannedDeparture = tour.heureDepartPrevue || 0;
              // Anomaly: tour started on time or early, but at least one task ended up being late.
-             const hasLateTasks = tasks.some(t => t.retardStatus === 'late');
+             const hasLateTasks = tasks.some(t => t.retard > toleranceSeconds);
              return startDeparture <= plannedDeparture && hasLateTasks;
          })
          .map(({tour, tasks}) => ({
              ...tour,
-             tasksInDelay: tasks.filter(t => t.retardStatus === 'late').length
+             tasksInDelay: tasks.filter(t => t.retard > toleranceSeconds).length
          }))
         .sort((a, b) => b.tasksInDelay - a.tasksInDelay);
 

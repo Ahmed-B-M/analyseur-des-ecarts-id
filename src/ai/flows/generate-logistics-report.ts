@@ -96,7 +96,7 @@ const DelayHistogramSchema = z.object({
 const ReportInputSchema = z.object({
   totalTours: z.number(),
   generalKpis: z.array(KpiSchema).describe("KPIs généraux."),
-  qualityKpis: z.array(KpiSchema).describe("KPIs sur l'impact qualité."),
+  qualityKpis: z.array(KpiSchema.merge(ComparisonKpiSchema.partial())).describe("KPIs sur l'impact qualité."),
   negativeReviewsFromLateness: KpiSchema.describe("KPI spécifique sur les avis négatifs dus aux retards."),
   discrepancyKpis: z.array(ComparisonKpiSchema).describe("KPIs comparant le planifié et le réalisé."),
   
@@ -260,5 +260,3 @@ const generateLogisticsReportFlow = ai.defineFlow(
     return output!;
   }
 );
-
-    
