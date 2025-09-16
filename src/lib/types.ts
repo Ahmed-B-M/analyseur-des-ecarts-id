@@ -223,6 +223,24 @@ export type MadDelayData = {
   tourCount: number;
 }
 
+export type CustomReportConfig = {
+    sections: {
+        globalKpis?: boolean;
+        discrepancyAnalysis?: boolean;
+        qualityImpact?: boolean;
+        anomalies?: boolean;
+        temporalAnalysis?: boolean;
+        geoAnalysis?: boolean;
+        weeklyComparison?: boolean;
+    };
+    filters: {
+        depots: string[];
+        warehouses: string[];
+    };
+    selectedWeeks: string[];
+    tone: 'Neutre et Factuel' | 'Orienté Solutions';
+}
+
 
 export type AnalysisData = {
   generalKpis: Kpi[];
@@ -262,10 +280,14 @@ export type AiAnalysisResult = {
 export type VisualReportData = {
     analysis: AnalysisData,
     ai: GenerateLogisticsReportOutput,
+    config: CustomReportConfig,
     filters: Record<string, any>,
-    extra: Record<string, any>
+    extra: Record<string, any>,
+    weeklyAnalyses?: WeeklyAnalysis[],
+    depotWeeklyAnalyses?: DepotWeeklyAnalysis[]
 }
 
+export type GenerateLogisticsReportInput = import('@/ai/flows/generate-logistics-report').GenerateLogisticsReportInput
 export type GenerateLogisticsReportOutput = import('@/ai/flows/generate-logistics-report').GenerateLogisticsReportOutput
 
     
