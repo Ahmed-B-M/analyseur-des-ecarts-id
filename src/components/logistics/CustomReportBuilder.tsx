@@ -12,7 +12,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import AiReportGenerator from './AiReportGenerator';
 import { Badge } from '../ui/badge';
-import { Building, Filter, Calendar, BarChart2, AlertTriangle, MapPin, TrendingUp, CheckSquare, Wand2, Palette } from 'lucide-react';
+import { Building, Filter, Calendar, BarChart2, AlertTriangle, MapPin, TrendingUp, CheckSquare, Wand2, Palette, Warehouse } from 'lucide-react';
 
 
 interface CustomReportBuilderProps {
