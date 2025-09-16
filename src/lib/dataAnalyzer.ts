@@ -170,9 +170,9 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
          .filter(({ tour, tasks }) => {
              const startDeparture = tour.heureDepartReelle || tour.demarre || 0;
              const plannedDeparture = tour.heureDepartPrevue || 0;
-             const firstTask = tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
-             const isFirstTaskLate = firstTask && firstTask.retard > toleranceSeconds;
-             return startDeparture <= plannedDeparture && isFirstTaskLate;
+             // Anomaly: tour started on time or early, but at least one task ended up being late.
+             const hasLateTasks = tasks.some(t => t.retardStatus === 'late');
+             return startDeparture <= plannedDeparture && hasLateTasks;
          })
          .map(({tour, tasks}) => ({
              ...tour,
@@ -656,4 +656,3 @@ function formatSeconds(seconds: number): string {
     
 
     
-
