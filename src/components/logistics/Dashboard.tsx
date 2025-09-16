@@ -15,7 +15,6 @@ import { DateRange } from 'react-day-picker';
 import { DateRangePicker } from './DateRangePicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import CalendarView from './CalendarView';
-import SummaryView from './SummaryView';
 import ComparisonView from './ComparisonView';
 
 type State = {
@@ -76,7 +75,7 @@ function reducer(state: State, action: Action): State {
 export default function Dashboard() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [worker, setWorker] = useState<Worker | null>(null);
-  const [activeTab, setActiveTab] = useState('summary');
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
     const newWorker = new Worker(new URL('../../workers/parser.worker.ts', import.meta.url));
@@ -291,16 +290,12 @@ export default function Dashboard() {
               allData={mergedData}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-5 max-w-3xl mx-auto">
-                <TabsTrigger value="summary"><LayoutDashboard className="w-4 h-4 mr-2" />Résumé</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 max-w-3xl mx-auto">
                 <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
                 <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
                 <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Analyse par Période</TabsTrigger>
                 <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
               </TabsList>
-              <TabsContent value="summary" className="mt-6">
-                 <SummaryView analysisData={analysisData} allData={filteredData} filters={state.filters} />
-              </TabsContent>
               <TabsContent value="dashboard" className="mt-6">
                 <AnalysisDashboard 
                   analysisData={analysisData}
