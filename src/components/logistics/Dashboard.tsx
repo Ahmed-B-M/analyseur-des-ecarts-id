@@ -44,6 +44,8 @@ const initialState: State = {
   filters: { 
     punctualityThreshold: 15,
     tours100Mobile: false,
+    excludeMadDelays: false,
+    madDelays: [], // stores 'warehouse|date' strings
   },
 };
 
@@ -121,11 +123,21 @@ export default function Dashboard() {
     if (!state.data) return [];
 
     let dataToFilter = mergedData;
+    
+    // MAD Delays Filter
+    if (state.filters.excludeMadDelays && state.filters.madDelays && state.filters.madDelays.length > 0) {
+        const madSet = new Set(state.filters.madDelays);
+        dataToFilter = dataToFilter.filter(item => {
+            if (!item.tournee) return false;
+            const madKey = `${item.tournee.entrepot}|${item.date}`;
+            return !madSet.has(madKey);
+        });
+    }
 
     // Special filter for "100% mobile" tours
     if (state.filters.tours100Mobile) {
         const tourTasks = new Map<string, Tache[]>();
-        mergedData.forEach(task => {
+        dataToFilter.forEach(task => {
             if (!tourTasks.has(task.tourneeUniqueId)) {
                 tourTasks.set(task.tourneeUniqueId, []);
             }
@@ -139,7 +151,7 @@ export default function Dashboard() {
             }
         }
         
-        dataToFilter = mergedData.filter(task => mobileTourIds.has(task.tourneeUniqueId));
+        dataToFilter = dataToFilter.filter(task => mobileTourIds.has(task.tourneeUniqueId));
     }
     
     return dataToFilter.filter(item => {
@@ -276,6 +288,7 @@ export default function Dashboard() {
               depots={depots} 
               warehouses={warehouses}
               cities={(analysisData?.cities || [])}
+              allData={mergedData}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-5 max-w-3xl mx-auto">

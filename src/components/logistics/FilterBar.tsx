@@ -10,12 +10,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { X } from 'lucide-react';
+import { X, SlidersHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { DateRangePicker } from './DateRangePicker';
 import { DateRange } from 'react-day-picker';
 import { Switch } from '../ui/switch';
+import { Button } from '../ui/button';
+import MadDelayManager from './MadDelayManager';
+import { useState } from 'react';
 
 interface FilterBarProps {
   filters: Record<string, any>;
@@ -23,11 +26,13 @@ interface FilterBarProps {
   depots: string[];
   warehouses: string[];
   cities: string[];
+  allData: any[]; // Used for MAD delay manager
 }
 
 const ALL_ITEMS_VALUE = '__ALL__';
 
-export default function FilterBar({ filters, setFilters, depots, warehouses, cities }: FilterBarProps) {
+export default function FilterBar({ filters, setFilters, depots, warehouses, cities, allData }: FilterBarProps) {
+  const [isMadManagerOpen, setIsMadManagerOpen] = useState(false);
 
   const handleFilterChange = (key: string, value: any) => {
     const newFilters = { ...filters };
@@ -55,7 +60,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
   }
   
   const clearAllFilters = () => {
-    const persistentFilters = ['punctualityThreshold', 'tours100Mobile'];
+    const persistentFilters = ['punctualityThreshold', 'tours100Mobile', 'excludeMadDelays', 'madDelays'];
     const newFilters: Record<string, any> = {};
     persistentFilters.forEach(key => {
         if(filters[key] !== undefined) {
@@ -66,7 +71,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
   }
 
   const activeFilters = Object.keys(filters).filter(key => 
-    !['punctualityThreshold'].includes(key) && filters[key] !== undefined && filters[key] !== null && filters[key] !== false
+    !['punctualityThreshold', 'madDelays'].includes(key) && filters[key] !== undefined && filters[key] !== null && filters[key] !== false
   );
   
   const getFilterLabel = (key: string) => {
@@ -79,6 +84,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
           case 'codePostal': return 'Code Postal';
           case 'heure': return 'Heure';
           case 'tours100Mobile': return '100% Mobile';
+          case 'excludeMadDelays': return 'Exclure MAD';
           default: return key;
       }
   }
@@ -105,12 +111,15 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
       if (key === 'tours100Mobile' && value === true) {
         return "Oui";
       }
+      if (key === 'excludeMadDelays' && value === true) {
+        return "Oui";
+      }
       return value;
   }
 
   return (
     <div className="p-4 bg-card rounded-lg border shadow-sm space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-end">
         <div>
           <Label>Période d'Analyse</Label>
           <DateRangePicker 
@@ -188,6 +197,20 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
             />
             <Label htmlFor="tours-100-mobile">Tournées 100% mobile</Label>
         </div>
+         <div className="flex items-center space-x-2 pb-2">
+            <Switch 
+                id="exclude-mad-delays"
+                checked={filters.excludeMadDelays || false}
+                onCheckedChange={(checked) => handleFilterChange('excludeMadDelays', checked)}
+            />
+            <Label htmlFor="exclude-mad-delays">Exclure retards MAD</Label>
+        </div>
+         <div className="pb-2">
+            <Button variant="outline" onClick={() => setIsMadManagerOpen(true)}>
+                <SlidersHorizontal className="mr-2" />
+                Gérer les retards MAD
+            </Button>
+         </div>
       </div>
       {activeFilters.length > 0 && (
          <div className="flex items-center gap-2 pt-2 flex-wrap">
@@ -205,6 +228,13 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
             </button>
          </div>
       )}
+       <MadDelayManager 
+        isOpen={isMadManagerOpen} 
+        onOpenChange={setIsMadManagerOpen}
+        allData={allData}
+        madDelays={filters.madDelays || []}
+        setMadDelays={(delays) => handleFilterChange('madDelays', delays)}
+      />
     </div>
   );
 }

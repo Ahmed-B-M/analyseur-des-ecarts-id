@@ -206,6 +206,12 @@ export type ComparisonData = {
     values: { weekLabel: string; value: number | string }[];
 };
 
+export type MadDelayData = {
+  id: string; // warehouse|date
+  warehouse: string;
+  date: string;
+  tourCount: number;
+}
 
 
 export type AnalysisData = {
