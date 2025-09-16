@@ -240,13 +240,21 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         tasksByHour[hourStr] = { planned: 0, real: 0, delays: 0, advances: 0 };
     }
     completedTasks.forEach(task => {
-        const realHourIndex = new Date(task.heureArriveeReelle * 1000).getUTCHours();
+        // 'real' workload is based on closing time
+        const realHourIndex = new Date(task.heureCloture * 1000).getUTCHours();
         const realHourStr = `${String(realHourIndex).padStart(2, '0')}:00`;
         if (tasksByHour[realHourStr]) {
             tasksByHour[realHourStr].real++;
-            if (task.retardStatus === 'late') tasksByHour[realHourStr].delays++;
-            else if (task.retardStatus === 'early') tasksByHour[realHourStr].advances++;
         }
+        
+        // 'planned' workload, delays, and advances are based on arrival time
+        const arrivalHourIndex = new Date(task.heureArriveeReelle * 1000).getUTCHours();
+        const arrivalHourStr = `${String(arrivalHourIndex).padStart(2, '0')}:00`;
+        if (tasksByHour[arrivalHourStr]) {
+            if (task.retardStatus === 'late') tasksByHour[arrivalHourStr].delays++;
+            else if (task.retardStatus === 'early') tasksByHour[arrivalHourStr].advances++;
+        }
+
         const plannedHourIndex = new Date(task.heureArriveeApprox * 1000).getUTCHours();
         const plannedHourStr = `${String(plannedHourIndex).padStart(2, '0')}:00`;
         if (tasksByHour[plannedHourStr]) {
@@ -664,3 +672,4 @@ function formatSeconds(seconds: number): string {
     
 
     
+
