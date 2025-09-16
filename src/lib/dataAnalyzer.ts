@@ -45,8 +45,15 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         }
     });
 
+    const uniqueTournees = Array.from(tourneeMap.values())
+        .filter(data => data.tasks.length > 0)
+        .map(data => data.tour);
+
+
     // Aggregate real values and calculated durations per tour
     tourneeMap.forEach(({ tour, tasks }) => {
+        if (tasks.length === 0) return;
+
         tour.poidsReel = tasks.reduce((sum, t) => sum + t.poids, 0);
         tour.bacsReels = tasks.reduce((sum, t) => sum + t.items, 0);
         
@@ -77,18 +84,17 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         }
     });
 
-    const uniqueTournees = Array.from(tourneeMap.values()).map(data => data.tour);
 
     // --- KPI Calculations ---
     const tasksOnTime = completedTasks.filter(t => t.retardStatus === 'onTime');
     const lateTasks = completedTasks.filter(t => t.retardStatus === 'late');
-    const earlyTasks = completedTasks.filter(t => t.retardStatus === 'early');
+    const earlyTasks = completedTasks.filter(t => t.retard < -toleranceSeconds); // strict early
     const outOfTimeTasks = lateTasks.length + earlyTasks.length;
 
     const predictedTasksOnTime = completedTasks.filter(t => t.retardPrevisionnelStatus === 'onTime');
     const predictedOutOfTimeTasks = completedTasks.length - predictedTasksOnTime.length;
 
-    const punctualityRate = completedTasks.length > 0 ? (tasksOnTime.length / completedTasks.length) * 100 : 100;
+    const punctualityRate = completedTasks.length > 0 ? ((completedTasks.length - outOfTimeTasks) / completedTasks.length) * 100 : 100;
     const predictedPunctualityRate = completedTasks.length > 0 ? (predictedTasksOnTime.length / completedTasks.length) * 100 : 100;
     
     const avgRatingData = completedTasks.filter(t => t.notation != null && t.notation > 0);
@@ -159,30 +165,38 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
 
     const lateStartAnomalies: LateStartAnomaly[] = Array.from(tourneeMap.values())
-        .map(({tour, tasks}) => ({ 
-            tour, 
-            tasksInDelay: tasks.filter(t => t.retardStatus === 'late').length,
-            ecartDepart: tour.heureDepartReelle - tour.heureDepartPrevue
-        }))
-        .filter(({ tour, tasksInDelay, ecartDepart }) => ecartDepart <= 0 && tasksInDelay > 0)
-        .map(({ tour, tasksInDelay, ecartDepart }) => ({
-            ...tour,
-            tasksInDelay,
-            ecartDepart
-        }))
+        .map(({tour, tasks}) => {
+             const firstTask = tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
+             const isFirstTaskLate = firstTask && firstTask.retard > toleranceSeconds;
+             return {
+                 tour,
+                 tasksInDelay: tasks.filter(t => t.retardStatus === 'late').length,
+                 isFirstTaskLate
+             };
+         })
+         .filter(({ tour, isFirstTaskLate }) => {
+             const startDeparture = tour.heureDepartReelle || tour.demarre || 0;
+             const plannedDeparture = tour.heureDepartPrevue || 0;
+             return startDeparture <= plannedDeparture && isFirstTaskLate;
+         })
+         .map(({tour, tasksInDelay}) => ({
+             ...tour,
+             tasksInDelay
+         }))
         .sort((a, b) => b.tasksInDelay - a.tasksInDelay);
 
     // --- Quality Impact KPIs ---
     const overloadedToursIds = new Set(overloadedToursInfos.map(t => t.uniqueId));
     
-    const tasksOnOverloadedTours = completedTasks.filter(t => t.tournee && overloadedToursIds.has(t.tournee.uniqueId));
-    const tasksOnNonOverloadedTours = completedTasks.filter(t => !t.tournee || !overloadedToursIds.has(t.tournee.uniqueId));
+    const ratedTasksOnOverloadedTours = completedTasks.filter(t => t.notation != null && t.tournee && overloadedToursIds.has(t.tournee.uniqueId));
+    const ratedTasksOnNonOverloadedTours = completedTasks.filter(t => t.notation != null && (!t.tournee || !overloadedToursIds.has(t.tournee.uniqueId)));
 
-    const negativeReviewsOnOverloadedTours = tasksOnOverloadedTours.filter(t => t.notation != null && t.notation <= 3);
-    const negativeReviewsOnNonOverloadedTours = tasksOnNonOverloadedTours.filter(t => t.notation != null && t.notation <= 3);
+    const negativeReviewsOnOverloadedTours = ratedTasksOnOverloadedTours.filter(t => t.notation! <= 3);
+    const negativeReviewsOnNonOverloadedTours = ratedTasksOnNonOverloadedTours.filter(t => t.notation! <= 3);
 
-    const rateBadReviewsOverloaded = tasksOnOverloadedTours.length > 0 ? (negativeReviewsOnOverloadedTours.length / tasksOnOverloadedTours.length) * 100 : 0;
-    const rateBadReviewsNonOverloaded = tasksOnNonOverloadedTours.length > 0 ? (negativeReviewsOnNonOverloadedTours.length / tasksOnNonOverloadedTours.length) * 100 : 0;
+    const rateBadReviewsOverloaded = ratedTasksOnOverloadedTours.length > 0 ? (negativeReviewsOnOverloadedTours.length / ratedTasksOnOverloadedTours.length) * 100 : 0;
+    const rateBadReviewsNonOverloaded = ratedTasksOnNonOverloadedTours.length > 0 ? (negativeReviewsOnNonOverloadedTours.length / ratedTasksOnNonOverloadedTours.length) * 100 : 0;
+
 
     const badReviewsOnOverloadKpi: ComparisonKpi = {
         title: "Taux d'Avis Négatifs (Surcharge vs. Standard)",
@@ -197,10 +211,20 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const negativeReviewsOnLateTasks = negativeReviews.filter(t => t.retardStatus === 'late');
     const correlationDelays = negativeReviews.length > 0 ? (negativeReviewsOnLateTasks.length / negativeReviews.length) * 100 : 0;
     
+    const totalToursWithStartAnomalies = Array.from(tourneeMap.values()).filter(({ tour, tasks }) => {
+        const startDeparture = tour.heureDepartReelle || tour.demarre || 0;
+        const plannedDeparture = tour.heureDepartPrevue || 0;
+        const firstTask = tasks.sort((a, b) => a.heureArriveeApprox - b.heureArriveeApprox)[0];
+        const isFirstTaskLate = firstTask && firstTask.retard > toleranceSeconds;
+        return startDeparture <= plannedDeparture && isFirstTaskLate;
+    }).length;
+    const firstTaskLatePercentage = uniqueTournees.length > 0 ? (totalToursWithStartAnomalies / uniqueTournees.length) * 100 : 0;
+
+
     const qualityKpis: (Kpi | ComparisonKpi)[] = [
         { title: 'Corrélation Retards / Avis Négatifs', value: `${correlationDelays.toFixed(1)}%`, icon: 'BarChart' },
         badReviewsOnOverloadKpi,
-        { title: 'Anomalies en Tournée', value: lateStartAnomalies.length.toString(), icon: 'Route' },
+        { title: '% Tournées avec Retard à la 1ère Tâche', value: `${firstTaskLatePercentage.toFixed(1)}%`, icon: 'Route' },
     ];
     
     // --- Performance & Context Analysis ---
@@ -281,7 +305,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     // --- New Analyses ---
     const performanceByDayOfWeek = calculatePerformanceByDayOfWeek(completedTasks, toleranceSeconds);
     const performanceByTimeSlot = calculatePerformanceByTimeSlot(completedTasks);
-    const delayHistogram = createDelayHistogram(completedTasks);
+    const delayHistogram = createDelayHistogram(completedTasks, toleranceSeconds);
 
     // --- New Summary Tables Data ---
     const globalSummary: GlobalSummary = {
@@ -324,7 +348,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         cities: [...new Set(completedTasks.map(t => t.ville))].sort(),
         globalSummary,
         performanceByDepot,
-        performanceByWarehouse
+        performanceByWarehouse,
+        firstTaskLatePercentage
     };
 }
 
@@ -357,7 +382,8 @@ function createEmptyAnalysisData(): AnalysisData {
         cities: [],
         globalSummary: { punctualityRatePlanned: 0, punctualityRateRealized: 0, avgDurationDiscrepancyPerTour: 0, avgWeightDiscrepancyPerTour: 0, weightOverrunPercentage: 0, durationOverrunPercentage: 0 },
         performanceByDepot: [],
-        performanceByWarehouse: []
+        performanceByWarehouse: [],
+        firstTaskLatePercentage: 0
     };
 }
 
@@ -594,13 +620,13 @@ function calculatePerformanceByTimeSlot(tasks: MergedData[]): PerformanceByTimeS
 }
 
 
-function createDelayHistogram(tasks: MergedData[]): DelayHistogramBin[] {
+function createDelayHistogram(tasks: MergedData[], toleranceSeconds: number): DelayHistogramBin[] {
     const bins: { [key: string]: { min: number, max: number, count: number } } = {
         '> 60 min en avance': { min: -Infinity, max: -3601, count: 0 },
         '30-60 min en avance': { min: -3600, max: -1801, count: 0 },
-        '15-30 min en avance': { min: -1800, max: -901, count: 0 },
-        'À l\'heure (-15 à +15 min)': { min: -900, max: 900, count: 0 },
-        '15-30 min de retard': { min: 901, max: 1800, count: 0 },
+        '15-30 min en avance': { min: -1800, max: -toleranceSeconds -1, count: 0 },
+        'À l\'heure': { min: -toleranceSeconds, max: toleranceSeconds, count: 0 },
+        '15-30 min de retard': { min: toleranceSeconds + 1, max: 1800, count: 0 },
         '30-60 min de retard': { min: 1801, max: 3600, count: 0 },
         '> 60 min de retard': { min: 3601, max: Infinity, count: 0 },
     };
@@ -618,14 +644,14 @@ function createDelayHistogram(tasks: MergedData[]): DelayHistogramBin[] {
         '> 60 min en avance',
         '30-60 min en avance',
         '15-30 min en avance',
-        'À l\'heure (-15 à +15 min)',
+        'À l\'heure',
         '15-30 min de retard',
         '30-60 min de retard',
         '> 60 min de retard'
     ];
 
     return sortedBinKeys.map(key => ({
-        range: key,
+        range: key.replace('15', toleranceMinutes.toString()),
         count: bins[key].count
     }));
 }
@@ -638,5 +664,7 @@ function formatSeconds(seconds: number): string {
     const m = Math.floor((seconds % 3600) / 60);
     return `${h}h ${m < 10 ? '0' : ''}${m}m`;
 }
+
+    
 
     

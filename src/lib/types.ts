@@ -111,7 +111,6 @@ export type OverloadedTourInfo = Tournee & {
 
 export type LateStartAnomaly = Tournee & {
   tasksInDelay: number;
-  ecartDepart: number;
 }
 
 export type DurationDiscrepancy = Tournee & {
@@ -224,8 +223,20 @@ export type AnalysisData = {
   globalSummary: GlobalSummary;
   performanceByDepot: PerformanceByGroup[];
   performanceByWarehouse: PerformanceByGroup[];
+  firstTaskLatePercentage: number;
 };
 
 export type AiAnalysisResult = {
   reason: 'Retard' | 'Avance' | 'Autre';
 };
+
+export type VisualReportData = {
+    analysis: AnalysisData,
+    ai: GenerateLogisticsReportOutput,
+    filters: Record<string, any>,
+    extra: Record<string, any>
+}
+
+export type GenerateLogisticsReportOutput = import('./flows/generate-logistics-report').GenerateLogisticsReportOutput
+
+    

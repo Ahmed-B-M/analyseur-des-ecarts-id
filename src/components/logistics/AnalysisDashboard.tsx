@@ -416,7 +416,7 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                              let color = '#a0aec0'; // default grey
                              if (entry.range.includes('retard')) color = PRIMARY_COLOR;
                              if (entry.range.includes('avance')) color = ADVANCE_COLOR;
-                             if (entry.range.includes('À l\'heure')) color = '#48bb78'; // green
+                             if (entry.range.includes('l\'heure')) color = '#48bb78'; // green
                              return <Cell key={`cell-${index}`} fill={color} />;
                           })}
                        </Bar>
@@ -679,3 +679,5 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     </div>
   );
 }
+
+    
