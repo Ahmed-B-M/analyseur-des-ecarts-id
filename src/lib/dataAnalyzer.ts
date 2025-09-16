@@ -136,7 +136,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const overloadedToursInfos: OverloadedTourInfo[] = uniqueTournees.map(tour => {
         const isOverloadedByWeight = tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids;
         const isOverloadedByBins = tour.capaciteBacs > 0 && tour.bacsReels > tour.capaciteBacs;
-        
+        const isOverloadedByTime = tour.dureePrevue > 0 && tour.dureeReelleCalculee! > (tour.dureePrevue * 1.2); // 20% tolerance
+
         const depassementPoids = isOverloadedByWeight ? tour.poidsReel - tour.capacitePoids : 0;
         const tauxDepassementPoids = tour.capacitePoids > 0 ? (depassementPoids / tour.capacitePoids) * 100 : 0;
         const depassementBacs = isOverloadedByBins ? tour.bacsReels - tour.capaciteBacs : 0;
@@ -144,7 +145,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
         return {
             ...tour, 
-            isOverloaded: isOverloadedByWeight || isOverloadedByBins,
+            isOverloaded: isOverloadedByWeight || isOverloadedByBins || isOverloadedByTime,
             depassementPoids,
             tauxDepassementPoids,
             depassementBacs,
@@ -655,3 +656,4 @@ function formatSeconds(seconds: number): string {
     
 
     
+
