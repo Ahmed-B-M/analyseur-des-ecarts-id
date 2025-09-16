@@ -16,7 +16,7 @@ import { DateRangePicker } from './DateRangePicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import CalendarView from './CalendarView';
 import ComparisonView from './ComparisonView';
-import DepotComparison from './DepotComparison'; // New import
+import DepotComparison from './DepotComparison'; 
 
 type State = {
   tourneesFile: File | null;
@@ -304,6 +304,7 @@ export default function Dashboard() {
                   onFilterAndSwitch={applyFilterAndSwitchTab}
                   allData={mergedData}
                   filters={state.filters}
+                  depots={depots}
                 />
               </TabsContent>
               <TabsContent value="comparison" className="mt-6">

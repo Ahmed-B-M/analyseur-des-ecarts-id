@@ -55,6 +55,7 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
   };
   
   const generateDepotWeeklyAnalyses = (numberOfWeeks: number): DepotWeeklyAnalysis[] => {
+    if (!depots || depots.length === 0) return [];
     const weeklyAnalyses = generateWeeklyAnalyses(numberOfWeeks);
     const depotAnalyses: DepotWeeklyAnalysis[] = [];
 
