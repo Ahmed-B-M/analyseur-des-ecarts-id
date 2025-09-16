@@ -240,7 +240,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         tasksByHour[hourStr] = { planned: 0, real: 0, delays: 0, advances: 0 };
     }
     completedTasks.forEach(task => {
-        const realHourIndex = new Date(task.heureCloture * 1000).getUTCHours();
+        const realHourIndex = new Date(task.heureArriveeReelle * 1000).getUTCHours();
         const realHourStr = `${String(realHourIndex).padStart(2, '0')}:00`;
         if (tasksByHour[realHourStr]) {
             tasksByHour[realHourStr].real++;
@@ -264,7 +264,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         tasksBySlot[`${start}h-${end}h`] = { planned: 0, real: 0, plannedTours: new Set(), realTours: new Set() };
     }
     completedTasks.forEach(task => {
-        const realHourIndex = new Date(task.heureCloture * 1000).getUTCHours();
+        const realHourIndex = new Date(task.heureArriveeReelle * 1000).getUTCHours();
         const realSlotIndex = Math.floor(realHourIndex / 2) * 2;
         const realSlotKey = `${String(realSlotIndex).padStart(2, '0')}h-${String(realSlotIndex + 2).padStart(2, '0')}h`;
         if (tasksBySlot[realSlotKey]) {
@@ -336,7 +336,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         advancesByPostalCode,
         advancesByHour,
         workloadByHour,
-        avgWorkloadByDriverBySlot,
+        avgWorkloadByDriverBySlot: avgWorkloadBySlot,
         avgWorkload,
         performanceByDayOfWeek,
         performanceByTimeSlot,
@@ -399,7 +399,7 @@ function countItemsBy(tasks: MergedData[], keyGetter: (task: MergedData) => stri
 
 function countByHour(tasks: MergedData[]): DelayByHour[] {
     const counts = tasks.reduce((acc, task) => {
-        const hour = new Date(task.heureCloture * 1000).getUTCHours();
+        const hour = new Date(task.heureArriveeReelle * 1000).getUTCHours();
         const hourString = `${String(hour).padStart(2, '0')}:00`;
         acc[hourString] = (acc[hourString] || 0) + 1;
         return acc;
@@ -571,24 +571,24 @@ function calculatePerformanceByDayOfWeek(tasks: MergedData[], toleranceSeconds: 
 }
 
 function calculatePerformanceByTimeSlot(tasks: MergedData[]): PerformanceByTimeSlot[] {
-    const slots: Record<string, { totalTasks: number; lateTasks: MergedData[]; earlyTasks: MergedData[] }> = {};
-
-    // Create 2-hour slots from 00:00 to 22:00
-    for (let i = 0; i < 24; i += 2) {
-        const start = String(i).padStart(2, '0');
-        const end = String(i + 2).padStart(2, '0');
-        slots[`${start}h-${end}h`] = { totalTasks: 0, lateTasks: [], earlyTasks: [] };
-    }
+    const slots: Record<string, { totalTasks: number; lateTasks: MergedData[]; earlyTasks: MergedData[] }> = {
+      'Matin (06-12h)': { totalTasks: 0, lateTasks: [], earlyTasks: [] },
+      'Après-midi (12-18h)': { totalTasks: 0, lateTasks: [], earlyTasks: [] },
+      'Soir (18-00h)': { totalTasks: 0, lateTasks: [], earlyTasks: [] }
+    };
 
     tasks.forEach(task => {
         const startHour = Math.floor(task.heureDebutCreneau / 3600);
-        // Find the correct 2-hour slot
-        const slotHour = Math.floor(startHour / 2) * 2;
-        const startSlot = String(slotHour).padStart(2, '0');
-        const endSlot = String(slotHour + 2).padStart(2, '0');
-        const slotKey = `${startSlot}h-${endSlot}h`;
-
-        if (slots[slotKey]) {
+        let slotKey: string | null = null;
+        if (startHour >= 6 && startHour < 12) {
+            slotKey = 'Matin (06-12h)';
+        } else if (startHour >= 12 && startHour < 18) {
+            slotKey = 'Après-midi (12-18h)';
+        } else if (startHour >= 18 && startHour < 24) {
+            slotKey = 'Soir (18-00h)';
+        }
+        
+        if (slotKey && slots[slotKey]) {
             slots[slotKey].totalTasks++;
             if (task.retardStatus === 'late') {
                 slots[slotKey].lateTasks.push(task);
