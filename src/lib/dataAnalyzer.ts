@@ -134,22 +134,22 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     
     // --- Detailed Analysis Tables ---
     const overloadedToursInfos: OverloadedTourInfo[] = uniqueTournees.map(tour => {
-        const isOverloadedByWeight = tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids;
-        const isOverloadedByBins = tour.capaciteBacs > 0 && tour.bacsReels > tour.capaciteBacs;
+        const isOverloadedByWeight = tour.poidsPrevu > 0 && tour.poidsReel > (tour.poidsPrevu * 1.1); // 10% tolerance vs planned
+        const isOverloadedByBins = tour.bacsPrevus > 0 && tour.bacsReels > tour.bacsPrevus;
         const isOverloadedByTime = tour.dureePrevue > 0 && tour.dureeReelleCalculee! > (tour.dureePrevue * 1.2); // 20% tolerance
 
-        const depassementPoids = isOverloadedByWeight ? tour.poidsReel - tour.capacitePoids : 0;
-        const tauxDepassementPoids = tour.capacitePoids > 0 ? (depassementPoids / tour.capacitePoids) * 100 : 0;
-        const depassementBacs = isOverloadedByBins ? tour.bacsReels - tour.capaciteBacs : 0;
-        const tauxDepassementBacs = tour.capaciteBacs > 0 ? (depassementBacs / tour.capaciteBacs) * 100 : 0;
+        const depassementPoids = tour.poidsReel - tour.poidsPrevu;
+        const tauxDepassementPoids = tour.poidsPrevu > 0 ? (depassementPoids / tour.poidsPrevu) * 100 : 0;
+        const depassementBacs = tour.bacsReels - tour.bacsPrevus;
+        const tauxDepassementBacs = tour.bacsPrevus > 0 ? (depassementBacs / tour.bacsPrevus) * 100 : 0;
 
         return {
             ...tour, 
             isOverloaded: isOverloadedByWeight || isOverloadedByBins || isOverloadedByTime,
-            depassementPoids,
-            tauxDepassementPoids,
-            depassementBacs,
-            tauxDepassementBacs,
+            depassementPoids: depassementPoids,
+            tauxDepassementPoids: tauxDepassementPoids,
+            depassementBacs: depassementBacs,
+            tauxDepassementBacs: tauxDepassementBacs,
         };
     }).filter(t => t.isOverloaded)
       .sort((a,b) => b.tauxDepassementPoids - a.tauxDepassementPoids || b.tauxDepassementBacs - a.tauxDepassementBacs);
@@ -168,15 +168,15 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
     const lateStartAnomalies: LateStartAnomaly[] = Array.from(tourneeMap.values())
          .filter(({ tour, tasks }) => {
-             const startDeparture = tour.heureDepartReelle || tour.demarre || 0;
-             const plannedDeparture = tour.heureDepartPrevue || 0;
+             const startDeparture = tour.heureDepartReelle;
+             const plannedDeparture = tour.heureDepartPrevue;
              // Anomaly: tour started on time or early, but at least one task ended up being late.
-             const hasLateTasks = tasks.some(t => t.retard > toleranceSeconds);
-             return startDeparture <= plannedDeparture && hasLateTasks;
+             const hasLateTasks = tasks.some(t => t.retardStatus === 'late');
+             return startDeparture > 0 && plannedDeparture > 0 && startDeparture <= plannedDeparture && hasLateTasks;
          })
          .map(({tour, tasks}) => ({
              ...tour,
-             tasksInDelay: tasks.filter(t => t.retard > toleranceSeconds).length
+             tasksInDelay: tasks.filter(t => t.retardStatus === 'late').length
          }))
         .sort((a, b) => b.tasksInDelay - a.tasksInDelay);
 
@@ -432,7 +432,7 @@ function calculatePerformanceByDriver(toursWithTasks: { tour: Tournee, tasks: Me
         group.tours.push(tour);
         group.tasks.push(...tasks);
         
-        const isOverweight = tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids;
+        const isOverweight = tour.poidsPrevu > 0 && tour.poidsReel > tour.poidsPrevu;
         if (isOverweight) {
             group.overweightTours.add(tour.uniqueId);
         }
@@ -672,4 +672,5 @@ function formatSeconds(seconds: number): string {
     
 
     
+
 

@@ -99,7 +99,7 @@ export default function VisualReport() {
     const handlePrint = () => window.print();
 
     if (isLoading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="w-12 h-12 animate-spin" /></div>;
-    if (!reportData) return <div className="flex items-center justify-center min-h-screen"><AlertCircle className="w-12 h-12" /> No Report Data</div>;
+    if (!reportData) return <div className="flex flex-col gap-4 items-center justify-center min-h-screen"><AlertCircle className="w-12 h-12 text-destructive" /> <p className='font-semibold'>Aucune Donnée de Rapport Trouvée</p><p className='text-sm text-muted-foreground'>Veuillez retourner au tableau de bord et générer un nouveau rapport.</p></div>;
 
     const { analysis, ai, filters, extra } = reportData;
 

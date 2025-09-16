@@ -246,7 +246,7 @@ export default function AiReportGenerator({ analysisData, allData, filters, aiFe
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Button onClick={handleGenerateAndOpenReport} disabled={isLoading} size="lg">
+        <Button onClick={handleGenerateAndOpenReport} disabled={isLoading || !analysisData} size="lg">
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
