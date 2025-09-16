@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AiAnalysis from './AiAnalysis';
 import AiReportGenerator from './AiReportGenerator';
-import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse, Building, Percent, Filter } from 'lucide-react';
+import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse, Building, Percent, Filter, HelpCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
@@ -17,6 +17,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '../ui/switch';
 import { Label } from '../ui/label';
+import { Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 interface AnalysisDashboardProps {
@@ -221,8 +222,24 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
   }, [analysisData.generalKpis]);
 
   const overloadedToursCount = (analysisData.overloadedTours || []).length;
-  const durationDiscrepanciesCount = (analysisData.durationDiscrepancies || []).filter(d => d.ecart > 0).length;
+  const durationDiscrepanciesCount = (analysisData.durationDiscrepancies || []).length;
   const lateStartAnomaliesCount = (analysisData.lateStartAnomalies || []).length;
+
+  const performanceFocusData = useMemo(() => {
+    const data = [
+        ...(analysisData.performanceByDepot || []).map(d => ({ ...d, type: 'Dépôt' })),
+        ...(analysisData.performanceByWarehouse || []).map(d => ({ ...d, type: 'Entrepôt' })),
+        ...(analysisData.performanceByCity || []).map(d => ({ ...d, type: 'Ville' })),
+    ];
+    return data
+        .map(d => ({
+            key: `${d.type}: ${d.key}`,
+            punctualityDiscrepancy: d.punctualityRateRealized - d.punctualityRatePlanned,
+        }))
+        .filter(d => d.punctualityDiscrepancy < 0)
+        .sort((a, b) => a.punctualityDiscrepancy - b.punctualityDiscrepancy)
+        .slice(0, 5);
+  }, [analysisData]);
 
 
   return (
@@ -339,11 +356,22 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                     </AccordionContent>
                   </AccordionItem>
                   <AccordionItem value="anomaly">
-                    <AccordionTrigger>
-                        Anomalies de Planification ({lateStartAnomaliesCount} - {totalTours > 0 ? (lateStartAnomaliesCount / totalTours * 100).toFixed(1) : 0}%)
+                     <AccordionTrigger>
+                        <div className="flex items-center gap-2">
+                            Anomalies de Planification ({lateStartAnomaliesCount} - {totalTours > 0 ? (lateStartAnomaliesCount / totalTours * 100).toFixed(1) : 0}%)
+                            <TooltipProvider>
+                                <UiTooltip>
+                                    <TooltipTrigger>
+                                        <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Tournées parties à l'heure (ou en avance) mais dont au moins une<br/> livraison est arrivée en retard. Signale des problèmes de temps de parcours.</p>
+                                    </TooltipContent>
+                                </UiTooltip>
+                            </TooltipProvider>
+                        </div>
                     </AccordionTrigger>
                      <AccordionContent>
-                        <p className="text-xs text-muted-foreground mb-2">Tournées parties à l'heure (ou en avance) mais dont au moins une livraison est arrivée en retard. Signale des problèmes de temps de parcours.</p>
                        <ScrollArea className="h-60">
                          <Table>
                           <TableHeader><TableRow><TableHead>Tournée</TableHead><TableHead>Départ Prévu</TableHead><TableHead>Départ Réel</TableHead><TableHead># Tâches Retard</TableHead></TableRow></TableHeader>
@@ -699,9 +727,32 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 </Tabs>
             </CardContent>
          </Card>
+        {performanceFocusData.length > 0 && (
+            <Card className="mt-6">
+                <CardHeader>
+                    <CardTitle>Focus sur les Écarts de Ponctualité par Groupe</CardTitle>
+                    <CardDescription>
+                        Top 5 des groupes avec les plus grands écarts négatifs entre la ponctualité planifiée et réalisée.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <BarChart layout="vertical" data={performanceFocusData} margin={{ left: 150 }}>
+                            <XAxis type="number" dataKey="punctualityDiscrepancy" domain={['auto', 0]} formatter={(value) => `${value.toFixed(1)}%`} />
+                            <YAxis type="category" dataKey="key" width={150} tickLine={false} />
+                            <Tooltip formatter={(value: number) => [`${value.toFixed(2)}%`, "Écart de Ponctualité"]} />
+                            <Legend />
+                            <Bar dataKey="punctualityDiscrepancy" name="Écart Planifié/Réalisé" fill={ACCENT_COLOR}>
+                                {performanceFocusData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={cn(entry.punctualityDiscrepancy < -5 ? "hsl(var(--destructive))" : "hsl(var(--accent))")} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
+        )}
       </section>
     </div>
   );
 }
-
-    
