@@ -2,75 +2,93 @@
 'use client';
 
 import { useLogistics } from '@/context/LogisticsContext';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMemo } from 'react';
-import type { MergedData } from '@/lib/types';
+import { useRouter } from 'next/navigation';
+import { Download, FileSpreadsheet } from 'lucide-react';
+import HotZonesChart from '@/components/logistics/HotZonesChart';
+import DepotAnalysisTable from '@/components/logistics/DepotAnalysisTable';
+import PostalCodeTable from '@/components/logistics/PostalCodeTable';
+import { Button } from '@/components/ui/button';
+import { MergedData } from '@/lib/types';
+import { exportToXlsx } from '@/lib/exportUtils';
 
-// Helper function to calculate depot statistics
+
+// Helper function to calculate depot stats - needed for both table and export
 const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMinutes: number = 15) => {
     const depotData = data.filter(item => item.tournee?.entrepot === depotName);
-    if (depotData.length === 0) {
-        return null;
-    }
-
+    if (depotData.length === 0) return null;
     const toleranceSeconds = toleranceMinutes * 60;
     const totalDeliveries = depotData.length;
-
-    // Ponctualité Prév. (aligné avec dataAnalyzer.ts)
     const predictedTasksOnTime = depotData.filter(d => {
         let predictedRetard = 0;
-        if (d.heureArriveeApprox < d.heureDebutCreneau) {
-            predictedRetard = d.heureArriveeApprox - d.heureDebutCreneau;
-        } else if (d.heureArriveeApprox > d.heureFinCreneau) {
-            predictedRetard = d.heureArriveeApprox - d.heureFinCreneau;
-        }
+        if (d.heureArriveeApprox < d.heureDebutCreneau) predictedRetard = d.heureArriveeApprox - d.heureDebutCreneau;
+        else if (d.heureArriveeApprox > d.heureFinCreneau) predictedRetard = d.heureArriveeApprox - d.heureFinCreneau;
         return Math.abs(predictedRetard) <= toleranceSeconds;
     }).length;
     const ponctualitePrev = totalDeliveries > 0 ? (predictedTasksOnTime / totalDeliveries) * 100 : 0;
-
-
-    // Ponctualité Réalisée
-    const realizedOnTime = depotData.filter(d => d.heureArriveeReelle <= d.heureFinCreneau).length;
+    const realizedOnTime = depotData.filter(d => {
+        const isTooEarly = d.heureArriveeReelle < (d.heureDebutCreneau - toleranceSeconds);
+        const isLate = d.heureArriveeReelle > d.heureFinCreneau;
+        return !isTooEarly && !isLate;
+    }).length;
     const ponctualiteRealisee = totalDeliveries > 0 ? (realizedOnTime / totalDeliveries) * 100 : 0;
-
-    // % des tournées parties à l'heure ET arrivées en retard
     const totalTours = new Set(depotData.map(d => d.tourneeUniqueId)).size;
     const lateArrivals = depotData.filter(d => d.tournee && d.tournee.heureDepartReelle <= d.tournee.heureDepartPrevue && d.heureArriveeReelle > d.heureFinCreneau);
     const tourneesPartiesHeureRetard = totalTours > 0 ? (new Set(lateArrivals.map(t => t.tourneeUniqueId)).size / totalTours) * 100 : 0;
-   
-    // % des notes négatives (1-3) qui sont arrivées en retard
     const negativeRatings = depotData.filter(d => d.notation && d.notation >= 1 && d.notation <= 3);
     const negativeRatingsLate = negativeRatings.filter(d => d.heureArriveeReelle > d.heureFinCreneau);
     const notesNegativesRetard = negativeRatings.length > 0 ? (negativeRatingsLate.length / negativeRatings.length) * 100 : 0;
-
-    // % Dépassement de Poids
     const tasksByTour = depotData.reduce((acc, task) => {
-        if (!acc[task.tourneeUniqueId]) {
-            acc[task.tourneeUniqueId] = { tasks: [], tour: task.tournee };
-        }
+        if (!acc[task.tourneeUniqueId]) acc[task.tourneeUniqueId] = { tasks: [], tour: task.tournee };
         acc[task.tourneeUniqueId].tasks.push(task);
         return acc;
     }, {} as Record<string, { tasks: MergedData[], tour: MergedData['tournee'] }>);
-
     let overweightToursCount = 0;
     Object.values(tasksByTour).forEach(({ tasks, tour }) => {
         if (tour) {
             const totalTasksWeight = tasks.reduce((sum, task) => sum + task.poids, 0);
-            if (totalTasksWeight > tour.capacitePoids) {
-                overweightToursCount++;
-            }
+            if (totalTasksWeight > tour.capacitePoids) overweightToursCount++;
         }
     });
     const depassementPoids = totalTours > 0 ? (overweightToursCount / totalTours) * 100 : 0;
-    
+    const tasksBySlot: Record<string, { planned: number, real: number, plannedTours: Set<string>, realTours: Set<string> }> = {};
+    for (let i = 6; i < 22; i += 2) {
+        const start = String(i).padStart(2, '0');
+        const end = String(i + 2).padStart(2, '0');
+        tasksBySlot[`${start}h-${end}h`] = { planned: 0, real: 0, plannedTours: new Set(), realTours: new Set() };
+    }
+    depotData.forEach(task => {
+        const realHourIndex = new Date(task.heureArriveeReelle * 1000).getUTCHours();
+        const realSlotIndex = Math.floor(realHourIndex / 2) * 2;
+        const realSlotKey = `${String(realSlotIndex).padStart(2, '0')}h-${String(realSlotIndex + 2).padStart(2, '0')}h`;
+        if (tasksBySlot[realSlotKey]) {
+            tasksBySlot[realSlotKey].real++;
+            tasksBySlot[realSlotKey].realTours.add(task.tourneeUniqueId);
+        }
+        const plannedHourIndex = new Date(task.heureArriveeApprox * 1000).getUTCHours();
+        const plannedSlotIndex = Math.floor(plannedHourIndex / 2) * 2;
+        const plannedSlotKey = `${String(plannedSlotIndex).padStart(2, '0')}h-${String(plannedSlotIndex + 2).padStart(2, '0')}h`;
+        if (tasksBySlot[plannedSlotKey]) {
+            tasksBySlot[plannedSlotKey].planned++;
+            tasksBySlot[plannedSlotKey].plannedTours.add(task.tourneeUniqueId);
+        }
+    });
+    const slotIntensities = Object.entries(tasksBySlot).map(([slotKey, slotData]) => {
+        const avgPlanned = slotData.plannedTours.size > 0 ? slotData.planned / slotData.plannedTours.size : 0;
+        const avgReal = slotData.realTours.size > 0 ? slotData.real / slotData.realTours.size : 0;
+        return { slotKey, avgPlanned, avgReal };
+    }).filter(intensity => intensity.avgPlanned > 0 || intensity.avgReal > 0);
+    const totalAvgPlanned = slotIntensities.reduce((sum, item) => sum + item.avgPlanned, 0);
+    const totalAvgReal = slotIntensities.reduce((sum, item) => sum + item.avgReal, 0);
+    const intensiteTravailPlanifie = slotIntensities.length > 0 ? totalAvgPlanned / slotIntensities.length : 0;
+    const intensiteTravailRealise = slotIntensities.length > 0 ? totalAvgReal / slotIntensities.length : 0;
+    let creneauPlusIntense = "N/A", creneauMoinsIntense = "N/A";
+    if (slotIntensities.length > 0) {
+        const mostIntense = slotIntensities.reduce((max, current) => current.avgReal > max.avgReal ? current : max, slotIntensities[0]);
+        creneauPlusIntense = `${mostIntense.slotKey} (${mostIntense.avgReal.toFixed(2)})`;
+        const leastIntense = slotIntensities.reduce((min, current) => current.avgReal < min.avgReal ? current : min, slotIntensities[0]);
+        creneauMoinsIntense = `${leastIntense.slotKey} (${leastIntense.avgReal.toFixed(2)})`;
+    }
     return {
         entrepot: depotName,
         ponctualitePrev: `${ponctualitePrev.toFixed(2)}%`,
@@ -78,13 +96,18 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
         tourneesPartiesHeureRetard: `${tourneesPartiesHeureRetard.toFixed(2)}%`,
         notesNegativesRetard: `${notesNegativesRetard.toFixed(2)}%`,
         depassementPoids: `${depassementPoids.toFixed(2)}%`,
-        intensiteTravailPlanifie: 'N/A',
-        intensiteTravailRealise: 'N/A',
+        intensiteTravailPlanifie: intensiteTravailPlanifie.toFixed(2),
+        intensiteTravailRealise: intensiteTravailRealise.toFixed(2),
+        creneauPlusIntense,
+        creneauMoinsIntense,
     };
 };
 
-const calculatePostalCodeStats = (data: MergedData[]) => {
+
+// Helper function to calculate postal code stats for the chart
+const calculatePostalCodeStats = (data: MergedData[], toleranceMinutes: number = 15) => {
     const postalCodeStats: Record<string, { total: number; late: number; depot: string }> = {};
+    const toleranceSeconds = toleranceMinutes * 60;
 
     data.forEach(item => {
         if (item.codePostal && item.tournee) {
@@ -92,8 +115,7 @@ const calculatePostalCodeStats = (data: MergedData[]) => {
                 postalCodeStats[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
             }
             postalCodeStats[item.codePostal].total++;
-            // Le retard est défini par un dépassement du créneau horaire du client
-            if (item.heureArriveeReelle > item.heureFinCreneau) {
+            if (item.heureArriveeReelle > (item.heureFinCreneau + toleranceSeconds)) {
                 postalCodeStats[item.codePostal].late++;
             }
         }
@@ -103,98 +125,76 @@ const calculatePostalCodeStats = (data: MergedData[]) => {
         .map(([codePostal, stats]) => ({
             codePostal,
             entrepot: stats.depot,
+            totalLivraisons: stats.total,
             livraisonsRetard: stats.total > 0 ? ((stats.late / stats.total) * 100).toFixed(2) + '%' : '0.00%',
-        }))
-        .sort((a, b) => parseFloat(b.livraisonsRetard) - parseFloat(a.livraisonsRetard));
+        }));
 };
 
 
 export default function DepotAnalysisPage() {
     const { state, mergedData } = useLogistics();
+    const router = useRouter();
 
-    const depotData = useMemo(() => {
+     const depotData = useMemo(() => {
         if (!mergedData) return [];
         const depotNames = [...new Set(mergedData.map(item => item.tournee?.entrepot).filter(Boolean) as string[])];
-        return depotNames.map(name => calculateDepotStats(name, mergedData, state.filters.punctualityThreshold));
+        return depotNames.map(name => calculateDepotStats(name, mergedData, state.filters.punctualityThreshold)).filter(Boolean);
     }, [mergedData, state.filters.punctualityThreshold]);
     
     const postalCodeData = useMemo(() => {
         if(!mergedData) return [];
-        return calculatePostalCodeStats(mergedData);
-    }, [mergedData])
+        return calculatePostalCodeStats(mergedData, state.filters.punctualityThreshold);
+    }, [mergedData, state.filters.punctualityThreshold])
+    
+    const chartData = useMemo(() => {
+        return postalCodeData.map(d => ({
+            ...d,
+            retardPercent: parseFloat(d.livraisonsRetard.slice(0, -1))
+        }));
+    }, [postalCodeData]);
+
+    const handleExport = () => {
+        if (!depotData || !postalCodeData) return;
+        
+        const sheets = [
+            { data: depotData, sheetName: 'Analyse Entrepôts' },
+            { data: postalCodeData, sheetName: 'Classement Codes Postaux' }
+        ];
+        
+        const today = new Date().toLocaleDateString('fr-CA');
+        exportToXlsx(sheets, `RDP_Export_${today}`);
+    };
 
 
     if (!mergedData || mergedData.length === 0) {
         return (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center justify-center h-full">
                 <p className="text-lg text-muted-foreground">Veuillez charger les fichiers de données sur la page principale.</p>
+                 <Button onClick={() => router.push('/')} className="mt-4">
+                    Retour à l'accueil
+                </Button>
             </div>
         );
     }
 
     return (
         <div className="space-y-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Analyse Détaillée des Entrepôts</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Entrepôt</TableHead>
-                                <TableHead>Ponctualité Prév.</TableHead>
-                                <TableHead>Ponctualité Réalisée</TableHead>
-                                <TableHead>% Tournées Départ à l'heure / Arrivée en retard</TableHead>
-                                <TableHead>% Notes Négatives (1-3) en Retard</TableHead>
-                                <TableHead>% Dépassement de Poids</TableHead>
-                                <TableHead>Intensité Travail Planifié (moy. 2h)</TableHead>
-                                <TableHead>Intensité Travail Réalisé (moy. 2h)</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {depotData.map((row) => (
-                                <TableRow key={row?.entrepot}>
-                                    <TableCell>{row?.entrepot}</TableCell>
-                                    <TableCell>{row?.ponctualitePrev}</TableCell>
-                                    <TableCell>{row?.ponctualiteRealisee}</TableCell>
-                                    <TableCell>{row?.tourneesPartiesHeureRetard}</TableCell>
-                                    <TableCell>{row?.notesNegativesRetard}</TableCell>
-                                    <TableCell>{row?.depassementPoids}</TableCell>
-                                    <TableCell>{row?.intensiteTravailPlanifie}</TableCell>
-                                    <TableCell>{row?.intensiteTravailRealise}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            <div className="flex justify-end gap-2">
+                 <Button variant="outline" onClick={handleExport}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    Exporter en XLSX
+                </Button>
+                <Button onClick={() => router.push('/report')}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Télécharger le Rapport
+                </Button>
+            </div>
+            
+            <HotZonesChart data={chartData} />
+            
+            <DepotAnalysisTable />
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Classement des Codes Postaux par Retards</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Code Postal</TableHead>
-                                <TableHead>Entrepôt</TableHead>
-                                <TableHead>% Livraisons en Retard</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {postalCodeData.map((row) => (
-                                <TableRow key={row.codePostal}>
-                                    <TableCell>{row.codePostal}</TableCell>
-                                    <TableCell>{row.entrepot}</TableCell>
-                                    <TableCell>{row.livraisonsRetard}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            <PostalCodeTable />
         </div>
     );
 }
