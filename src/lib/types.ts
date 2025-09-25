@@ -1,5 +1,4 @@
 
-
 import type { LucideProps } from "lucide-react";
 import type { ForwardRefExoticComponent, RefAttributes } from "react";
 
@@ -63,6 +62,7 @@ export type Tache = {
   commentaire: string | null;
   avancement?: string;
   completedBy?: string;
+  ordre: number;
 };
 
 export type MergedData = Tache & { tournee: Tournee | null };
@@ -289,5 +289,3 @@ export type VisualReportData = {
 
 export type GenerateLogisticsReportInput = import('@/ai/flows/generate-logistics-report').GenerateLogisticsReportInput
 export type GenerateLogisticsReportOutput = import('@/ai/flows/generate-logistics-report').GenerateLogisticsReportOutput
-
-    

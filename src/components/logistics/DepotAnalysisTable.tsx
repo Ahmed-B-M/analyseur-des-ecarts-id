@@ -15,7 +15,7 @@ interface DepotAnalysisTableProps {
     data: MergedData[];
 }
 
-const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMinutes: number) => {
+const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMinutes: number, lateTourTolerance: number) => {
     // ... (logic is in DepotAnalysisPage for now, will be moved here)
     // This is just a placeholder to satisfy TypeScript
      const depotData = data.filter(item => item.tournee?.entrepot === depotName);
@@ -50,17 +50,7 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
         return Math.abs(realizedDeviation) <= toleranceSeconds;
     }).length;
     const ponctualiteRealisee = totalDeliveries > 0 ? (realizedOnTime / totalDeliveries) * 100 : 0;
-
-    // % des tournées parties à l'heure ET arrivées en retard
-    const totalTours = new Set(depotData.map(d => d.tourneeUniqueId)).size;
-    const lateArrivals = depotData.filter(d => d.tournee && d.tournee.heureDepartReelle <= d.tournee.heureDepartPrevue && d.heureCloture > d.heureFinCreneau);
-    const tourneesPartiesHeureRetard = totalTours > 0 ? (new Set(lateArrivals.map(t => t.tourneeUniqueId)).size / totalTours) * 100 : 0;
-   
-    // % des notes négatives (1-3) qui sont arrivées en retard
-    const negativeRatings = depotData.filter(d => d.notation && d.notation >= 1 && d.notation <= 3);
-    const negativeRatingsLate = negativeRatings.filter(d => d.heureCloture > d.heureFinCreneau);
-    const notesNegativesRetard = negativeRatings.length > 0 ? (negativeRatingsLate.length / negativeRatings.length) * 100 : 0;
-
+    
     // % Dépassement de Poids
     const tasksByTour = depotData.reduce((acc, task) => {
         if (!acc[task.tourneeUniqueId]) {
@@ -79,7 +69,50 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
             }
         }
     });
+    const totalTours = Object.keys(tasksByTour).length;
     const depassementPoids = totalTours > 0 ? (overweightToursCount / totalTours) * 100 : 0;
+    
+    // % des tournées parties à l'heure ET arrivées en retard
+    const lateTourToleranceSeconds = lateTourTolerance * 60;
+    const onTimeDepartureLateArrivalTours = Object.values(tasksByTour).filter(({ tour, tasks }) => {
+       if (!tour || tour.heureDepartReelle > tour.heureDepartPrevue) return false;
+       const firstTask = tasks.sort((a,b) => a.ordre - b.ordre)[0];
+       return firstTask && firstTask.heureArriveeReelle > firstTask.heureFinCreneau + lateTourToleranceSeconds;
+    }).length;
+    const tourneesPartiesHeureRetard = totalTours > 0 ? (onTimeDepartureLateArrivalTours / totalTours) * 100 : 0;
+
+    // % des tournées avec retard accumulé
+    const accumulatedDelayTours = Object.values(tasksByTour).filter(({ tour, tasks }) => {
+        if (!tour || tour.heureDepartReelle > tour.heureDepartPrevue) return false;
+        if (tasks.length < 2) return false;
+
+        const sortedTasks = tasks.sort((a, b) => a.ordre - b.ordre);
+        
+        const firstTask = sortedTasks[0];
+        const firstTaskDelay = Math.max(0, firstTask.heureArriveeReelle - firstTask.heureFinCreneau);
+
+        if (firstTaskDelay <= lateTourToleranceSeconds) return false; // Not even late on the first one
+
+        for (let i = 1; i < sortedTasks.length; i++) {
+            const previousTask = sortedTasks[i-1];
+            const currentTask = sortedTasks[i];
+            const previousDelay = Math.max(0, previousTask.heureArriveeReelle - previousTask.heureFinCreneau);
+            const currentDelay = Math.max(0, currentTask.heureArriveeReelle - currentTask.heureFinCreneau);
+
+            if (currentDelay > previousDelay) {
+                return true; // Found an accumulated delay
+            }
+        }
+        return false;
+    }).length;
+    const tourneesRetardAccumule = totalTours > 0 ? (accumulatedDelayTours / totalTours) * 100 : 0;
+
+
+    // % des notes négatives (1-3) qui sont arrivées en retard
+    const negativeRatings = depotData.filter(d => d.notation && d.notation >= 1 && d.notation <= 3);
+    const negativeRatingsLate = negativeRatings.filter(d => d.heureCloture > d.heureFinCreneau);
+    const notesNegativesRetard = negativeRatings.length > 0 ? (negativeRatingsLate.length / negativeRatings.length) * 100 : 0;
+
     
     // Créneau le plus choisi et créneau le plus en retard
     const slotStats: Record<string, { total: number, late: number }> = {};
@@ -166,6 +199,7 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
         ponctualitePrev: `${ponctualitePrev.toFixed(2)}%`,
         ponctualiteRealisee: `${ponctualiteRealisee.toFixed(2)}%`,
         tourneesPartiesHeureRetard: `${tourneesPartiesHeureRetard.toFixed(2)}%`,
+        tourneesRetardAccumule: `${tourneesRetardAccumule.toFixed(2)}%`,
         notesNegativesRetard: `${notesNegativesRetard.toFixed(2)}%`,
         depassementPoids: `${depassementPoids.toFixed(2)}%`,
         creneauLePlusChoisi,
@@ -185,8 +219,8 @@ export default function DepotAnalysisTable({ data: filteredData }: DepotAnalysis
     const data = useMemo(() => {
         if (!filteredData) return [];
         const depotNames = [...new Set(filteredData.map(item => item.tournee?.entrepot).filter(Boolean) as string[])];
-        return depotNames.map(name => calculateDepotStats(name, filteredData, state.filters.punctualityThreshold || 15)).filter(Boolean) as DepotStats[];
-    }, [filteredData, state.filters.punctualityThreshold]);
+        return depotNames.map(name => calculateDepotStats(name, filteredData, state.filters.punctualityThreshold || 15, state.filters.lateTourTolerance || 0)).filter(Boolean) as DepotStats[];
+    }, [filteredData, state.filters.punctualityThreshold, state.filters.lateTourTolerance]);
 
     const sortedData = useMemo(() => {
          if (!data) return [];
@@ -241,6 +275,7 @@ export default function DepotAnalysisTable({ data: filteredData }: DepotAnalysis
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('ponctualitePrev')}>Ponctualité Prév. {renderSortIcon('ponctualitePrev')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('ponctualiteRealisee')}>Ponctualité Réalisée {renderSortIcon('ponctualiteRealisee')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('tourneesPartiesHeureRetard')}>% Tournées Départ à l'heure / Arrivée en retard {renderSortIcon('tourneesPartiesHeureRetard')}</TableHead>
+                                <TableHead className="cursor-pointer" onClick={() => handleSort('tourneesRetardAccumule')}>% Tournées avec Retard Accumulé {renderSortIcon('tourneesRetardAccumule')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('notesNegativesRetard')}>% Notes Négatives (1-3) en Retard {renderSortIcon('notesNegativesRetard')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('depassementPoids')}>% Dépassement de Poids {renderSortIcon('depassementPoids')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('creneauLePlusChoisi')}>Créneau le plus choisi {renderSortIcon('creneauLePlusChoisi')}</TableHead>
@@ -258,6 +293,7 @@ export default function DepotAnalysisTable({ data: filteredData }: DepotAnalysis
                                 <TableCell>{row.ponctualitePrev}</TableCell>
                                 <TableCell>{row.ponctualiteRealisee}</TableCell>
                                 <TableCell>{row.tourneesPartiesHeureRetard}</TableCell>
+                                <TableCell>{row.tourneesRetardAccumule}</TableCell>
                                 <TableCell>{row.notesNegativesRetard}</TableCell>
                                 <TableCell>{row.depassementPoids}</TableCell>
                                 <TableCell>{row.creneauLePlusChoisi}</TableCell>

@@ -110,8 +110,9 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
   const mergedData: MergedData[] = useMemo(() => {
     if (!state.data) return [];
     const tourneeMap = new Map(state.data.tournees.map((t) => [t.uniqueId, t]));
-    return state.data.taches.map((tache) => ({
+    return state.data.taches.map((tache, index) => ({
       ...tache,
+      ordre: index + 1,
       tournee: tourneeMap.get(tache.tourneeUniqueId) || null,
     }));
   }, [state.data]);

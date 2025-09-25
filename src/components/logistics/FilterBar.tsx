@@ -71,7 +71,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
   }
 
   const activeFilters = Object.keys(filters).filter(key => 
-    !['punctualityThreshold', 'madDelays'].includes(key) && filters[key] !== undefined && filters[key] !== null && filters[key] !== false
+    !['punctualityThreshold', 'madDelays', 'lateTourTolerance'].includes(key) && filters[key] !== undefined && filters[key] !== null && filters[key] !== false
   );
   
   const getFilterLabel = (key: string) => {
@@ -86,6 +86,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
           case 'tours100Mobile': return '100% Mobile';
           case 'excludeMadDelays': return 'Exclure MAD';
           case 'topPostalCodes': return 'Top Codes Postaux';
+          case 'lateTourTolerance': return 'Tolérance Retard Tournée';
           default: return key;
       }
   }
@@ -120,7 +121,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
 
   return (
     <div className="p-4 bg-card rounded-lg border shadow-sm space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-end">
         <div>
           <Label>Période d'Analyse</Label>
           <DateRangePicker 
@@ -181,6 +182,16 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
           </Select>
         </div>
         <div>
+          <Label htmlFor="top-postal-codes">Top Codes Postaux</Label>
+          <Input 
+            id="top-postal-codes" 
+            type="number" 
+            placeholder="ex: 10"
+            value={filters.topPostalCodes || ''}
+            onChange={(e) => handleFilterChange('topPostalCodes', e.target.value ? parseInt(e.target.value) : undefined)}
+           />
+        </div>
+        <div>
           <Label htmlFor="punctuality-threshold">Seuil Ponctualité (min)</Label>
           <Input 
             id="punctuality-threshold" 
@@ -191,13 +202,13 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
            />
         </div>
         <div>
-          <Label htmlFor="top-postal-codes">Top Codes Postaux</Label>
-          <Input 
-            id="top-postal-codes" 
-            type="number" 
-            placeholder="ex: 10"
-            value={filters.topPostalCodes || ''}
-            onChange={(e) => handleFilterChange('topPostalCodes', e.target.value ? parseInt(e.target.value) : undefined)}
+          <Label htmlFor="late-tour-tolerance">Tolérance Retard Tournée (min)</Label>
+          <Input
+            id="late-tour-tolerance"
+            type="number"
+            placeholder="ex: 0"
+            value={filters.lateTourTolerance || ''}
+            onChange={(e) => handleFilterChange('lateTourTolerance', e.target.value ? parseInt(e.target.value) : undefined)}
            />
         </div>
         <div className="flex items-center space-x-2 pb-2">
