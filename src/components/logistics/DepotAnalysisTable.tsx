@@ -37,20 +37,24 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
 
     // Ponctualité Réalisée (incluant les avances de plus de 15 min comme non ponctuelles)
     const realizedOnTime = depotData.filter(d => {
-        const isTooEarly = d.heureArriveeReelle < (d.heureDebutCreneau - toleranceSeconds);
-        const isLate = d.heureArriveeReelle > d.heureFinCreneau;
-        return !isTooEarly && !isLate;
+        let realizedDeviation = 0;
+        if (d.heureCloture < d.heureDebutCreneau) {
+            realizedDeviation = d.heureCloture - d.heureDebutCreneau;
+        } else if (d.heureCloture > d.heureFinCreneau) {
+            realizedDeviation = d.heureCloture - d.heureFinCreneau;
+        }
+        return Math.abs(realizedDeviation) <= toleranceSeconds;
     }).length;
     const ponctualiteRealisee = totalDeliveries > 0 ? (realizedOnTime / totalDeliveries) * 100 : 0;
 
     // % des tournées parties à l'heure ET arrivées en retard
     const totalTours = new Set(depotData.map(d => d.tourneeUniqueId)).size;
-    const lateArrivals = depotData.filter(d => d.tournee && d.tournee.heureDepartReelle <= d.tournee.heureDepartPrevue && d.heureArriveeReelle > d.heureFinCreneau);
+    const lateArrivals = depotData.filter(d => d.tournee && d.tournee.heureDepartReelle <= d.tournee.heureDepartPrevue && d.heureCloture > d.heureFinCreneau);
     const tourneesPartiesHeureRetard = totalTours > 0 ? (new Set(lateArrivals.map(t => t.tourneeUniqueId)).size / totalTours) * 100 : 0;
    
     // % des notes négatives (1-3) qui sont arrivées en retard
     const negativeRatings = depotData.filter(d => d.notation && d.notation >= 1 && d.notation <= 3);
-    const negativeRatingsLate = negativeRatings.filter(d => d.heureArriveeReelle > d.heureFinCreneau);
+    const negativeRatingsLate = negativeRatings.filter(d => d.heureCloture > d.heureFinCreneau);
     const notesNegativesRetard = negativeRatings.length > 0 ? (negativeRatingsLate.length / negativeRatings.length) * 100 : 0;
 
     // % Dépassement de Poids
@@ -73,6 +77,38 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
     });
     const depassementPoids = totalTours > 0 ? (overweightToursCount / totalTours) * 100 : 0;
     
+    // Créneau le plus choisi et créneau le plus en retard
+    const slotStats: Record<string, { total: number, late: number }> = {};
+    depotData.forEach(task => {
+        const startTime = new Date(task.heureDebutCreneau * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+        const endTime = new Date(task.heureFinCreneau * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+        const slotKey = `${startTime}-${endTime}`;
+
+        if (!slotStats[slotKey]) {
+            slotStats[slotKey] = { total: 0, late: 0 };
+        }
+        slotStats[slotKey].total++;
+        if (task.heureCloture > (task.heureFinCreneau + toleranceSeconds)) {
+            slotStats[slotKey].late++;
+        }
+    });
+
+    let creneauLePlusChoisi = "N/A";
+    if (Object.keys(slotStats).length > 0) {
+        const [slot, stats] = Object.entries(slotStats).reduce((a, b) => a[1].total > b[1].total ? a : b);
+        const percentage = (stats.total / totalDeliveries) * 100;
+        creneauLePlusChoisi = `${slot} (${percentage.toFixed(2)}%)`;
+    }
+    
+    let creneauLePlusEnRetard = "N/A";
+    const lateSlots = Object.entries(slotStats).filter(([, stats]) => stats.late > 0);
+    if (lateSlots.length > 0) {
+        const [worstSlot, worstSlotStats] = lateSlots.reduce((a, b) => a[1].late > b[1].late ? a : b);
+        const percentage = (worstSlotStats.late / worstSlotStats.total) * 100;
+        creneauLePlusEnRetard = `${worstSlot} (${percentage.toFixed(2)}% de retards)`;
+    }
+
+
     // Intensité du travail par créneau (limité de 06h à 22h)
     const tasksBySlot: Record<string, { planned: number, real: number, plannedTours: Set<string>, realTours: Set<string> }> = {};
     for (let i = 6; i < 22; i += 2) {
@@ -82,7 +118,7 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
     }
 
     depotData.forEach(task => {
-        const realHourIndex = new Date(task.heureArriveeReelle * 1000).getUTCHours();
+        const realHourIndex = new Date(task.heureCloture * 1000).getUTCHours();
         const realSlotIndex = Math.floor(realHourIndex / 2) * 2;
         const realSlotKey = `${String(realSlotIndex).padStart(2, '0')}h-${String(realSlotIndex + 2).padStart(2, '0')}h`;
         if (tasksBySlot[realSlotKey]) {
@@ -128,6 +164,8 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
         tourneesPartiesHeureRetard: `${tourneesPartiesHeureRetard.toFixed(2)}%`,
         notesNegativesRetard: `${notesNegativesRetard.toFixed(2)}%`,
         depassementPoids: `${depassementPoids.toFixed(2)}%`,
+        creneauLePlusChoisi,
+        creneauLePlusEnRetard,
         intensiteTravailPlanifie: intensiteTravailPlanifie.toFixed(2),
         intensiteTravailRealise: intensiteTravailRealise.toFixed(2),
         creneauPlusIntense,
@@ -201,6 +239,8 @@ export default function DepotAnalysisTable() {
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('tourneesPartiesHeureRetard')}>% Tournées Départ à l'heure / Arrivée en retard {renderSortIcon('tourneesPartiesHeureRetard')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('notesNegativesRetard')}>% Notes Négatives (1-3) en Retard {renderSortIcon('notesNegativesRetard')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('depassementPoids')}>% Dépassement de Poids {renderSortIcon('depassementPoids')}</TableHead>
+                                <TableHead className="cursor-pointer" onClick={() => handleSort('creneauLePlusChoisi')}>Créneau le plus choisi {renderSortIcon('creneauLePlusChoisi')}</TableHead>
+                                <TableHead className="cursor-pointer" onClick={() => handleSort('creneauLePlusEnRetard')}>Créneau le plus en retard {renderSortIcon('creneauLePlusEnRetard')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('intensiteTravailPlanifie')}>Intensité Travail Planifié (moy. 2h) {renderSortIcon('intensiteTravailPlanifie')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('intensiteTravailRealise')}>Intensité Travail Réalisé (moy. 2h) {renderSortIcon('intensiteTravailRealise')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('creneauPlusIntense')}>Créneau le plus intense {renderSortIcon('creneauPlusIntense')}</TableHead>
@@ -216,6 +256,8 @@ export default function DepotAnalysisTable() {
                                 <TableCell>{row.tourneesPartiesHeureRetard}</TableCell>
                                 <TableCell>{row.notesNegativesRetard}</TableCell>
                                 <TableCell>{row.depassementPoids}</TableCell>
+                                <TableCell>{row.creneauLePlusChoisi}</TableCell>
+                                <TableCell>{row.creneauLePlusEnRetard}</TableCell>
                                 <TableCell>{row.intensiteTravailPlanifie}</TableCell>
                                 <TableCell>{row.intensiteTravailRealise}</TableCell>
                                 <TableCell>{row.creneauPlusIntense}</TableCell>

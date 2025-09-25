@@ -101,7 +101,7 @@ export default function HotZonesChart({ data }: HotZonesChartProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[400px] w-full">
+        <div className="h-[800px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <ScatterChart
               margin={{
@@ -129,7 +129,6 @@ export default function HotZonesChart({ data }: HotZonesChartProps) {
                />
               <ZAxis type="number" dataKey="totalLivraisons" range={[50, 1000]} name="Volume" />
               <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
-              <Legend verticalAlign="top" height={36} />
                {depots.map(depot => (
                  <Scatter key={depot.value} name={depot.value} data={data.filter(d => d.entrepot === depot.value)} fill={depot.color} shape="circle" />
                ))}
@@ -149,4 +148,3 @@ export default function HotZonesChart({ data }: HotZonesChartProps) {
     </Card>
   );
 }
-
