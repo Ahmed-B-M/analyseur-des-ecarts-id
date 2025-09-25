@@ -1,15 +1,19 @@
 
 'use client';
 
-import { useLogistics } from '@/context/LogisticsContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMemo, useState } from 'react';
 import { MergedData } from '@/lib/types';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { useLogistics } from '@/context/LogisticsContext';
 
 type SortConfig = { key: string | null; direction: 'ascending' | 'descending' };
 type PostalCodeStats = ReturnType<typeof calculatePostalCodeStats>[0];
+
+interface PostalCodeTableProps {
+    data: MergedData[];
+}
 
 const calculatePostalCodeStats = (data: MergedData[], toleranceMinutes: number = 15) => {
     const postalCodeStats: Record<string, { total: number; late: number; depot: string }> = {};
@@ -38,14 +42,14 @@ const calculatePostalCodeStats = (data: MergedData[], toleranceMinutes: number =
         .sort((a, b) => parseFloat(b.livraisonsRetard) - parseFloat(a.livraisonsRetard));
 };
 
-export default function PostalCodeTable() {
-    const { state, mergedData } = useLogistics();
+export default function PostalCodeTable({ data: filteredData }: PostalCodeTableProps) {
+    const { state } = useLogistics();
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'livraisonsRetard', direction: 'descending' });
 
     const data = useMemo(() => {
-        if (!mergedData) return [];
-        return calculatePostalCodeStats(mergedData, state.filters.punctualityThreshold);
-    }, [mergedData, state.filters.punctualityThreshold]);
+        if (!filteredData) return [];
+        return calculatePostalCodeStats(filteredData, state.filters.punctualityThreshold || 15);
+    }, [filteredData, state.filters.punctualityThreshold]);
 
     const sortedData = useMemo(() => {
         const sortableData = [...data];

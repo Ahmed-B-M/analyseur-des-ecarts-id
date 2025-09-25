@@ -1,15 +1,19 @@
 
 'use client';
 
-import { useLogistics } from '@/context/LogisticsContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMemo, useState } from 'react';
 import { MergedData } from '@/lib/types';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { useLogistics } from '@/context/LogisticsContext';
 
 type SortConfig = { key: string | null; direction: 'ascending' | 'descending' };
-type DepotStats = ReturnType<typeof calculateDepotStats>;
+type DepotStats = NonNullable<ReturnType<typeof calculateDepotStats>>;
+
+interface DepotAnalysisTableProps {
+    data: MergedData[];
+}
 
 const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMinutes: number) => {
     // ... (logic is in DepotAnalysisPage for now, will be moved here)
@@ -174,15 +178,15 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
 }
 
 
-export default function DepotAnalysisTable() {
-    const { state, mergedData } = useLogistics();
+export default function DepotAnalysisTable({ data: filteredData }: DepotAnalysisTableProps) {
+    const { state } = useLogistics();
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'ponctualiteRealisee', direction: 'ascending' });
 
     const data = useMemo(() => {
-        if (!mergedData) return [];
-        const depotNames = [...new Set(mergedData.map(item => item.tournee?.entrepot).filter(Boolean) as string[])];
-        return depotNames.map(name => calculateDepotStats(name, mergedData, state.filters.punctualityThreshold)).filter(Boolean);
-    }, [mergedData, state.filters.punctualityThreshold]);
+        if (!filteredData) return [];
+        const depotNames = [...new Set(filteredData.map(item => item.tournee?.entrepot).filter(Boolean) as string[])];
+        return depotNames.map(name => calculateDepotStats(name, filteredData, state.filters.punctualityThreshold || 15)).filter(Boolean) as DepotStats[];
+    }, [filteredData, state.filters.punctualityThreshold]);
 
     const sortedData = useMemo(() => {
          if (!data) return [];

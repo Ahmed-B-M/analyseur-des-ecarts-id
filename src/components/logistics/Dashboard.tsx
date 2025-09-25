@@ -73,6 +73,21 @@ export default function Dashboard() {
         
         dataToFilter = dataToFilter.filter(task => mobileTourIds.has(task.tourneeUniqueId));
     }
+
+    // Top Postal Codes by delivery volume filter
+    if (state.filters.topPostalCodes) {
+        const postalCodeCounts = dataToFilter.reduce((acc, item) => {
+            if (item.codePostal) {
+                acc[item.codePostal] = (acc[item.codePostal] || 0) + 1;
+            }
+            return acc;
+        }, {} as Record<string, number>);
+
+        const sortedPostalCodes = Object.keys(postalCodeCounts).sort((a, b) => postalCodeCounts[b] - postalCodeCounts[a]);
+        const topCodes = new Set(sortedPostalCodes.slice(0, state.filters.topPostalCodes));
+        
+        dataToFilter = dataToFilter.filter(item => item.codePostal && topCodes.has(item.codePostal));
+    }
     
     return dataToFilter.filter(item => {
         if (!item.tournee) return false;
