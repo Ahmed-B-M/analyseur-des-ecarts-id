@@ -13,6 +13,7 @@ import FilterBar from '@/components/logistics/FilterBar';
 import { Button } from '@/components/ui/button';
 import { MergedData } from '@/lib/types';
 import { exportToXlsx } from '@/lib/exportUtils';
+import SlotAnalysisChart from '@/components/logistics/SlotAnalysisChart';
 
 export default function DepotAnalysisPage() {
     const { state, dispatch, mergedData } = useLogistics();
@@ -144,6 +145,42 @@ export default function DepotAnalysisPage() {
         }));
     }, [filteredData, state.filters.punctualityThreshold]);
     
+    const slotChartData = useMemo(() => {
+    if (!filteredData) return [];
+
+    // Create hourly buckets from 6 AM to 10 PM
+    const hourlyBuckets: Record<string, { total: number; late: number }> = {};
+    for (let i = 6; i < 22; i++) {
+        const hour = i.toString().padStart(2, '0');
+        hourlyBuckets[`${hour}:00`] = { total: 0, late: 0 };
+    }
+
+    const toleranceSeconds = (state.filters.punctualityThreshold || 15) * 60;
+
+    filteredData.forEach(task => {
+        const startHour = new Date(task.heureDebutCreneau * 1000).getUTCHours();
+        const endHour = new Date(task.heureFinCreneau * 1000).getUTCHours();
+        const isLate = task.heureCloture > (task.heureFinCreneau + toleranceSeconds);
+
+        // A delivery contributes to every full hour it covers
+        for (let i = startHour; i < endHour; i++) {
+            const hourKey = `${i.toString().padStart(2, '0')}:00`;
+            if (hourlyBuckets[hourKey]) {
+                hourlyBuckets[hourKey].total++;
+                if (isLate) {
+                    hourlyBuckets[hourKey].late++;
+                }
+            }
+        }
+    });
+    
+    return Object.entries(hourlyBuckets)
+        .map(([slot, data]) => ({ ...data, slot }))
+        .filter(item => item.total > 0); // Only show hours with activity
+
+}, [filteredData, state.filters.punctualityThreshold]);
+
+    
     const depots = useMemo(() => {
         if (!mergedData) return [];
         const depotNames = mergedData.map(t => {
@@ -255,6 +292,8 @@ export default function DepotAnalysisPage() {
             </div>
             
             <HotZonesChart data={chartData} />
+
+            <SlotAnalysisChart data={slotChartData} />
             
             <DepotAnalysisTable data={filteredData} />
 

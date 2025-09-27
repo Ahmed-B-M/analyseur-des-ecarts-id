@@ -81,31 +81,23 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
     }).length;
     const tourneesPartiesHeureRetard = totalTours > 0 ? (onTimeDepartureLateArrivalTours / totalTours) * 100 : 0;
 
-    // % des tournées avec retard accumulé
-    const accumulatedDelayTours = Object.values(tasksByTour).filter(({ tour, tasks }) => {
-        if (!tour || tour.heureDepartReelle > tour.heureDepartPrevue) return false;
-        if (tasks.length < 2) return false;
-
-        const sortedTasks = tasks.sort((a, b) => a.ordre - b.ordre);
-        
-        const firstTask = sortedTasks[0];
-        const firstTaskDelay = Math.max(0, firstTask.heureArriveeReelle - firstTask.heureFinCreneau);
-
-        if (firstTaskDelay <= lateTourToleranceSeconds) return false; // Not even late on the first one
-
-        for (let i = 1; i < sortedTasks.length; i++) {
-            const previousTask = sortedTasks[i-1];
-            const currentTask = sortedTasks[i];
-            const previousDelay = Math.max(0, previousTask.heureArriveeReelle - previousTask.heureFinCreneau);
-            const currentDelay = Math.max(0, currentTask.heureArriveeReelle - currentTask.heureFinCreneau);
-
-            if (currentDelay > previousDelay) {
-                return true; // Found an accumulated delay
-            }
+    // % des tournées parties à l'heure avec une livraison ayant plus de 15min de retard
+    const significantDelayTours = Object.values(tasksByTour).filter(({ tour, tasks }) => {
+        // Condition 1: La tournée doit partir à l'heure
+        if (!tour || tour.heureDepartReelle > tour.heureDepartPrevue) {
+            return false;
         }
-        return false;
+
+        // Condition 2: Au moins une livraison doit avoir plus de 15 minutes de retard
+        const fifteenMinutesInSeconds = 15 * 60;
+        const hasSignificantDelay = tasks.some(task =>
+            task.heureCloture > (task.heureFinCreneau + fifteenMinutesInSeconds)
+        );
+
+        return hasSignificantDelay;
     }).length;
-    const tourneesRetardAccumule = totalTours > 0 ? (accumulatedDelayTours / totalTours) * 100 : 0;
+
+    const tourneesRetardAccumule = totalTours > 0 ? (significantDelayTours / totalTours) * 100 : 0;
 
 
     // % des notes négatives (1-3) qui sont arrivées en retard
@@ -275,14 +267,14 @@ export default function DepotAnalysisTable({ data: filteredData }: DepotAnalysis
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('ponctualitePrev')}>Ponctualité Prév. {renderSortIcon('ponctualitePrev')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('ponctualiteRealisee')}>Ponctualité Réalisée {renderSortIcon('ponctualiteRealisee')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('tourneesPartiesHeureRetard')}>% Tournées Départ à l'heure / Arrivée en retard {renderSortIcon('tourneesPartiesHeureRetard')}</TableHead>
-                                <TableHead className="cursor-pointer" onClick={() => handleSort('tourneesRetardAccumule')}>% Tournées avec Retard Accumulé {renderSortIcon('tourneesRetardAccumule')}</TableHead>
+                                <TableHead className="cursor-pointer" onClick={() => handleSort('tourneesRetardAccumule')}>% Tournées Départ OK / Retard Liv. > 15min {renderSortIcon('tourneesRetardAccumule')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('notesNegativesRetard')}>% Notes Négatives (1-3) en Retard {renderSortIcon('notesNegativesRetard')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('depassementPoids')}>% Dépassement de Poids {renderSortIcon('depassementPoids')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('creneauLePlusChoisi')}>Créneau le plus choisi {renderSortIcon('creneauLePlusChoisi')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('creneauLePlusEnRetard')}>Créneau le plus en retard {renderSortIcon('creneauLePlusEnRetard')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('intensiteTravailPlanifie')}>Intensité Travail Planifié (moy. 2h) {renderSortIcon('intensiteTravailPlanifie')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('intensiteTravailRealise')}>Intensité Travail Réalisé (moy. 2h) {renderSortIcon('intensiteTravailRealise')}</TableHead>
-                                <TableHead className="cursor-pointer" onClick={() => handleSort('creneauPlusIntense')}>Créneau le plus intense {renderSortIcon('creneauPlusIntense')}</TableHead>
+                                <TableHead className="cursor-pointer" onClick={() => handleSort('creneauPlusIntense')}>tranche horaire la plus intense {renderSortIcon('creneauPlusIntense')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('creneauMoinsIntense')}>Créneau le moins intense {renderSortIcon('creneauMoinsIntense')}</TableHead>
                             </TableRow>
                     </TableHeader>
