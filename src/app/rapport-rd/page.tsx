@@ -13,11 +13,8 @@ import FilterBar from '@/components/logistics/FilterBar';
 import { Button } from '@/components/ui/button';
 import { MergedData } from '@/lib/types';
 import { exportToXlsx } from '@/lib/exportUtils';
-import SlotAnalysisChart from '@/components/logistics/SlotAnalysisChart';
-import CustomerPromiseChart from '@/components/logistics/CustomerPromiseChart';
-import SaturationChart from '@/components/logistics/SaturationChart';
 
-export default function DepotAnalysisPage() {
+export default function RapportRDPage() {
     const { state, dispatch, mergedData } = useLogistics();
     const router = useRouter();
 
@@ -147,151 +144,6 @@ export default function DepotAnalysisPage() {
         }));
     }, [filteredData, state.filters.punctualityThreshold]);
 
-    const saturationData = useMemo(() => {
-        if (!filteredData) return [];
-
-        const hourlyBuckets: Record<string, { demand: number; capacity: number }> = {};
-        for (let i = 6; i < 23; i++) {
-            const hour = i.toString().padStart(2, '0');
-            hourlyBuckets[`${hour}:00`] = { demand: 0, capacity: 0 };
-        }
-
-        filteredData.forEach(task => {
-            // Demand: Cumulative count of active slots
-            const startHour = new Date(task.heureDebutCreneau * 1000).getUTCHours();
-            const endHour = new Date(task.heureFinCreneau * 1000).getUTCHours();
-            for (let i = startHour; i < endHour; i++) {
-                const hourKey = `${i.toString().padStart(2, '0')}:00`;
-                if (hourlyBuckets[hourKey]) {
-                    hourlyBuckets[hourKey].demand++;
-                }
-            }
-
-            // Capacity: Count of completed deliveries
-            const closureHour = new Date(task.heureCloture * 1000).getUTCHours();
-            const capacityHourKey = `${closureHour.toString().padStart(2, '0')}:00`;
-            if (hourlyBuckets[capacityHourKey]) {
-                hourlyBuckets[capacityHourKey].capacity++;
-            }
-        });
-        
-        const data = Object.entries(hourlyBuckets)
-            .map(([hour, data]) => ({ hour, ...data }));
-            
-        return data
-            .filter(item => item.demand > 0 || item.capacity > 0)
-            .map(item => ({ hour: item.hour, gap: item.demand - item.capacity }));
-
-
-    }, [filteredData]);
-
-    const customerPromiseData = useMemo(() => {
-    if (!filteredData) return [];
-
-    const buckets: Record<string, { customerPromise: number; urbantzPlan: number; realized: number; late: number }> = {};
-    const startTimestamp = new Date();
-    startTimestamp.setUTCHours(6, 0, 0, 0);
-    const endTimestamp = new Date();
-    endTimestamp.setUTCHours(23, 0, 0, 0);
-
-    for (let i = startTimestamp.getTime(); i < endTimestamp.getTime(); i += 60 * 1000) {
-        const d = new Date(i);
-        const hour = String(d.getUTCHours()).padStart(2, '0');
-        const minute = String(d.getUTCMinutes()).padStart(2, '0');
-        buckets[`${hour}:${minute}`] = { customerPromise: 0, urbantzPlan: 0, realized: 0, late: 0 };
-    }
-
-    const deliveriesBySlot = filteredData.reduce((acc, task) => {
-        const start = new Date(task.heureDebutCreneau * 1000);
-        const end = new Date(task.heureFinCreneau * 1000);
-        const key = `${start.toISOString()}-${end.toISOString()}`;
-        if (!acc[key]) {
-            acc[key] = { count: 0, start, end };
-        }
-        acc[key].count++;
-        return acc;
-    }, {} as Record<string, { count: number; start: Date; end: Date }>);
-
-    Object.values(deliveriesBySlot).forEach(slot => {
-        const durationMinutes = (slot.end.getTime() - slot.start.getTime()) / (1000 * 60);
-        if (durationMinutes === 0) return;
-        const weightPerMinute = slot.count / durationMinutes;
-
-        for (let i = 0; i < durationMinutes; i++) {
-            const intervalStart = new Date(slot.start.getTime() + i * 60 * 1000);
-            const hour = String(intervalStart.getUTCHours()).padStart(2, '0');
-            const minute = String(intervalStart.getUTCMinutes()).padStart(2, '0');
-            const bucketKey = `${hour}:${minute}`;
-            
-            if (buckets[bucketKey]) {
-                buckets[bucketKey].customerPromise += weightPerMinute;
-            }
-        }
-    });
-
-    const lateToleranceSeconds = (state.filters.punctualityThreshold || 15) * 60;
-
-    filteredData.forEach(task => {
-        // Urbantz Plan
-        const approxDate = new Date(task.heureArriveeApprox * 1000);
-        const approxHour = String(approxDate.getUTCHours()).padStart(2, '0');
-        const approxMinute = String(approxDate.getUTCMinutes()).padStart(2, '0');
-        const approxBucketKey = `${approxHour}:${approxMinute}`;
-        if (buckets[approxBucketKey]) {
-            buckets[approxBucketKey].urbantzPlan++;
-        }
-
-        // Realized
-        const closureDate = new Date(task.heureCloture * 1000);
-        const closureHour = String(closureDate.getUTCHours()).padStart(2, '0');
-        const closureMinute = String(closureDate.getUTCMinutes()).padStart(2, '0');
-        const closureBucketKey = `${closureHour}:${closureMinute}`;
-        if (buckets[closureBucketKey]) {
-            buckets[closureBucketKey].realized++;
-            if (task.heureCloture > task.heureFinCreneau + lateToleranceSeconds) {
-                buckets[closureBucketKey].late++;
-            }
-        }
-    });
-    
-    return Object.entries(buckets).map(([hour, data]) => ({ ...data, hour }));
-
-}, [filteredData, state.filters.punctualityThreshold]);
-    
-    const slotChartData = useMemo(() => {
-    if (!filteredData) return [];
-
-    const hourlyBuckets: Record<string, { total: number; late: number }> = {};
-    for (let i = 6; i < 23; i++) {
-        const hour = i.toString().padStart(2, '0');
-        hourlyBuckets[`${hour}:00`] = { total: 0, late: 0 };
-    }
-
-    const toleranceSeconds = (state.filters.punctualityThreshold || 15) * 60;
-
-    filteredData.forEach(task => {
-        const startHour = new Date(task.heureDebutCreneau * 1000).getUTCHours();
-        const endHour = new Date(task.heureFinCreneau * 1000).getUTCHours();
-        const isLate = task.heureCloture > (task.heureFinCreneau + toleranceSeconds);
-
-        for (let i = startHour; i < endHour; i++) {
-            const hourKey = `${i.toString().padStart(2, '0')}:00`;
-            if (hourlyBuckets[hourKey]) {
-                hourlyBuckets[hourKey].total++;
-                if (isLate) {
-                    hourlyBuckets[hourKey].late++;
-                }
-            }
-        }
-    });
-    
-    return Object.entries(hourlyBuckets)
-        .map(([slot, data]) => ({ ...data, slot }))
-        .filter(item => item.total > 0);
-
-}, [filteredData, state.filters.punctualityThreshold]);
-
-    
     const depots = useMemo(() => {
         if (!mergedData) return [];
         const depotNames = mergedData.map(t => {
@@ -344,7 +196,7 @@ export default function DepotAnalysisPage() {
         ];
         
         const today = new Date().toLocaleDateString('fr-CA');
-        exportToXlsx(sheets, `RDP_Export_${today}`);
+        exportToXlsx(sheets, `Rapport_RD_${today}`);
     };
     
     const calculateDepotStatsForExport = (depotName: string, data: MergedData[], toleranceMinutes: number = 15) => {
@@ -399,14 +251,8 @@ export default function DepotAnalysisPage() {
                     </Button>
                 </div>
             </div>
-
-            <SaturationChart data={saturationData} />
-            
-            <CustomerPromiseChart data={customerPromiseData} />
             
             <HotZonesChart data={chartData} />
-
-            <SlotAnalysisChart data={slotChartData} />
             
             <DepotAnalysisTable data={filteredData} />
 

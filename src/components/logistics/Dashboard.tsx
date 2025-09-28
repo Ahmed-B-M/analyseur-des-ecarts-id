@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useReducer, useMemo, useState, useCallback } from 'react';
@@ -212,7 +213,7 @@ export default function Dashboard() {
               allData={mergedData}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-7 max-w-6xl mx-auto">
+                <TabsList className="grid w-full grid-cols-8 max-w-7xl mx-auto">
                     <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
                     <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
                     <TabsTrigger value="depotComparison"><LayoutDashboard className="w-4 h-4 mr-2" />Comparaison Dépôts</TabsTrigger>
@@ -221,6 +222,9 @@ export default function Dashboard() {
                     <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
                     <Link href="/depot-analysis" passHref>
                       <TabsTrigger value="rdp" className="w-full"><LayoutDashboard className="w-4 h-4 mr-2" />RDP</TabsTrigger>
+                    </Link>
+                    <Link href="/rapport-rd" passHref>
+                      <TabsTrigger value="rapport-rd" className="w-full"><LayoutDashboard className="w-4 h-4 mr-2" />Rapport RD</TabsTrigger>
                     </Link>
                 </TabsList>
               <TabsContent value="dashboard" className="mt-6">
