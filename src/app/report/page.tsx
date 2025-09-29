@@ -18,7 +18,7 @@ export default function ReportPage() {
     const postalCodeData = useMemo(() => {
         if (!mergedData) return [];
         // This calculation should ideally be in a shared utility function
-        const stats = calculatePostalCodeStats(mergedData, state.filters.punctualityThreshold);
+        const stats = calculatePostalCodeStats(mergedData, state.filters.punctualityThreshold || 15);
         return stats.map(d => ({
             ...d,
             retardPercent: parseFloat(d.livraisonsRetard.slice(0, -1))
@@ -27,18 +27,19 @@ export default function ReportPage() {
 
     if (!mergedData || mergedData.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
-                <p className="text-lg text-gray-600 mb-4">Aucune donnée à afficher. Veuillez d'abord charger un fichier.</p>
-                <button onClick={() => router.push('/')} className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Retour à l'accueil
-                </button>
+            <div className="flex flex-col items-center justify-center h-screen bg-gray-100 no-print">
+                <div className="bg-white p-8 rounded-lg shadow-md text-center">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Données non disponibles</h2>
+                    <p className="text-gray-600 mb-6">Il semble que les données n'ont pas été chargées. Veuillez retourner à l'accueil pour importer un fichier.</p>
+                    <button onClick={() => router.push('/')} className="flex items-center justify-center w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Retour à l'accueil
+                    </button>
+                </div>
             </div>
         );
     }
     
-    // Dummy calculation for postal code stats to avoid breaking the component
-    // This should be replaced by the actual calculation logic if you move it here
      function calculatePostalCodeStats(data: MergedData[], tolerance: number) {
         // This is a placeholder. In a real app, you'd share this logic.
         const stats: Record<string, { total: number, late: number, depot: string }> = {};
@@ -80,27 +81,30 @@ export default function ReportPage() {
                 </div>
             </div>
 
-            <div className="a4-page">
+            <div className="report-container">
                 <header className="report-header">
-                    <h1>Rapport d'Analyse des Dépôts</h1>
-                    <span>{new Date().toLocaleDateString('fr-FR')}</span>
+                    <h1 className="report-title">Rapport d'Analyse des Dépôts</h1>
+                    <span className="text-gray-500">{new Date().toLocaleDateString('fr-FR')}</span>
                 </header>
 
                 <main>
                     <section className="report-section mb-8">
+                         <h2 className="section-title">Zones de Retard par Codes Postaux</h2>
                          <HotZonesChart data={postalCodeData} />
                     </section>
                     
-                    <section className="report-section mb-8">
-                        <DepotAnalysisTable />
+                    <section className="report-section mb-8 page-landscape">
+                        <h2 className="section-title">Analyse Détaillée des Entrepôts</h2>
+                        <DepotAnalysisTable data={mergedData} />
                     </section>
 
                     <section className="report-section">
-                        <PostalCodeTable />
+                        <h2 className="section-title">Classement des Codes Postaux par Retards</h2>
+                        <PostalCodeTable data={mergedData} />
                     </section>
                 </main>
                 
-                <footer className="report-footer">
+                <footer className="report-footer mt-8 pt-4 border-t text-center text-gray-500">
                     Généré par A-E-L - Analyse des Écarts Logistiques
                 </footer>
             </div>

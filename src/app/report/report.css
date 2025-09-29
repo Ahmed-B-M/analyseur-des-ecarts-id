@@ -63,11 +63,28 @@ body {
     .no-print {
         display: none !important;
     }
+    
+    /* Ensure scrollable table containers expand to show all content */
+    .overflow-y-auto {
+        height: auto !important;
+        overflow: visible !important;
+    }
 
     @page {
         size: A4 portrait;
         margin: 1.5cm;
     }
+    
+    .page-landscape {
+        page-break-before: always;
+    }
+
+    .page-landscape section {
+        @page {
+            size: A4 landscape;
+        }
+    }
+
 
     h1, h2, h3, .section-title {
         page-break-after: avoid;
