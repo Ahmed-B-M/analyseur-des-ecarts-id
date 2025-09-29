@@ -11,7 +11,7 @@ import DetailedDataView from '@/components/logistics/DetailedDataView';
 import { Logo } from '@/components/logistics/Logo';
 import { analyzeData } from '@/lib/dataAnalyzer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, AlertCircle, BarChart2, Calendar, List, LayoutDashboard, TrendingUp, Wand2 } from 'lucide-react';
+import { Loader2, AlertCircle, BarChart2, Calendar, List, LayoutDashboard, TrendingUp, Wand2, MessageCircleWarning } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DateRange } from 'react-day-picker';
 import { DateRangePicker } from './DateRangePicker';
@@ -21,6 +21,7 @@ import ComparisonView from './ComparisonView';
 import DepotComparison from './DepotComparison';
 import CustomReportBuilder from './CustomReportBuilder';
 import Link from 'next/link';
+import NegativeCommentsTable from './NegativeCommentsTable';
 
 
 export default function Dashboard() {
@@ -213,11 +214,12 @@ export default function Dashboard() {
               allData={mergedData}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-8 max-w-7xl mx-auto">
+                <TabsList className="grid w-full grid-cols-9 max-w-7xl mx-auto">
                     <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
                     <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
                     <TabsTrigger value="depotComparison"><LayoutDashboard className="w-4 h-4 mr-2" />Comparaison Dépôts</TabsTrigger>
                     <TabsTrigger value="customReport"><Wand2 className="w-4 h-4 mr-2" />Rapport Personnalisé</TabsTrigger>
+                    <TabsTrigger value="negativeComments"><MessageCircleWarning className="w-4 h-4 mr-2" />Avis Négatifs</TabsTrigger>
                     <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Analyse par Période</TabsTrigger>
                     <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
                     <Link href="/depot-analysis" passHref>
@@ -255,6 +257,9 @@ export default function Dashboard() {
                   depots={depots}
                   warehouses={warehouses}
                 />
+              </TabsContent>
+              <TabsContent value="negativeComments" className="mt-6">
+                 <NegativeCommentsTable data={filteredData} />
               </TabsContent>
               <TabsContent value="calendar" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -299,3 +304,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+    
