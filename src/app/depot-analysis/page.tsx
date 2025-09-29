@@ -16,6 +16,7 @@ import { exportToXlsx } from '@/lib/exportUtils';
 import SlotAnalysisChart from '@/components/logistics/SlotAnalysisChart';
 import CustomerPromiseChart from '@/components/logistics/CustomerPromiseChart';
 import SaturationChart from '@/components/logistics/SaturationChart';
+import SimulationView from '@/components/logistics/SimulationView';
 
 export default function DepotAnalysisPage() {
     const { state, dispatch, mergedData } = useLogistics();
@@ -399,6 +400,8 @@ export default function DepotAnalysisPage() {
                     </Button>
                 </div>
             </div>
+
+            <SimulationView data={filteredData} punctualityThreshold={state.filters.punctualityThreshold || 15} />
 
             <SaturationChart data={saturationData} />
             
