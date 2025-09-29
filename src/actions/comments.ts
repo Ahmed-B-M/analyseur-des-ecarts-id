@@ -9,9 +9,9 @@ const CategorizeCommentInputSchema = z.object({
 
 const CategorizeCommentOutputSchema = z.object({
   category: z
-    .enum(['Retard', 'Avance', 'Qualité Produit', 'Comportement Livreur', 'Autre'])
+    .enum(['Retard', 'Avance', 'Rupture chaine de froid', 'Attitude Livreur','Casse','Manquant', 'Autre'])
     .describe(
-      "The category of the comment. Must be one of: 'Retard', 'Avance', 'Qualité Produit', 'Comportement Livreur', 'Autre'."
+      "The category of the comment. Must be one of: 'Retard', 'Avance', 'Rupture chaine de froid', 'Attitude Livreur','Casse','Manquant', 'Autre'."
     ),
 });
 
@@ -22,7 +22,7 @@ const categorizeCommentFlow = ai.defineFlow(
     outputSchema: CategorizeCommentOutputSchema,
   },
   async (input) => {
-    const prompt = `Categorize the following customer comment into one of these categories: 'Retard', 'Avance', 'Qualité Produit', 'Comportement Livreur', 'Autre'. Comment: "${input.comment}"`;
+    const prompt = `Categorize the following customer comment into one of these categories: 'Retard', 'Avance', 'Rupture chaine de froid', 'Attitude Livreur','Casse','Manquant', 'Autre'. Comment: "${input.comment}"`;
     
     const { output } = await ai.generate({
       prompt: prompt,
