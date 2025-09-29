@@ -2,21 +2,43 @@
 'use client';
 
 import { useLogistics } from '@/context/LogisticsContext';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Download, FileSpreadsheet, Percent } from 'lucide-react';
+import { Download, FileSpreadsheet, Percent, Sparkles } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import HotZonesChart from '@/components/logistics/HotZonesChart';
 import DepotAnalysisTable from '@/components/logistics/DepotAnalysisTable';
 import PostalCodeTable from '@/components/logistics/PostalCodeTable';
 import FilterBar from '@/components/logistics/FilterBar';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MergedData } from '@/lib/types';
 import { exportToXlsx } from '@/lib/exportUtils';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+const COLORS = { 'Retard': '#E4002B', 'Avance': '#00C49F', 'Autre': '#FFBB28' };
 
 export default function RapportRDPage() {
     const { state, dispatch, mergedData } = useLogistics();
     const router = useRouter();
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+    const handleBarClick = (data: any) => {
+        setSelectedCategory(data.reason);
+    };
+
+    const selectedComments = useMemo(() => {
+        if (!selectedCategory || !state.analysisResults?.detailed) return [];
+        return state.analysisResults.detailed.filter((c: any) => c.category === selectedCategory);
+    }, [selectedCategory, state.analysisResults]);
 
     const setFilters = useCallback((newFilters: Record<string, any>) => {
         dispatch({ type: 'SET_FILTERS', filters: newFilters });
@@ -225,38 +247,86 @@ export default function RapportRDPage() {
     }
 
     return (
-        <div className="space-y-8">
-            <FilterBar 
-              filters={state.filters} 
-              setFilters={setFilters} 
-              depots={depots} 
-              warehouses={warehouses}
-              cities={cities}
-              allData={mergedData}
-            />
+        <Dialog onOpenChange={() => setSelectedCategory(null)}>
+            <div className="space-y-8">
+                <FilterBar 
+                filters={state.filters} 
+                setFilters={setFilters} 
+                depots={depots} 
+                warehouses={warehouses}
+                cities={cities}
+                allData={mergedData}
+                />
 
-            <div className="flex justify-between items-center gap-2">
-                <Button variant="outline" onClick={handleTop20Percent}>
-                    <Percent className="mr-2 h-4 w-4" />
-                    Top 20% Codes Postaux
-                </Button>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleExport}>
-                        <FileSpreadsheet className="mr-2 h-4 w-4" />
-                        Exporter en XLSX
+                <div className="flex justify-between items-center gap-2">
+                    <Button variant="outline" onClick={handleTop20Percent}>
+                        <Percent className="mr-2 h-4 w-4" />
+                        Top 20% Codes Postaux
                     </Button>
-                    <Button onClick={() => router.push('/report')}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Télécharger le Rapport
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={handleExport}>
+                            <FileSpreadsheet className="mr-2 h-4 w-4" />
+                            Exporter en XLSX
+                        </Button>
+                        <Button onClick={() => router.push('/report')}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Télécharger le Rapport
+                        </Button>
+                    </div>
                 </div>
-            </div>
-            
-            <HotZonesChart data={chartData} />
-            
-            <DepotAnalysisTable data={filteredData} />
+                
+                <HotZonesChart data={chartData} />
 
-            <PostalCodeTable data={filteredData} />
-        </div>
+                {state.analysisResults && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Sparkles className="text-primary" />
+                                Catégorisation des Commentaires
+                            </CardTitle>
+                            <CardDescription>
+                                Résultats de l'analyse IA des retours clients négatifs. Cliquez sur une barre pour voir les commentaires.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <ResponsiveContainer width="100%" height={200}>
+                                <BarChart data={state.analysisResults.aggregated} layout="vertical" margin={{ left: 20, right: 20 }}>
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="reason" type="category" width={100} tick={{ fontSize: 12 }} />
+                                    <Tooltip cursor={{ fill: 'rgba(240, 240, 240, 0.5)' }} />
+                                    <Bar dataKey="count" name="Nombre d'avis" barSize={25} onClick={handleBarClick}>
+                                        {state.analysisResults.aggregated.map((entry: any, index: number) => (
+                                            <DialogTrigger asChild key={`cell-${index}`}>
+                                                <Cell cursor="pointer" fill={COLORS[entry.reason as keyof typeof COLORS] || '#8884d8'} />
+                                            </DialogTrigger>
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                )}
+                
+                <DepotAnalysisTable data={filteredData} />
+
+                <PostalCodeTable data={filteredData} />
+            </div>
+
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Commentaires - {selectedCategory}</DialogTitle>
+                </DialogHeader>
+                <ScrollArea className="h-96">
+                    <div className="p-4 space-y-4">
+                        {selectedComments.map((item: any, index: number) => (
+                            <div key={index} className="border p-3 rounded-md bg-muted/50">
+                                <p className="text-sm text-muted-foreground">ID: {item.id}</p>
+                                <p className="font-medium">{item.comment}</p>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
     );
 }

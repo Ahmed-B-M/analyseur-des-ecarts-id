@@ -13,6 +13,7 @@ type State = {
   error: string | null;
   data: { tournees: Tournee[]; taches: Tache[] } | null;
   filters: Record<string, any>;
+  analysisResults: any | null; // Added to store analysis results
 };
 
 type Action =
@@ -21,6 +22,7 @@ type Action =
   | { type: 'PROCESSING_SUCCESS'; data: { tournees: Tournee[]; taches: Tache[] } }
   | { type: 'PROCESSING_ERROR'; error: string }
   | { type: 'SET_FILTERS'; filters: Record<string, any> }
+  | { type: 'SET_ANALYSIS_RESULTS'; results: any } // Added action for analysis results
   | { type: 'RESET' };
 
 // 2. Initial State
@@ -36,6 +38,7 @@ const initialState: State = {
     excludeMadDelays: false,
     madDelays: [],
   },
+  analysisResults: null, // Initial state for analysis results
 };
 
 // 3. Reducer
@@ -54,6 +57,8 @@ function logisticsReducer(state: State, action: Action): State {
       return { ...state, isLoading: false, error: action.error };
     case 'SET_FILTERS':
       return { ...state, filters: action.filters };
+    case 'SET_ANALYSIS_RESULTS':
+      return { ...state, analysisResults: action.results };
     case 'RESET':
       return { ...initialState };
     default:

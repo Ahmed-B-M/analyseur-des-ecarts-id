@@ -1,50 +1,64 @@
-// @ts-nocheck
 'use server';
 
-/**
- * @fileOverview Analyzes customer feedback to identify comments related to delivery timing issues (late or early).
- *
- * - analyzeCustomerFeedback - A function that analyzes customer feedback using Gemini to determine if it relates to delivery timing.
- * - AnalyzeCustomerFeedbackInput - The input type for the analyzeCustomerFeedback function.
- * - AnalyzeCustomerFeedbackOutput - The return type for the analyzeCustomerFeedback function.
- */
+import { ai } from '@/ai/genkit';
+import { z } from 'zod';
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+const CATEGORIES = [
+  'Attitude livreur',
+  'Produit manquant',
+  'Casse Produit',
+  'Rupture chaine de froid',
+  'Retard',
+  'Avance',
+  'Autre',
+] as const;
 
-const AnalyzeCustomerFeedbackInputSchema = z.object({
-  commentaire: z
-    .string()
-    .describe('The customer feedback comment to be analyzed.'),
+const analyzeCustomerFeedbackSignature = z.object({
+  commentaire: z.string(),
 });
-export type AnalyzeCustomerFeedbackInput = z.infer<typeof AnalyzeCustomerFeedbackInputSchema>;
+export type AnalyzeCustomerFeedbackInput = z.infer<typeof analyzeCustomerFeedbackSignature>;
 
-const AnalyzeCustomerFeedbackOutputSchema = z.object({
-  reason: z
-    .enum(['Retard', 'Avance', 'Autre'])
-    .describe("The reason for the customer's dissatisfaction. Must be 'Retard', 'Avance', or 'Autre'."),
+const analyzeCustomerFeedbackFlowOutput = z.object({
+  reason: z.enum(CATEGORIES),
 });
-export type AnalyzeCustomerFeedbackOutput = z.infer<typeof AnalyzeCustomerFeedbackOutputSchema>;
+export type AnalyzeCustomerFeedbackOutput = z.infer<typeof analyzeCustomerFeedbackFlowOutput>;
+
 
 export async function analyzeCustomerFeedback(input: AnalyzeCustomerFeedbackInput): Promise<AnalyzeCustomerFeedbackOutput> {
-  return analyzeCustomerFeedbackFlow(input);
+    return await analyzeCustomerFeedbackFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'analyzeCustomerFeedbackPrompt',
-  input: {schema: AnalyzeCustomerFeedbackInputSchema},
-  output: {schema: AnalyzeCustomerFeedbackOutputSchema},
-  prompt: `Le commentaire client suivant est-il lié à un retard ou à une livraison en avance ? Commentaire: "{{{commentaire}}}"`,
-});
 
 const analyzeCustomerFeedbackFlow = ai.defineFlow(
   {
     name: 'analyzeCustomerFeedbackFlow',
-    inputSchema: AnalyzeCustomerFeedbackInputSchema,
-    outputSchema: AnalyzeCustomerFeedbackOutputSchema,
+    inputSchema: analyzeCustomerFeedbackSignature,
+    outputSchema: analyzeCustomerFeedbackFlowOutput,
   },
-  async (input) => {
-    const {output} = await prompt(input);
-    return output!;
+  async ({ commentaire }) => {
+    const prompt = `
+      Analyse le commentaire client suivant et classifie-le dans l'une des catégories suivantes : ${CATEGORIES.join(', ')}.
+      Ne réponds que par la catégorie.
+      Si aucune catégorie ne correspond, réponds "Autre".
+
+      Commentaire: "${commentaire}"
+    `;
+
+    const { output } = await ai.generate({
+      prompt: prompt,
+      model: 'googleai/gemini-2.5-flash',
+      output: {
+        schema: analyzeCustomerFeedbackFlowOutput,
+      },
+      config: {
+        temperature: 0.1,
+      },
+    });
+
+    if (!output) {
+      return { reason: 'Autre' };
+    }
+    
+    return output;
   }
 );

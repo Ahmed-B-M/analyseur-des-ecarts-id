@@ -21,7 +21,7 @@ const categorizeCommentFlow = ai.defineFlow(
     inputSchema: CategorizeCommentInputSchema,
     outputSchema: CategorizeCommentOutputSchema,
   },
-  async (input) => {
+  async (input): Promise<z.infer<typeof CategorizeCommentOutputSchema>> => {
     const prompt = `Categorize the following customer comment into one of these categories: 'Retard', 'Avance', 'Rupture chaine de froid', 'Attitude Livreur','Casse','Manquant', 'Autre'. Comment: "${input.comment}"`;
     
     const { output } = await ai.generate({
