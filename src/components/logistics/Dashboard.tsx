@@ -5,23 +5,10 @@ import { useState, useCallback } from 'react';
 import { useLogistics } from '@/context/LogisticsContext';
 import FileUpload from '@/components/logistics/FileUpload';
 import FilterBar from '@/components/logistics/FilterBar';
-import AnalysisDashboard from '@/components/logistics/AnalysisDashboard';
-import DetailedDataView from '@/components/logistics/DetailedDataView';
 import { Logo } from '@/components/logistics/Logo';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, AlertCircle, BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DateRangePicker } from './DateRangePicker';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import CalendarView from './CalendarView';
-import ComparisonView from './ComparisonView';
-import DepotComparison from './DepotComparison';
-import NegativeCommentsTable from './NegativeCommentsTable';
-import DepotAnalysisTable from './DepotAnalysisTable';
-import PostalCodeTable from './PostalCodeTable';
-import HotZonesChart from './HotZonesChart';
-import SlotAnalysisChart from './SlotAnalysisChart';
-import DeliveryVolumeChart from './DeliveryVolumeChart';
+import DashboardTabs from './DashboardTabs';
 
 
 export default function Dashboard() {
@@ -42,12 +29,6 @@ export default function Dashboard() {
     setActiveTab('data');
   }, [setFilters, state.filters]);
   
-  const chartData = analysisData ? (analysisData.postalCodeStats || []).map(item => ({
-      codePostal: item.codePostal,
-      entrepot: item.entrepot,
-      totalLivraisons: item.totalLivraisons,
-      retardPercent: parseFloat(item.livraisonsRetard.slice(0, -1)),
-  })) : [];
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
@@ -116,90 +97,16 @@ export default function Dashboard() {
               cities={analysisData.cities}
               allData={rawData}
             />
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-8 max-w-full mx-auto">
-                    <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
-                    <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
-                    <TabsTrigger value="depotComparison"><LayoutDashboard className="w-4 h-4 mr-2" />Comparaison Dépôts</TabsTrigger>
-                    <TabsTrigger value="negativeComments"><MessageCircleWarning className="w-4 h-4 mr-2" />Avis Négatifs</TabsTrigger>
-                    <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Analyse par Période</TabsTrigger>
-                    <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
-                    <TabsTrigger value="rdp"><LayoutDashboard className="w-4 h-4 mr-2" />RDP</TabsTrigger>
-                    <TabsTrigger value="reportRD"><FileSpreadsheet className="w-4 h-4 mr-2" />Rapport RD</TabsTrigger>
-                </TabsList>
-
-              <TabsContent value="dashboard" className="mt-6">
-                <AnalysisDashboard 
-                  analysisData={analysisData}
-                  onFilterAndSwitch={applyFilterAndSwitchTab}
-                />
-              </TabsContent>
-              <TabsContent value="comparison" className="mt-6">
-                <ComparisonView
-                    allData={filteredData}
-                    filters={state.filters}
-                />
-              </TabsContent>
-              <TabsContent value="depotComparison" className="mt-6">
-                <DepotComparison
-                    allData={filteredData}
-                    filters={state.filters}
-                    depots={analysisData.depots}
-                />
-              </TabsContent>
-              <TabsContent value="negativeComments" className="mt-6">
-                 <NegativeCommentsTable data={filteredData} />
-              </TabsContent>
-              <TabsContent value="calendar" className="mt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-1">
-                         <CalendarView 
-                            data={rawData}
-                            onDateSelect={(date) => {
-                                setFilters({ ...state.filters, selectedDate: date, dateRange: undefined });
-                            }}
-                            onWeekSelect={(week) => {
-                                // This now only visually selects the week, it does not filter.
-                                // Filtering is handled by DateRangePicker or day click.
-                            }}
-                        />
-                    </div>
-                    <div className="md:col-span-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Analyse par Période Personnalisée</CardTitle>
-                                <CardDescription>
-                                Sélectionnez une plage de dates pour mettre à jour l'ensemble du tableau de bord.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <DateRangePicker 
-                                    className="max-w-sm"
-                                    onDateChange={(range) => setFilters({ ...state.filters, dateRange: range, selectedDate: undefined })}
-                                    date={state.filters.dateRange}
-                                />
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
-              </TabsContent>
-              <TabsContent value="data" className="mt-6">
-                <DetailedDataView data={filteredData} />
-              </TabsContent>
-              <TabsContent value="rdp" className="mt-6 space-y-6">
-                <HotZonesChart data={chartData} />
-                <DepotAnalysisTable data={analysisData.depotStats} />
-                <PostalCodeTable data={analysisData.postalCodeStats} />
-                <SlotAnalysisChart data={filteredData} />
-              </TabsContent>
-               <TabsContent value="reportRD" className="mt-6 space-y-6">
-                <DeliveryVolumeChart data={filteredData} />
-                <SlotAnalysisChart data={filteredData} />
-                <HotZonesChart data={chartData} />
-                <DepotAnalysisTable data={analysisData.depotStats} />
-                <PostalCodeTable data={analysisData.postalCodeStats} />
-              </TabsContent>
-            </Tabs>
+            <DashboardTabs 
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              analysisData={analysisData}
+              filteredData={filteredData}
+              rawData={rawData}
+              filters={state.filters}
+              setFilters={setFilters}
+              applyFilterAndSwitchTab={applyFilterAndSwitchTab}
+            />
           </div>
         )}
       </main>
