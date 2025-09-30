@@ -12,7 +12,6 @@ Créer une application web complète avec Next.js pour l'analyse de données log
 -   **Composants UI** : shadcn/ui. Les composants doivent être utilisés autant que possible pour une cohérence visuelle.
 -   **Graphiques** : Recharts
 -   **Gestion d'état** : React Context API pour un état global simple.
--   **Intelligence Artificielle** : Genkit pour l'analyse sémantique des commentaires.
 -   **Icônes** : Lucide React
 
 ## 3. Structure des Données et Fichiers
@@ -85,10 +84,6 @@ L'interface principale doit être un tableau de bord organisé en onglets.
 
 -   **KPIs Globaux** : Cartes pour afficher : Taux de Ponctualité, Nb. Tournées, Nb. Livraisons, Notation Moyenne, Nb. Livraisons en Retard/Avance, Nb. Avis Négatifs.
 -   **KPIs d'Écarts** : Cartes comparatives (Planifié vs. Réalisé) pour : Taux de Ponctualité, Durée Totale, Poids Total.
--   **Analyse IA des Retours Clients** :
-    -   Un bouton "Lancer l'analyse avec l'IA" qui analyse les commentaires avec note <= 3.
-    -   Utilise un flux Genkit pour catégoriser chaque commentaire (ex: 'Retard', 'Avance', 'Attitude Livreur', 'Casse', 'Manquant', 'Autre').
-    -   Affiche un graphique (BarChart) des résultats.
 -   **Analyse des Anomalies** : Un accordéon avec des sections pour :
     -   `Dépassements de Charge`
     -   `Écarts de Durée Positifs`
@@ -103,8 +98,7 @@ L'interface principale doit être un tableau de bord organisé en onglets.
 
 -   Tableau listant uniquement les livraisons avec une note de 3 ou moins et un commentaire.
 -   Afficher : Date, Livreur, Ville, Note, Commentaire.
--   Bouton "Analyser avec l'IA" pour lancer la catégorisation Genkit.
--   Carte affichant la répartition des catégories (résultats de l'IA).
+-   Carte affichant la répartition des catégories de commentaires, basée sur une simple analyse par mots-clés.
 
 ## 5. Calculs et Formules Essentiels
 

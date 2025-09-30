@@ -272,20 +272,3 @@ export type AnalysisData = {
   performanceByWarehouse: PerformanceByGroup[];
   firstTaskLatePercentage: number;
 };
-
-export type AiAnalysisResult = {
-  reason: 'Retard' | 'Avance' | 'Autre';
-};
-
-export type VisualReportData = {
-    analysis: AnalysisData,
-    ai: GenerateLogisticsReportOutput,
-    config: CustomReportConfig,
-    filters: Record<string, any>,
-    extra: Record<string, any>,
-    weeklyAnalyses?: WeeklyAnalysis[],
-    depotWeeklyAnalyses?: DepotWeeklyAnalysis[]
-}
-
-export type GenerateLogisticsReportInput = import('@/ai/flows/generate-logistics-report').GenerateLogisticsReportInput
-export type GenerateLogisticsReportOutput = import('@/ai/flows/generate-logistics-report').GenerateLogisticsReportOutput

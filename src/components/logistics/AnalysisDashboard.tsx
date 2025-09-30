@@ -4,8 +4,6 @@ import type { AnalysisData, MergedData, OverloadedTourInfo, DurationDiscrepancy,
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, AreaChart, Area, ComposedChart, Line } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import AiAnalysis from './AiAnalysis';
-import AiReportGenerator from './AiReportGenerator';
 import { AlertTriangle, Info, Clock, MapPin, UserCheck, Timer, Smile, Frown, PackageCheck, Route, ArrowUpDown, MessageSquareX, ListChecks, Truck, Calendar, Sun, Moon, Sunset, Sigma, BarChart2, Hash, Users, Warehouse, Building, Percent, Filter, HelpCircle, TrendingDown } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -67,7 +65,6 @@ type SortConfig<T> = {
 
 export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData, filters, depots }: AnalysisDashboardProps) {
   const [activeGeoTab, setActiveGeoTab] = useState('ville');
-  const [feedbackAnalysisResult, setFeedbackAnalysisResult] = useState<{ reason: string; count: number }[] | null>(null);
   const [showTop20Only, setShowTop20Only] = useState(false);
   
   const [sorts, setSorts] = useState<{ [key: string]: SortConfig<any> }>({
@@ -81,23 +78,12 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       postalCode: { key: 'totalTasks', direction: 'desc' },
   });
 
-  const handleSort = <T,>(table: string, key: keyof T) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    const currentSort = sorts[table];
-    if (currentSort && currentSort.key === key && currentSort.direction === 'asc') {
-        direction = 'desc';
-    }
-    setSorts(prev => ({...prev, [table]: { key, direction } }));
-  };
+  const totalTours = useMemo(() => {
+    if (!analysisData) return 0;
+    const toursKpi = analysisData.generalKpis.find(k => k.title.includes('Tournées'));
+    return toursKpi ? parseInt(toursKpi.value) : 0;
+  }, [analysisData]);
 
-  const renderSortIcon = (table: string, key: string) => {
-    const sortConfig = sorts[table];
-    if (!sortConfig || sortConfig.key !== key) {
-        return <ArrowUpDown className="ml-2 h-4 w-4 opacity-30 group-hover:opacity-80" />;
-    }
-    return sortConfig.direction === 'asc' ? '▲' : '▼';
-  };
-  
   const sortedData = useMemo(() => {
     if (!analysisData) return {
       overloadedTours: [],
@@ -158,6 +144,22 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
     };
   }, [analysisData, sorts, showTop20Only]);
 
+  const performanceFocusData = useMemo(() => {
+    if (!analysisData) return [];
+    const data = [
+      ...(analysisData.performanceByDepot || []).map(d => ({ ...d, type: 'Dépôt' })),
+      ...(analysisData.performanceByWarehouse || []).map(d => ({ ...d, type: 'Entrepôt' })),
+      ...(analysisData.performanceByCity || []).map(d => ({ ...d, type: 'Ville' })),
+    ];
+    return data
+      .map(d => ({
+        key: `${d.type}: ${d.key}`,
+        numberOfDelays: Math.round(d.totalTasks * (1 - d.punctualityRateRealized / 100)),
+      }))
+      .sort((a, b) => b.numberOfDelays - a.numberOfDelays)
+      .slice(0, 10);
+  }, [analysisData]);
+
 
   if (!analysisData) {
     return (
@@ -168,6 +170,23 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
       </div>
     );
   }
+  
+  const handleSort = <T,>(table: string, key: keyof T) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    const currentSort = sorts[table];
+    if (currentSort && currentSort.key === key && currentSort.direction === 'asc') {
+        direction = 'desc';
+    }
+    setSorts(prev => ({...prev, [table]: { key, direction } }));
+  };
+
+  const renderSortIcon = (table: string, key: string) => {
+    const sortConfig = sorts[table];
+    if (!sortConfig || sortConfig.key !== key) {
+        return <ArrowUpDown className="ml-2 h-4 w-4 opacity-30 group-hover:opacity-80" />;
+    }
+    return sortConfig.direction === 'asc' ? '▲' : '▼';
+  };
   
   const CustomYAxisTick = ({ y, payload }: any) => {
     return (
@@ -217,30 +236,9 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
   });
   const combinedWarehouseData = Array.from(warehouseDataMap.entries()).map(([key, data]) => ({ key, ...data })).sort((a,b) => (b.delays + b.advances) - (a.delays + a.advances));
   
-  const totalTours = useMemo(() => {
-    const toursKpi = analysisData.generalKpis.find(k => k.title.includes('Tournées'));
-    return toursKpi ? parseInt(toursKpi.value) : 0;
-  }, [analysisData.generalKpis]);
-
   const overloadedToursCount = (analysisData.overloadedTours || []).length;
   const durationDiscrepanciesCount = (analysisData.durationDiscrepancies || []).length;
   const lateStartAnomaliesCount = (analysisData.lateStartAnomalies || []).length;
-
-  const performanceFocusData = useMemo(() => {
-    const data = [
-      ...(analysisData.performanceByDepot || []).map(d => ({ ...d, type: 'Dépôt' })),
-      ...(analysisData.performanceByWarehouse || []).map(d => ({ ...d, type: 'Entrepôt' })),
-      ...(analysisData.performanceByCity || []).map(d => ({ ...d, type: 'Ville' })),
-    ];
-    return data
-      .map(d => ({
-        key: `${d.type}: ${d.key}`,
-        numberOfDelays: Math.round(d.totalTasks * (1 - d.punctualityRateRealized / 100)),
-      }))
-      .sort((a, b) => b.numberOfDelays - a.numberOfDelays)
-      .slice(0, 10);
-  }, [analysisData]);
-
 
   return (
     <div className="space-y-8">
@@ -255,16 +253,16 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
         </div>
       </section>
       
-      {/* Section 2: Impact Qualité & Analyse IA */}
+      {/* Section 2: Impact Qualité */}
       <section>
-        <h2 className="text-2xl font-bold mb-4">Impact Qualité & Analyse IA</h2>
+        <h2 className="text-2xl font-bold mb-4">Impact Qualité</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-3 space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><BarChart2 />Impact des Écarts sur la Qualité</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {analysisData.qualityKpis.map(kpi => {
                     if ('value1' in kpi && 'value2' in kpi) {
                         return <ComparisonKpiCard key={kpi.title} {...kpi} />
@@ -273,10 +271,6 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, all
                 })}
               </CardContent>
             </Card>
-          </div>
-          <div className="lg:col-span-2 space-y-6">
-              <AiAnalysis allData={allData} onAnalysisComplete={setFeedbackAnalysisResult}/>
-              <AiReportGenerator analysisData={analysisData} allData={allData} filters={filters} aiFeedbackAnalysis={feedbackAnalysisResult} depots={depots} />
           </div>
         </div>
       </section>

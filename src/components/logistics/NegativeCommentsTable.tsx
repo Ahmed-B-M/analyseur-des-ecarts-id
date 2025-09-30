@@ -5,11 +5,9 @@ import { useState, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, ChevronLeft, ChevronRight, MessageCircleWarning, Sparkles, Loader2, Info } from 'lucide-react';
+import { ArrowUpDown, ChevronLeft, ChevronRight, MessageCircleWarning, Info } from 'lucide-react';
 import type { MergedData } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { analyzeNegativeComments } from '@/actions/comments';
 import { Badge } from '../ui/badge';
 
 
@@ -18,16 +16,15 @@ const ITEMS_PER_PAGE = 25;
 type SortKey = keyof MergedData | `tournee.${keyof NonNullable<MergedData['tournee']>}`;
 
 
-const CategoryKeywordTable = ({ data, aiCategorizedData }: { data: Record<string, number>, aiCategorizedData: Record<string, number> | null }) => {
-    const displayData = aiCategorizedData || data;
-    const total = Object.values(displayData).reduce((a, b) => a + b, 0);
+const CategoryKeywordTable = ({ data }: { data: Record<string, number> }) => {
+    const total = Object.values(data).reduce((a, b) => a + b, 0);
 
     return (
         <Card>
             <CardHeader>
                 <CardTitle className="text-lg">Catégorisation des Commentaires</CardTitle>
                 <CardDescription>
-                    {aiCategorizedData ? "Résultats de l'analyse IA." : "Estimations basées sur des mots-clés."}
+                    Estimations basées sur des mots-clés.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -40,7 +37,7 @@ const CategoryKeywordTable = ({ data, aiCategorizedData }: { data: Record<string
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {Object.entries(displayData).map(([category, count]) => (
+                        {Object.entries(data).map(([category, count]) => (
                             <TableRow key={category}>
                                 <TableCell className="font-medium capitalize">{category}</TableCell>
                                 <TableCell className="text-right">{count}</TableCell>
@@ -56,10 +53,6 @@ const CategoryKeywordTable = ({ data, aiCategorizedData }: { data: Record<string
 
 
 export default function NegativeCommentsTable({ data }: { data: MergedData[] }) {
-    const { toast } = useToast();
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [aiCategorizedData, setAiCategorizedData] = useState<Record<string, number> | null>(null);
-
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>({ key: 'notation', direction: 'asc' });
@@ -153,38 +146,6 @@ export default function NegativeCommentsTable({ data }: { data: MergedData[] }) 
         return categories;
     }, [negativeCommentsData]);
 
-    const handleAiAnalysis = async () => {
-        if (negativeCommentsData.length === 0) return;
-        setIsAnalyzing(true);
-        try {
-            const commentsToAnalyze = negativeCommentsData.map(item => ({ id: `${item.tourneeUniqueId}-${item.sequence}`, text: item.commentaire || '' }));
-            const results = await analyzeNegativeComments(commentsToAnalyze);
-
-            const breakdown = results.reduce((acc, result) => {
-                const category = result.category || 'Autre';
-                acc[category] = (acc[category] || 0) + 1;
-                return acc;
-            }, {} as Record<string, number>);
-
-            setAiCategorizedData(breakdown);
-            toast({
-                title: "Analyse IA terminée",
-                description: `${commentsToAnalyze.length} commentaires ont été catégorisés.`,
-            });
-
-        } catch (error) {
-            console.error("AI Analysis failed:", error);
-            toast({
-                variant: "destructive",
-                title: "Erreur d'analyse IA",
-                description: "La catégorisation des commentaires a échoué. Veuillez réessayer.",
-            });
-        } finally {
-            setIsAnalyzing(false);
-        }
-    };
-
-
     if (data.length === 0) {
         return (
              <Card>
@@ -214,22 +175,15 @@ export default function NegativeCommentsTable({ data }: { data: MergedData[] }) 
                             <MessageCircleWarning />
                             <span>Liste des Avis Négatifs (Note ≤ 3) - {negativeCommentsData.length} commentaire(s) trouvé(s)</span>
                         </div>
-                        <Button onClick={handleAiAnalysis} disabled={isAnalyzing || negativeCommentsData.length === 0}>
-                            {isAnalyzing ? (
-                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Analyse en cours...</>
-                            ) : (
-                                <><Sparkles className="mr-2 h-4 w-4" />Analyser avec l'IA</>
-                            )}
-                        </Button>
                     </CardTitle>
                     <CardDescription>
-                        Explorez les commentaires des clients ayant donné une note de 3 ou moins. Utilisez l'analyse IA pour une catégorisation automatique.
+                        Explorez les commentaires des clients ayant donné une note de 3 ou moins.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                      <div className="grid md:grid-cols-3 gap-6">
                         <div className="md:col-span-1">
-                             <CategoryKeywordTable data={keywordCategorization} aiCategorizedData={aiCategorizedData} />
+                             <CategoryKeywordTable data={keywordCategorization} />
                         </div>
                         <div className="md:col-span-2 space-y-4">
                             <Input
@@ -284,6 +238,3 @@ export default function NegativeCommentsTable({ data }: { data: MergedData[] }) 
         </div>
     );
 }
-
-
-    
