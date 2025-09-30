@@ -18,7 +18,7 @@ export default function ReportPage() {
     const postalCodeData = useMemo(() => {
         if (!mergedData) return [];
         // This calculation should ideally be in a shared utility function
-        const stats = calculatePostalCodeStats(mergedData, state.filters.punctualityThreshold || 15);
+        const stats = calculatePostalCodeStats(mergedData, state.filters.punctualityThreshold || 959);
         return stats.map(d => ({
             ...d,
             retardPercent: parseFloat(d.livraisonsRetard.slice(0, -1))
@@ -49,7 +49,7 @@ export default function ReportPage() {
                      stats[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
                  }
                  stats[item.codePostal].total++;
-                 if (item.heureArriveeReelle > (item.heureFinCreneau + tolerance * 60)) {
+                 if (item.retard > tolerance) {
                      stats[item.codePostal].late++;
                  }
              }

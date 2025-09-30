@@ -19,6 +19,7 @@ import { Switch } from '../ui/switch';
 import { Button } from '../ui/button';
 import MadDelayManager from './MadDelayManager';
 import { useState } from 'react';
+import { MergedData } from '@/lib/types';
 
 interface FilterBarProps {
   filters: Record<string, any>;
@@ -26,12 +27,12 @@ interface FilterBarProps {
   depots: string[];
   warehouses: string[];
   cities: string[];
-  allData: any[]; // Used for MAD delay manager
+  allData: MergedData[];
 }
 
 const ALL_ITEMS_VALUE = '__ALL__';
 
-export default function FilterBar({ filters, setFilters, depots, warehouses, cities, allData }: FilterBarProps) {
+export default function FilterBar({ filters, setFilters, depots = [], warehouses = [], cities = [], allData = [] }: FilterBarProps) {
   const [isMadManagerOpen, setIsMadManagerOpen] = useState(false);
 
   const handleFilterChange = (key: string, value: any) => {
@@ -60,7 +61,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
   }
   
   const clearAllFilters = () => {
-    const persistentFilters = ['punctualityThreshold', 'tours100Mobile', 'excludeMadDelays', 'madDelays'];
+    const persistentFilters = ['punctualityThreshold', 'tours100Mobile', 'excludeMadDelays', 'madDelays', 'lateTourTolerance'];
     const newFilters: Record<string, any> = {};
     persistentFilters.forEach(key => {
         if(filters[key] !== undefined) {
@@ -71,7 +72,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
   }
 
   const activeFilters = Object.keys(filters).filter(key => 
-    !['punctualityThreshold', 'madDelays', 'lateTourTolerance'].includes(key) && filters[key] !== undefined && filters[key] !== null && filters[key] !== false
+    !['punctualityThreshold', 'madDelays', 'lateTourTolerance'].includes(key) && filters[key] !== undefined && filters[key] !== null && filters[key] !== false && filters[key] !== ''
   );
   
   const getFilterLabel = (key: string) => {
@@ -86,7 +87,6 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
           case 'tours100Mobile': return '100% Mobile';
           case 'excludeMadDelays': return 'Exclure MAD';
           case 'topPostalCodes': return 'Top Codes Postaux';
-          case 'lateTourTolerance': return 'Tolérance Retard Tournée';
           default: return key;
       }
   }
@@ -115,6 +115,9 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
       }
       if (key === 'excludeMadDelays' && value === true) {
         return "Oui";
+      }
+       if (key === 'topPostalCodes') {
+        return value;
       }
       return value;
   }
@@ -182,7 +185,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
           </Select>
         </div>
         <div>
-          <Label htmlFor="top-postal-codes">Top Codes Postaux</Label>
+          <Label htmlFor="top-postal-codes">Top Codes Postaux (volume)</Label>
           <Input 
             id="top-postal-codes" 
             type="number" 
@@ -192,13 +195,13 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
            />
         </div>
         <div>
-          <Label htmlFor="punctuality-threshold">Seuil Ponctualité (min)</Label>
+          <Label htmlFor="punctuality-threshold">Seuil Ponctualité (sec)</Label>
           <Input 
             id="punctuality-threshold" 
             type="number" 
-            placeholder="ex: 15"
-            value={filters.punctualityThreshold || ''}
-            onChange={(e) => handleFilterChange('punctualityThreshold', e.target.value ? parseInt(e.target.value) : undefined)}
+            placeholder="ex: 959"
+            value={filters.punctualityThreshold ?? ''}
+            onChange={(e) => handleFilterChange('punctualityThreshold', e.target.value ? parseInt(e.target.value) : 959)}
            />
         </div>
         <div>
@@ -208,7 +211,7 @@ export default function FilterBar({ filters, setFilters, depots, warehouses, cit
             type="number"
             placeholder="ex: 0"
             value={filters.lateTourTolerance || ''}
-            onChange={(e) => handleFilterChange('lateTourTolerance', e.target.value ? parseInt(e.target.value) : undefined)}
+            onChange={(e) => handleFilterChange('lateTourTolerance', e.target.value ? parseInt(e.target.value) : 0)}
            />
         </div>
         <div className="flex items-center space-x-2 pb-2">

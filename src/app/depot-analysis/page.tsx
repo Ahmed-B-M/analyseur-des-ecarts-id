@@ -133,7 +133,7 @@ export default function DepotAnalysisPage() {
                     acc[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
                 }
                 acc[item.codePostal].total++;
-                if (item.heureArriveeReelle > (item.heureFinCreneau + (state.filters.punctualityThreshold || 959))) {
+                if (item.retard > (state.filters.punctualityThreshold || 959)) {
                     acc[item.codePostal].late++;
                 }
             }
@@ -249,7 +249,7 @@ export default function DepotAnalysisPage() {
         const closureBucketKey = `${closureHour}:${closureMinute}`;
         if (buckets[closureBucketKey]) {
             buckets[closureBucketKey].realized++;
-            if (task.heureCloture > task.heureFinCreneau + lateToleranceSeconds) {
+            if (task.retard > lateToleranceSeconds) {
                 buckets[closureBucketKey].late++;
             }
         }
@@ -273,7 +273,7 @@ export default function DepotAnalysisPage() {
     filteredData.forEach(task => {
         const startHour = new Date(task.heureDebutCreneau * 1000).getUTCHours();
         const endHour = new Date(task.heureFinCreneau * 1000).getUTCHours();
-        const isLate = task.heureCloture > (task.heureFinCreneau + toleranceSeconds);
+        const isLate = task.retard > toleranceSeconds;
 
         for (let i = startHour; i < endHour; i++) {
             const hourKey = `${i.toString().padStart(2, '0')}:00`;
@@ -316,7 +316,7 @@ export default function DepotAnalysisPage() {
         if (!filteredData) return;
         
         const depotNames = [...new Set(filteredData.map(item => item.tournee?.entrepot).filter(Boolean) as string[])];
-        const depotExportData = depotNames.map(name => calculateDepotStatsForExport(name, filteredData, state.filters.punctualityThreshold)).filter(Boolean);
+        const depotExportData = depotNames.map(name => calculateDepotStatsForExport(name, filteredData, state.filters.punctualityThreshold || 959)).filter(Boolean);
         
         const postalCodeExportData = Object.entries(
             filteredData.reduce((acc, item) => {
@@ -325,7 +325,7 @@ export default function DepotAnalysisPage() {
                         acc[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
                     }
                     acc[item.codePostal].total++;
-                    if (item.heureArriveeReelle > (item.heureFinCreneau + (state.filters.punctualityThreshold || 959))) {
+                    if (item.retard > (state.filters.punctualityThreshold || 959)) {
                         acc[item.codePostal].late++;
                     }
                 }
@@ -352,7 +352,7 @@ export default function DepotAnalysisPage() {
         const depotData = data.filter(item => item.tournee?.entrepot === depotName);
         if (depotData.length === 0) return null;
         const totalDeliveries = depotData.length;
-        const lateDeliveries = depotData.filter(d => d.heureArriveeReelle > d.heureFinCreneau + toleranceSeconds).length;
+        const lateDeliveries = depotData.filter(d => d.retard > toleranceSeconds).length;
         return {
             Entrepot: depotName,
             'Total Livraisons': totalDeliveries,

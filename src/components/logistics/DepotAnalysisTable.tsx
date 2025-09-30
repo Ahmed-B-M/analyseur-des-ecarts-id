@@ -15,7 +15,7 @@ interface DepotAnalysisTableProps {
     data: MergedData[];
 }
 
-const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMinutes: number, lateTourTolerance: number) => {
+const calculateDepotStats = (depotName: string, data: MergedData[], toleranceSeconds: number, lateTourTolerance: number) => {
     // ... (logic is in DepotAnalysisPage for now, will be moved here)
     // This is just a placeholder to satisfy TypeScript
      const depotData = data.filter(item => item.tournee?.entrepot === depotName);
@@ -23,7 +23,6 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
         return null;
     }
 
-    const toleranceSeconds = toleranceMinutes * 60;
     const totalDeliveries = depotData.length;
 
     // Ponctualité Prév. (aligné avec dataAnalyzer.ts)
@@ -77,7 +76,7 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
     const onTimeDepartureLateArrivalTours = Object.values(tasksByTour).filter(({ tour, tasks }) => {
        if (!tour || tour.heureDepartReelle > tour.heureDepartPrevue) return false;
        const firstTask = tasks.sort((a,b) => a.ordre - b.ordre)[0];
-       return firstTask && firstTask.heureArriveeReelle > firstTask.heureFinCreneau + lateTourToleranceSeconds;
+       return firstTask && firstTask.retard > lateTourToleranceSeconds;
     }).length;
     const tourneesPartiesHeureRetard = totalTours > 0 ? (onTimeDepartureLateArrivalTours / totalTours) * 100 : 0;
 
@@ -91,7 +90,7 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
         // Condition 2: Au moins une livraison doit avoir plus de 15 minutes de retard
         const fifteenMinutesInSeconds = 15 * 60;
         const hasSignificantDelay = tasks.some(task =>
-            task.heureCloture > (task.heureFinCreneau + fifteenMinutesInSeconds)
+            task.retard > fifteenMinutesInSeconds
         );
 
         return hasSignificantDelay;
@@ -102,7 +101,7 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
 
     // % des notes négatives (1-3) qui sont arrivées en retard
     const negativeRatings = depotData.filter(d => d.notation && d.notation >= 1 && d.notation <= 3);
-    const negativeRatingsLate = negativeRatings.filter(d => d.heureCloture > d.heureFinCreneau);
+    const negativeRatingsLate = negativeRatings.filter(d => d.retard > toleranceSeconds);
     const notesNegativesRetard = negativeRatings.length > 0 ? (negativeRatingsLate.length / negativeRatings.length) * 100 : 0;
 
     
@@ -117,7 +116,7 @@ const calculateDepotStats = (depotName: string, data: MergedData[], toleranceMin
             slotStats[slotKey] = { total: 0, late: 0 };
         }
         slotStats[slotKey].total++;
-        if (task.heureCloture > (task.heureFinCreneau + toleranceSeconds)) {
+        if (task.retard > toleranceSeconds) {
             slotStats[slotKey].late++;
         }
     });
@@ -211,7 +210,7 @@ export default function DepotAnalysisTable({ data: filteredData }: DepotAnalysis
     const data = useMemo(() => {
         if (!filteredData) return [];
         const depotNames = [...new Set(filteredData.map(item => item.tournee?.entrepot).filter(Boolean) as string[])];
-        return depotNames.map(name => calculateDepotStats(name, filteredData, state.filters.punctualityThreshold || 15, state.filters.lateTourTolerance || 0)).filter(Boolean) as DepotStats[];
+        return depotNames.map(name => calculateDepotStats(name, filteredData, state.filters.punctualityThreshold || 959, state.filters.lateTourTolerance || 0)).filter(Boolean) as DepotStats[];
     }, [filteredData, state.filters.punctualityThreshold, state.filters.lateTourTolerance]);
 
     const sortedData = useMemo(() => {

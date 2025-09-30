@@ -15,9 +15,8 @@ interface PostalCodeTableProps {
     data: MergedData[];
 }
 
-const calculatePostalCodeStats = (data: MergedData[], toleranceMinutes: number = 15) => {
+const calculatePostalCodeStats = (data: MergedData[], toleranceSeconds: number = 959) => {
     const postalCodeStats: Record<string, { total: number; late: number; depot: string }> = {};
-    const toleranceSeconds = toleranceMinutes * 60;
 
     data.forEach(item => {
         if (item.codePostal && item.tournee) {
@@ -26,7 +25,7 @@ const calculatePostalCodeStats = (data: MergedData[], toleranceMinutes: number =
             }
             postalCodeStats[item.codePostal].total++;
             // Le retard est défini par un dépassement du créneau horaire du client + la tolérance
-            if (item.heureArriveeReelle > (item.heureFinCreneau + toleranceSeconds)) {
+            if (item.retard > toleranceSeconds) {
                 postalCodeStats[item.codePostal].late++;
             }
         }
@@ -48,7 +47,7 @@ export default function PostalCodeTable({ data: filteredData }: PostalCodeTableP
 
     const data = useMemo(() => {
         if (!filteredData) return [];
-        return calculatePostalCodeStats(filteredData, state.filters.punctualityThreshold || 15);
+        return calculatePostalCodeStats(filteredData, state.filters.punctualityThreshold || 959);
     }, [filteredData, state.filters.punctualityThreshold]);
 
     const sortedData = useMemo(() => {
