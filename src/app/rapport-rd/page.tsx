@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CommentCategorizationTable, CategoryRow } from '@/components/logistics/CommentCategorizationTable';
+import SlotAnalysisChart from '@/components/logistics/SlotAnalysisChart';
+import DeliveryVolumeChart from '@/components/logistics/DeliveryVolumeChart';
 
 const COLORS = { 'Retard': '#E4002B', 'Avance': '#00C49F', 'Autre': '#FFBB28' };
 
@@ -298,6 +300,9 @@ export default function RapportRDPage() {
                         </Button>
                     </div>
                 </div>
+
+                <DeliveryVolumeChart data={filteredData} />
+                <SlotAnalysisChart data={filteredData} />
                 
                 <HotZonesChart data={chartData} />
 
