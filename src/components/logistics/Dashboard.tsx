@@ -9,15 +9,19 @@ import AnalysisDashboard from '@/components/logistics/AnalysisDashboard';
 import DetailedDataView from '@/components/logistics/DetailedDataView';
 import { Logo } from '@/components/logistics/Logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, AlertCircle, BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning } from 'lucide-react';
+import { Loader2, AlertCircle, BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DateRangePicker } from './DateRangePicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import CalendarView from './CalendarView';
 import ComparisonView from './ComparisonView';
 import DepotComparison from './DepotComparison';
-import Link from 'next/link';
 import NegativeCommentsTable from './NegativeCommentsTable';
+import DepotAnalysisTable from './DepotAnalysisTable';
+import PostalCodeTable from './PostalCodeTable';
+import HotZonesChart from './HotZonesChart';
+import SlotAnalysisChart from './SlotAnalysisChart';
+import DeliveryVolumeChart from './DeliveryVolumeChart';
 
 
 export default function Dashboard() {
@@ -37,6 +41,13 @@ export default function Dashboard() {
     setFilters({...state.filters, ...filter, selectedDate: undefined, dateRange: undefined});
     setActiveTab('data');
   }, [setFilters, state.filters]);
+  
+  const chartData = analysisData ? (analysisData.postalCodeStats || []).map(item => ({
+      codePostal: item.codePostal,
+      entrepot: item.entrepot,
+      totalLivraisons: item.totalLivraisons,
+      retardPercent: parseFloat(item.livraisonsRetard.slice(0, -1)),
+  })) : [];
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
@@ -106,22 +117,17 @@ export default function Dashboard() {
               allData={rawData}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-6 max-w-6xl mx-auto">
+                <TabsList className="grid w-full grid-cols-8 max-w-full mx-auto">
                     <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
                     <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
                     <TabsTrigger value="depotComparison"><LayoutDashboard className="w-4 h-4 mr-2" />Comparaison Dépôts</TabsTrigger>
                     <TabsTrigger value="negativeComments"><MessageCircleWarning className="w-4 h-4 mr-2" />Avis Négatifs</TabsTrigger>
                     <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Analyse par Période</TabsTrigger>
                     <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
+                    <TabsTrigger value="rdp"><LayoutDashboard className="w-4 h-4 mr-2" />RDP</TabsTrigger>
+                    <TabsTrigger value="reportRD"><FileSpreadsheet className="w-4 h-4 mr-2" />Rapport RD</TabsTrigger>
                 </TabsList>
-                <div className="flex justify-center gap-4 my-4">
-                    <Link href="/depot-analysis" passHref>
-                      <Button variant="outline"><LayoutDashboard className="w-4 h-4 mr-2" />RDP</Button>
-                    </Link>
-                    <Link href="/rapport-rd" passHref>
-                      <Button variant="outline"><LayoutDashboard className="w-4 h-4 mr-2" />Rapport RD</Button>
-                    </Link>
-                </div>
+
               <TabsContent value="dashboard" className="mt-6">
                 <AnalysisDashboard 
                   analysisData={analysisData}
@@ -179,6 +185,19 @@ export default function Dashboard() {
               </TabsContent>
               <TabsContent value="data" className="mt-6">
                 <DetailedDataView data={filteredData} />
+              </TabsContent>
+              <TabsContent value="rdp" className="mt-6 space-y-6">
+                <HotZonesChart data={chartData} />
+                <DepotAnalysisTable data={analysisData.depotStats} />
+                <PostalCodeTable data={analysisData.postalCodeStats} />
+                <SlotAnalysisChart data={filteredData} />
+              </TabsContent>
+               <TabsContent value="reportRD" className="mt-6 space-y-6">
+                <DeliveryVolumeChart data={filteredData} />
+                <SlotAnalysisChart data={filteredData} />
+                <HotZonesChart data={chartData} />
+                <DepotAnalysisTable data={analysisData.depotStats} />
+                <PostalCodeTable data={analysisData.postalCodeStats} />
               </TabsContent>
             </Tabs>
           </div>
