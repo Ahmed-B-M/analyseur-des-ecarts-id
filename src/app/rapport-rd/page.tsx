@@ -40,26 +40,17 @@ export default function RapportRDPage() {
     };
 
     const commentCategorizationData: CategoryRow[] = useMemo(() => {
-        if (!state.analysisResults?.aggregated) return [];
-
-        const totalComments = state.analysisResults.aggregated.reduce((sum: number, item: any) => sum + item.count, 0);
-
-        return state.analysisResults.aggregated.map((item: any) => ({
-            category: item.reason,
-            count: item.count,
-            percentage: totalComments > 0 ? (item.count / totalComments) * 100 : 0,
-            action: commentActions[item.reason] || '',
-        }));
-    }, [state.analysisResults, commentActions]);
+        return [];
+    }, []);
 
     const handleBarClick = (data: any) => {
         setSelectedCategory(data.reason);
     };
 
     const selectedComments = useMemo(() => {
-        if (!selectedCategory || !state.analysisResults?.detailed) return [];
-        return state.analysisResults.detailed.filter((c: any) => c.category === selectedCategory);
-    }, [selectedCategory, state.analysisResults]);
+        if (!selectedCategory) return [];
+        return [];
+    }, [selectedCategory]);
 
     const setFilters = useCallback((newFilters: Record<string, any>) => {
         dispatch({ type: 'SET_FILTERS', filters: newFilters });
@@ -172,7 +163,7 @@ export default function RapportRDPage() {
                     acc[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
                 }
                 acc[item.codePostal].total++;
-                if (item.heureArriveeReelle > (item.heureFinCreneau + (state.filters.punctualityThreshold || 15) * 60)) {
+                if (item.heureArriveeReelle > (item.heureFinCreneau + (state.filters.punctualityThreshold || 959))) {
                     acc[item.codePostal].late++;
                 }
             }
@@ -219,7 +210,7 @@ export default function RapportRDPage() {
                         acc[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
                     }
                     acc[item.codePostal].total++;
-                    if (item.heureArriveeReelle > (item.heureFinCreneau + (state.filters.punctualityThreshold || 15) * 60)) {
+                    if (item.heureArriveeReelle > (item.heureFinCreneau + (state.filters.punctualityThreshold || 959))) {
                         acc[item.codePostal].late++;
                     }
                 }
@@ -248,11 +239,11 @@ export default function RapportRDPage() {
         router.push('/report');
     };
     
-    const calculateDepotStatsForExport = (depotName: string, data: MergedData[], toleranceMinutes: number = 15) => {
+    const calculateDepotStatsForExport = (depotName: string, data: MergedData[], toleranceSeconds: number = 959) => {
         const depotData = data.filter(item => item.tournee?.entrepot === depotName);
         if (depotData.length === 0) return null;
         const totalDeliveries = depotData.length;
-        const lateDeliveries = depotData.filter(d => d.heureArriveeReelle > d.heureFinCreneau + (toleranceMinutes*60)).length;
+        const lateDeliveries = depotData.filter(d => d.heureArriveeReelle > d.heureFinCreneau + toleranceSeconds).length;
         return {
             Entrepot: depotName,
             'Total Livraisons': totalDeliveries,
@@ -301,47 +292,10 @@ export default function RapportRDPage() {
                     </div>
                 </div>
 
-                <DeliveryVolumeChart data={filteredData} />
+                <DeliveryVolumeChart data={filteredData} punctualityThreshold={state.filters.punctualityThreshold} />
                 <SlotAnalysisChart data={filteredData} />
                 
                 <HotZonesChart data={chartData} />
-
-                {state.analysisResults && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Sparkles className="text-primary" />
-                                Catégorisation des Commentaires
-                            </CardTitle>
-                            <CardDescription>
-                                Résultats de l'analyse IA des retours clients négatifs. Cliquez sur une barre pour voir les commentaires.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <ResponsiveContainer width="100%" height={200}>
-                                <BarChart data={state.analysisResults.aggregated} layout="vertical" margin={{ left: 20, right: 20 }}>
-                                    <XAxis type="number" hide />
-                                    <YAxis dataKey="reason" type="category" width={100} tick={{ fontSize: 12 }} />
-                                    <Tooltip cursor={{ fill: 'rgba(240, 240, 240, 0.5)' }} />
-                                    <Bar dataKey="count" name="Nombre d'avis" barSize={25} onClick={handleBarClick}>
-                                        {state.analysisResults.aggregated.map((entry: any, index: number) => (
-                                            <DialogTrigger asChild key={`cell-${index}`}>
-                                                <Cell cursor="pointer" fill={COLORS[entry.reason as keyof typeof COLORS] || '#8884d8'} />
-                                            </DialogTrigger>
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {commentCategorizationData.length > 0 && (
-                    <CommentCategorizationTable
-                        data={commentCategorizationData}
-                        onActionChange={handleActionChange}
-                    />
-                )}
                 
                 <DepotAnalysisTable data={filteredData} />
 

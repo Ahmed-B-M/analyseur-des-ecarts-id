@@ -1,6 +1,6 @@
 
 'use client';
-import type { AnalysisData, MergedData } from '@/lib/types';
+import type { AnalysisData } from '@/lib/types';
 import { Info } from 'lucide-react';
 import { useMemo } from 'react';
 import { GlobalKpiSection } from './dashboard/GlobalKpiSection';
@@ -14,12 +14,9 @@ import { PerformanceTables } from './dashboard/PerformanceTables';
 interface AnalysisDashboardProps {
   analysisData: AnalysisData | null;
   onFilterAndSwitch: (filter: Record<string, any>) => void;
-  allData: MergedData[];
-  filters: Record<string, any>;
-  depots: string[];
 }
 
-export default function AnalysisDashboard({ analysisData, onFilterAndSwitch, allData, filters, depots }: AnalysisDashboardProps) {
+export default function AnalysisDashboard({ analysisData, onFilterAndSwitch }: AnalysisDashboardProps) {
 
   const totalTours = useMemo(() => {
     if (!analysisData) return 0;

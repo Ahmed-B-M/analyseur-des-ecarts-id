@@ -56,7 +56,7 @@ export default function Dashboard() {
          </div>
       </header>
       <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
-        {!analysisData && (
+        {!state.analysisData && (
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="grid md:grid-cols-2 gap-8">
                 <FileUpload
@@ -87,7 +87,7 @@ export default function Dashboard() {
           </div>
         )}
         
-        {state.isLoading && !analysisData && (
+        {state.isLoading && !state.analysisData && (
           <div className="flex flex-col items-center justify-center h-64 gap-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="text-lg text-muted-foreground">Analyse des données en cours...</p>
@@ -95,61 +95,60 @@ export default function Dashboard() {
           </div>
         )}
 
-        {analysisData && (
+        {state.analysisData && (
           <div className="space-y-6">
             <FilterBar 
               filters={state.filters} 
               setFilters={setFilters} 
-              depots={analysisData.depots}
-              warehouses={analysisData.warehouses}
-              cities={(analysisData?.cities || [])}
-              allData={analysisData.rawData}
+              depots={state.analysisData.depots}
+              warehouses={state.analysisData.warehouses}
+              cities={(state.analysisData?.cities || [])}
+              allData={state.analysisData.rawData}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-8 max-w-7xl mx-auto">
+                <TabsList className="grid w-full grid-cols-6 max-w-6xl mx-auto">
                     <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
                     <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
                     <TabsTrigger value="depotComparison"><LayoutDashboard className="w-4 h-4 mr-2" />Comparaison Dépôts</TabsTrigger>
                     <TabsTrigger value="negativeComments"><MessageCircleWarning className="w-4 h-4 mr-2" />Avis Négatifs</TabsTrigger>
                     <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Analyse par Période</TabsTrigger>
                     <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
+                </TabsList>
+                <div className="flex justify-center gap-4 my-4">
                     <Link href="/depot-analysis" passHref>
-                      <TabsTrigger value="rdp" className="w-full"><LayoutDashboard className="w-4 h-4 mr-2" />RDP</TabsTrigger>
+                      <Button variant="outline"><LayoutDashboard className="w-4 h-4 mr-2" />RDP</Button>
                     </Link>
                     <Link href="/rapport-rd" passHref>
-                      <TabsTrigger value="rapport-rd" className="w-full"><LayoutDashboard className="w-4 h-4 mr-2" />Rapport RD</TabsTrigger>
+                      <Button variant="outline"><LayoutDashboard className="w-4 h-4 mr-2" />Rapport RD</Button>
                     </Link>
-                </TabsList>
+                </div>
               <TabsContent value="dashboard" className="mt-6">
                 <AnalysisDashboard 
-                  analysisData={analysisData}
+                  analysisData={state.analysisData}
                   onFilterAndSwitch={applyFilterAndSwitchTab}
-                  allData={analysisData.rawData}
-                  filters={state.filters}
-                  depots={analysisData.depots}
                 />
               </TabsContent>
               <TabsContent value="comparison" className="mt-6">
                 <ComparisonView
-                    allData={analysisData.rawData}
+                    allData={state.analysisData.rawData}
                     filters={state.filters}
                 />
               </TabsContent>
               <TabsContent value="depotComparison" className="mt-6">
                 <DepotComparison
-                    allData={analysisData.rawData}
+                    allData={state.analysisData.rawData}
                     filters={state.filters}
-                    depots={analysisData.depots}
+                    depots={state.analysisData.depots}
                 />
               </TabsContent>
               <TabsContent value="negativeComments" className="mt-6">
-                 <NegativeCommentsTable data={analysisData.filteredData} />
+                 <NegativeCommentsTable data={state.analysisData.filteredData} />
               </TabsContent>
               <TabsContent value="calendar" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-1">
                          <CalendarView 
-                            data={analysisData.rawData}
+                            data={state.analysisData.rawData}
                             onDateSelect={(date) => {
                                 setFilters({ ...state.filters, selectedDate: date, dateRange: undefined });
                             }}
@@ -179,7 +178,7 @@ export default function Dashboard() {
                 </div>
               </TabsContent>
               <TabsContent value="data" className="mt-6">
-                <DetailedDataView data={analysisData.filteredData} />
+                <DetailedDataView data={state.analysisData.filteredData} />
               </TabsContent>
             </Tabs>
           </div>

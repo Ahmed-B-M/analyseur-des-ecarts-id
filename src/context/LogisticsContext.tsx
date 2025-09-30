@@ -1,8 +1,9 @@
 
 'use client';
 
-import { createContext, useContext, useReducer, ReactNode, Dispatch, useEffect, useState } from 'react';
-import type { AnalysisData } from '@/lib/types';
+import { createContext, useContext, useReducer, ReactNode, Dispatch, useEffect, useState, useMemo } from 'react';
+import type { AnalysisData, MergedData } from '@/lib/types';
+import { analyzeData } from '@/lib/dataAnalyzer';
 
 // 1. State & Action Types
 type State = {
@@ -34,6 +35,7 @@ const initialState: State = {
     tours100Mobile: false,
     excludeMadDelays: false,
     madDelays: [],
+    lateTourTolerance: 0,
   },
 };
 
@@ -41,7 +43,7 @@ const initialState: State = {
 function logisticsReducer(state: State, action: Action): State {
   switch (action.type) {
     case 'SET_FILE':
-      return { ...state, [`${action.fileType}File`]: action.file, error: null, analysisData: null };
+      return { ...state, [`${action.fileType}File`]: action.file, error: null };
     case 'START_PROCESSING':
       return { ...state, isLoading: true, error: null };
     case 'PROCESSING_SUCCESS':
@@ -49,9 +51,7 @@ function logisticsReducer(state: State, action: Action): State {
     case 'PROCESSING_ERROR':
       return { ...state, isLoading: false, error: action.error, analysisData: null };
     case 'SET_FILTERS':
-       // When filters change, we need to re-process the data.
-       // We'll set the data to null to trigger the useEffect hook.
-      return { ...state, filters: action.filters, analysisData: null };
+      return { ...state, filters: action.filters };
     case 'RESET':
       return { ...initialState };
     default:
@@ -63,6 +63,7 @@ function logisticsReducer(state: State, action: Action): State {
 interface LogisticsContextProps {
   state: State;
   dispatch: Dispatch<Action>;
+  mergedData: MergedData[] | null;
 }
 
 const LogisticsContext = createContext<LogisticsContextProps | undefined>(undefined);
@@ -79,7 +80,8 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
     newWorker.onmessage = (event) => {
       const { type, data, error } = event.data;
       if (type === 'success') {
-        dispatch({ type: 'PROCESSING_SUCCESS', data });
+        const analyzed = analyzeData(data, state.filters);
+        dispatch({ type: 'PROCESSING_SUCCESS', data: { ...analyzed, rawData: data, filteredData: data } });
       } else {
         dispatch({ type: 'PROCESSING_ERROR', error });
       }
@@ -90,21 +92,38 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
     };
 
     return () => newWorker.terminate();
-  }, []);
+  }, [state.filters]);
   
   useEffect(() => {
-      if (state.tourneesFile && state.tachesFile && worker && !state.analysisData && !state.isLoading) {
-        dispatch({ type: 'START_PROCESSING' });
-        worker.postMessage({
-            tourneesFile: state.tourneesFile,
-            tachesFile: state.tachesFile,
-            filters: state.filters,
-        });
+    if (state.tourneesFile && state.tachesFile && worker && !state.analysisData && !state.isLoading) {
+      dispatch({ type: 'START_PROCESSING' });
+      worker.postMessage({
+        tourneesFile: state.tourneesFile,
+        tachesFile: state.tachesFile
+      });
     }
-  }, [state.tourneesFile, state.tachesFile, state.filters, state.analysisData, state.isLoading, worker]);
+  }, [state.tourneesFile, state.tachesFile, state.analysisData, state.isLoading, worker]);
+
+  const { mergedData, analysisData } = useMemo(() => {
+    if (!state.analysisData || !state.analysisData.rawData) {
+        return { mergedData: null, analysisData: null };
+    }
+    const filtered = state.analysisData.rawData.filter(item => {
+        if (!item.tournee) return false;
+        if (state.filters.depot && !item.tournee.entrepot.startsWith(state.filters.depot)) return false;
+        if (state.filters.entrepot && item.tournee.entrepot !== state.filters.entrepot) return false;
+        if (state.filters.city && item.ville !== state.filters.city) return false;
+        if (state.filters.codePostal && item.codePostal !== state.filters.codePostal) return false;
+        return true;
+    });
+
+    const analyzed = analyzeData(filtered, state.filters);
+    return { mergedData: filtered, analysisData: { ...analyzed, rawData: state.analysisData.rawData, filteredData: filtered } };
+  }, [state.analysisData, state.filters]);
+  
 
   return (
-    <LogisticsContext.Provider value={{ state, dispatch }}>
+    <LogisticsContext.Provider value={{ state: { ...state, analysisData }, dispatch, mergedData }}>
       {children}
     </LogisticsContext.Provider>
   );

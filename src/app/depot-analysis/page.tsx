@@ -133,7 +133,7 @@ export default function DepotAnalysisPage() {
                     acc[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
                 }
                 acc[item.codePostal].total++;
-                if (item.heureArriveeReelle > (item.heureFinCreneau + (state.filters.punctualityThreshold || 15) * 60)) {
+                if (item.heureArriveeReelle > (item.heureFinCreneau + (state.filters.punctualityThreshold || 959))) {
                     acc[item.codePostal].late++;
                 }
             }
@@ -230,7 +230,7 @@ export default function DepotAnalysisPage() {
         }
     });
 
-    const lateToleranceSeconds = (state.filters.punctualityThreshold || 15) * 60;
+    const lateToleranceSeconds = (state.filters.punctualityThreshold || 959);
 
     filteredData.forEach(task => {
         // Urbantz Plan
@@ -268,7 +268,7 @@ export default function DepotAnalysisPage() {
         hourlyBuckets[`${hour}:00`] = { total: 0, late: 0 };
     }
 
-    const toleranceSeconds = (state.filters.punctualityThreshold || 15) * 60;
+    const toleranceSeconds = (state.filters.punctualityThreshold || 959);
 
     filteredData.forEach(task => {
         const startHour = new Date(task.heureDebutCreneau * 1000).getUTCHours();
@@ -325,7 +325,7 @@ export default function DepotAnalysisPage() {
                         acc[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
                     }
                     acc[item.codePostal].total++;
-                    if (item.heureArriveeReelle > (item.heureFinCreneau + (state.filters.punctualityThreshold || 15) * 60)) {
+                    if (item.heureArriveeReelle > (item.heureFinCreneau + (state.filters.punctualityThreshold || 959))) {
                         acc[item.codePostal].late++;
                     }
                 }
@@ -348,11 +348,11 @@ export default function DepotAnalysisPage() {
         exportToXlsx(sheets, `RDP_Export_${today}`);
     };
     
-    const calculateDepotStatsForExport = (depotName: string, data: MergedData[], toleranceMinutes: number = 15) => {
+    const calculateDepotStatsForExport = (depotName: string, data: MergedData[], toleranceSeconds: number = 959) => {
         const depotData = data.filter(item => item.tournee?.entrepot === depotName);
         if (depotData.length === 0) return null;
         const totalDeliveries = depotData.length;
-        const lateDeliveries = depotData.filter(d => d.heureArriveeReelle > d.heureFinCreneau + (toleranceMinutes*60)).length;
+        const lateDeliveries = depotData.filter(d => d.heureArriveeReelle > d.heureFinCreneau + toleranceSeconds).length;
         return {
             Entrepot: depotName,
             'Total Livraisons': totalDeliveries,
@@ -401,7 +401,7 @@ export default function DepotAnalysisPage() {
                 </div>
             </div>
 
-            <SimulationView data={filteredData} punctualityThreshold={state.filters.punctualityThreshold || 15} />
+            <SimulationView data={filteredData} punctualityThreshold={state.filters.punctualityThreshold || 959} />
 
             <SaturationChart data={saturationData} />
             
