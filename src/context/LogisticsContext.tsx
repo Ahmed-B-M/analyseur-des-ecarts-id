@@ -4,6 +4,7 @@
 import { createContext, useContext, useReducer, ReactNode, Dispatch, useEffect, useState, useMemo } from 'react';
 import type { AnalysisData, MergedData } from '@/lib/types';
 import { analyzeData } from '@/lib/dataAnalyzer';
+import { DateRange } from 'react-day-picker';
 
 // 1. State & Action Types
 type State = {
@@ -13,12 +14,14 @@ type State = {
   error: string | null;
   analysisData: AnalysisData | null;
   filters: Record<string, any>;
+  rawData: MergedData[] | null;
+  filteredData: MergedData[] | null;
 };
 
 type Action =
   | { type: 'SET_FILE'; fileType: 'tournees' | 'taches'; file: File | null }
   | { type: 'START_PROCESSING' }
-  | { type: 'PROCESSING_SUCCESS'; data: AnalysisData }
+  | { type: 'PROCESSING_SUCCESS'; data: MergedData[] }
   | { type: 'PROCESSING_ERROR'; error: string }
   | { type: 'SET_FILTERS'; filters: Record<string, any> }
   | { type: 'RESET' };
@@ -30,6 +33,8 @@ const initialState: State = {
   isLoading: false,
   error: null,
   analysisData: null,
+  rawData: null,
+  filteredData: null,
   filters: {
     punctualityThreshold: 959,
     tours100Mobile: false,
@@ -47,9 +52,17 @@ function logisticsReducer(state: State, action: Action): State {
     case 'START_PROCESSING':
       return { ...state, isLoading: true, error: null };
     case 'PROCESSING_SUCCESS':
-      return { ...state, isLoading: false, analysisData: action.data, error: null };
+        const initialAnalysis = analyzeData(action.data, state.filters);
+        return { 
+            ...state, 
+            isLoading: false, 
+            rawData: action.data, 
+            filteredData: action.data,
+            analysisData: initialAnalysis,
+            error: null 
+        };
     case 'PROCESSING_ERROR':
-      return { ...state, isLoading: false, error: action.error, analysisData: null };
+      return { ...state, isLoading: false, error: action.error, rawData: null, analysisData: null, filteredData: null };
     case 'SET_FILTERS':
       return { ...state, filters: action.filters };
     case 'RESET':
@@ -63,14 +76,13 @@ function logisticsReducer(state: State, action: Action): State {
 interface LogisticsContextProps {
   state: State;
   dispatch: Dispatch<Action>;
-  mergedData: MergedData[] | null;
 }
 
 const LogisticsContext = createContext<LogisticsContextProps | undefined>(undefined);
 
 // 5. Provider Component
 export function LogisticsProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(logisticsReducer, initialState);
+  const [internalState, dispatch] = useReducer(logisticsReducer, initialState);
   const [worker, setWorker] = useState<Worker | null>(null);
 
   useEffect(() => {
@@ -80,8 +92,7 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
     newWorker.onmessage = (event) => {
       const { type, data, error } = event.data;
       if (type === 'success') {
-        const analyzed = analyzeData(data, state.filters);
-        dispatch({ type: 'PROCESSING_SUCCESS', data: { ...analyzed, rawData: data, filteredData: data } });
+        dispatch({ type: 'PROCESSING_SUCCESS', data });
       } else {
         dispatch({ type: 'PROCESSING_ERROR', error });
       }
@@ -92,38 +103,103 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
     };
 
     return () => newWorker.terminate();
-  }, [state.filters]);
+  }, []);
   
   useEffect(() => {
-    if (state.tourneesFile && state.tachesFile && worker && !state.analysisData && !state.isLoading) {
+    if (internalState.tourneesFile && internalState.tachesFile && worker && !internalState.rawData && !internalState.isLoading) {
       dispatch({ type: 'START_PROCESSING' });
       worker.postMessage({
-        tourneesFile: state.tourneesFile,
-        tachesFile: state.tachesFile
+        tourneesFile: internalState.tourneesFile,
+        tachesFile: internalState.tachesFile
       });
     }
-  }, [state.tourneesFile, state.tachesFile, state.analysisData, state.isLoading, worker]);
+  }, [internalState.tourneesFile, internalState.tachesFile, internalState.rawData, internalState.isLoading, worker]);
 
-  const { mergedData, analysisData } = useMemo(() => {
-    if (!state.analysisData || !state.analysisData.rawData) {
-        return { mergedData: null, analysisData: null };
-    }
-    const filtered = state.analysisData.rawData.filter(item => {
-        if (!item.tournee) return false;
-        if (state.filters.depot && !item.tournee.entrepot.startsWith(state.filters.depot)) return false;
-        if (state.filters.entrepot && item.tournee.entrepot !== state.filters.entrepot) return false;
-        if (state.filters.city && item.ville !== state.filters.city) return false;
-        if (state.filters.codePostal && item.codePostal !== state.filters.codePostal) return false;
-        return true;
-    });
+  const state = useMemo(() => {
+      if (!internalState.rawData) {
+        return internalState;
+      }
+      
+      const filtered = internalState.rawData.filter(item => {
+            if (!item.tournee) return false;
+            
+            // Date filters
+            if (internalState.filters.selectedDate) {
+               if (item.date !== internalState.filters.selectedDate) return false;
+            } else if (internalState.filters.dateRange) {
+              const { from, to } = internalState.filters.dateRange as DateRange;
+              const itemDate = new Date(item.date);
+              itemDate.setHours(0,0,0,0); // Normalize item date
+              if (from) {
+                const fromDate = new Date(from);
+                fromDate.setHours(0,0,0,0); // Normalize from date
+                if (itemDate < fromDate) return false;
+              }
+              if (to) {
+                const toDate = new Date(to);
+                toDate.setHours(23,59,59,999); // Include the end date
+                if (itemDate > toDate) return false;
+              }
+            }
 
-    const analyzed = analyzeData(filtered, state.filters);
-    return { mergedData: filtered, analysisData: { ...analyzed, rawData: state.analysisData.rawData, filteredData: filtered } };
-  }, [state.analysisData, state.filters]);
+            if (internalState.filters.depot && !item.tournee.entrepot.startsWith(internalState.filters.depot)) return false;
+            if (internalState.filters.entrepot && item.tournee.entrepot !== internalState.filters.entrepot) return false;
+            if (internalState.filters.city && item.ville !== internalState.filters.city) return false;
+            if (internalState.filters.codePostal && item.codePostal !== internalState.filters.codePostal) return false;
+            if (internalState.filters.heure && new Date(item.heureCloture * 1000).getUTCHours() !== parseInt(internalState.filters.heure)) return false;
+            
+             // MAD Delays Filter
+            if (internalState.filters.excludeMadDelays && internalState.filters.madDelays && internalState.filters.madDelays.length > 0) {
+                const madSet = new Set(internalState.filters.madDelays);
+                const madKey = `${item.tournee.entrepot}|${item.date}`;
+                if(madSet.has(madKey)) return false;
+            }
+            
+            return true;
+      });
+
+      // Handle "100% mobile" and "Top Postal Codes" as they require pre-aggregation
+      let dataToAnalyze = filtered;
+
+      if (internalState.filters.tours100Mobile) {
+            const tourTasks = new Map<string, any[]>();
+            dataToAnalyze.forEach(task => {
+                if (!tourTasks.has(task.tourneeUniqueId)) {
+                    tourTasks.set(task.tourneeUniqueId, []);
+                }
+                tourTasks.get(task.tourneeUniqueId)!.push(task);
+            });
+
+            const mobileTourIds = new Set<string>();
+            for (const [tourId, tasks] of tourTasks.entries()) {
+                if (tasks.every(t => t.completedBy && t.completedBy.toLowerCase() === 'mobile')) {
+                    mobileTourIds.add(tourId);
+                }
+            }
+            dataToAnalyze = dataToAnalyze.filter(task => mobileTourIds.has(task.tourneeUniqueId));
+      }
+      if (internalState.filters.topPostalCodes) {
+            const postalCodeCounts = dataToAnalyze.reduce((acc, item) => {
+                if (item.codePostal) {
+                    acc[item.codePostal] = (acc[item.codePostal] || 0) + 1;
+                }
+                return acc;
+            }, {} as Record<string, number>);
+
+            const sortedPostalCodes = Object.keys(postalCodeCounts).sort((a, b) => postalCodeCounts[b] - postalCodeCounts[a]);
+            const topCodes = new Set(sortedPostalCodes.slice(0, internalState.filters.topPostalCodes));
+            
+            dataToAnalyze = dataToAnalyze.filter(item => item.codePostal && topCodes.has(item.codePostal));
+      }
+
+      const analysis = analyzeData(dataToAnalyze, internalState.filters);
+      return { ...internalState, filteredData: dataToAnalyze, analysisData: analysis };
+
+  }, [internalState]);
   
 
   return (
-    <LogisticsContext.Provider value={{ state: { ...state, analysisData }, dispatch, mergedData }}>
+    <LogisticsContext.Provider value={{ state, dispatch }}>
       {children}
     </LogisticsContext.Provider>
   );
@@ -135,5 +211,6 @@ export function useLogistics() {
   if (context === undefined) {
     throw new Error('useLogistics must be used within a LogisticsProvider');
   }
+  // This hook now returns the dynamically computed state
   return context;
 }

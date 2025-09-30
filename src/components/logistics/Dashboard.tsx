@@ -22,7 +22,7 @@ import NegativeCommentsTable from './NegativeCommentsTable';
 
 export default function Dashboard() {
   const { state, dispatch } = useLogistics();
-  const { analysisData } = state;
+  const { analysisData, rawData, filteredData } = state;
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const handleSetFile = (fileType: 'tournees' | 'taches', file: File | null) => {
@@ -30,8 +30,8 @@ export default function Dashboard() {
   };
   
   const setFilters = useCallback((newFilters: Record<string, any>) => {
-    dispatch({ type: 'SET_FILTERS', filters: { ...state.filters, ...newFilters} });
-  }, [dispatch, state.filters]);
+    dispatch({ type: 'SET_FILTERS', filters: newFilters });
+  }, [dispatch]);
 
   const applyFilterAndSwitchTab = useCallback((filter: Record<string, any>) => {
     setFilters({...state.filters, ...filter, selectedDate: undefined, dateRange: undefined});
@@ -56,7 +56,7 @@ export default function Dashboard() {
          </div>
       </header>
       <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
-        {!state.analysisData && (
+        {!rawData && (
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="grid md:grid-cols-2 gap-8">
                 <FileUpload
@@ -87,7 +87,7 @@ export default function Dashboard() {
           </div>
         )}
         
-        {state.isLoading && !state.analysisData && (
+        {state.isLoading && !rawData && (
           <div className="flex flex-col items-center justify-center h-64 gap-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="text-lg text-muted-foreground">Analyse des données en cours...</p>
@@ -95,15 +95,15 @@ export default function Dashboard() {
           </div>
         )}
 
-        {state.analysisData && (
+        {rawData && analysisData && (
           <div className="space-y-6">
             <FilterBar 
               filters={state.filters} 
               setFilters={setFilters} 
-              depots={state.analysisData.depots}
-              warehouses={state.analysisData.warehouses}
-              cities={(state.analysisData?.cities || [])}
-              allData={state.analysisData.rawData}
+              depots={analysisData.depots}
+              warehouses={analysisData.warehouses}
+              cities={analysisData.cities}
+              allData={rawData}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-6 max-w-6xl mx-auto">
@@ -124,31 +124,31 @@ export default function Dashboard() {
                 </div>
               <TabsContent value="dashboard" className="mt-6">
                 <AnalysisDashboard 
-                  analysisData={state.analysisData}
+                  analysisData={analysisData}
                   onFilterAndSwitch={applyFilterAndSwitchTab}
                 />
               </TabsContent>
               <TabsContent value="comparison" className="mt-6">
                 <ComparisonView
-                    allData={state.analysisData.rawData}
+                    allData={filteredData}
                     filters={state.filters}
                 />
               </TabsContent>
               <TabsContent value="depotComparison" className="mt-6">
                 <DepotComparison
-                    allData={state.analysisData.rawData}
+                    allData={filteredData}
                     filters={state.filters}
-                    depots={state.analysisData.depots}
+                    depots={analysisData.depots}
                 />
               </TabsContent>
               <TabsContent value="negativeComments" className="mt-6">
-                 <NegativeCommentsTable data={state.analysisData.filteredData} />
+                 <NegativeCommentsTable data={filteredData} />
               </TabsContent>
               <TabsContent value="calendar" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-1">
                          <CalendarView 
-                            data={state.analysisData.rawData}
+                            data={rawData}
                             onDateSelect={(date) => {
                                 setFilters({ ...state.filters, selectedDate: date, dateRange: undefined });
                             }}
@@ -178,7 +178,7 @@ export default function Dashboard() {
                 </div>
               </TabsContent>
               <TabsContent value="data" className="mt-6">
-                <DetailedDataView data={state.analysisData.filteredData} />
+                <DetailedDataView data={filteredData} />
               </TabsContent>
             </Tabs>
           </div>

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { MergedData } from '@/lib/types';
+import { useLogistics } from '@/context/LogisticsContext';
 
 interface DeliveryVolumeChartProps {
   data: MergedData[];
@@ -26,13 +27,15 @@ const COLORS = [
 ];
 
 export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) {
+  const { state } = useLogistics();
+  const punctualityThreshold = state.filters.punctualityThreshold || 959;
+
   const { chartData, slots, totalEarly, totalLate } = useMemo(() => {
     const volumeByHourAndSlot: Record<string, Record<string, { onTime: number; offTime: number }>> = {};
     const allSlots = new Set<string>();
     let totalEarly = 0;
     let totalLate = 0;
-    const tolerance = 15 * 60; // 15 minutes in seconds
-
+    
     data.forEach(item => {
       if (item.heureDebutCreneau && item.heureFinCreneau && item.heureCloture) {
         const slotStart = formatTime(item.heureDebutCreneau);
@@ -50,8 +53,8 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
           volumeByHourAndSlot[deliveryHourLabel][slotLabel] = { onTime: 0, offTime: 0 };
         }
 
-        const isLate = item.heureCloture > item.heureFinCreneau + tolerance;
-        const isEarly = item.heureCloture < item.heureDebutCreneau - tolerance;
+        const isLate = item.retard > punctualityThreshold;
+        const isEarly = item.retard < -punctualityThreshold;
 
         if (isLate) totalLate++;
         if (isEarly) totalEarly++;
@@ -78,7 +81,7 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
     });
 
     return { chartData: finalChartData, slots: sortedSlots, totalEarly, totalLate };
-  }, [data]);
+  }, [data, punctualityThreshold]);
 
   if (!chartData.length) {
     return null;
