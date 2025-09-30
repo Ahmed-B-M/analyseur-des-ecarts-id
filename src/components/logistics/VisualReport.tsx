@@ -223,7 +223,7 @@ export default function VisualReport() {
                         </ReportBlock>
                     )}
 
-                    {(config.selectedWeeks?.length || 0) > 0 && (
+                    {(config.selectedWeeks?.length || 0) > 0 && reportData.weeklyAnalyses && (
                         <ReportBlock title="Analyse Comparative Hebdomadaire" icon={TrendingUp}>
                            <ComparisonView weeklyAnalyses={reportData.weeklyAnalyses} isForReport={true} />
                         </ReportBlock>

@@ -1,4 +1,4 @@
-import type { MergedData, AnalysisData, Tournee, GlobalSummary, DepotStats, PostalCodeStats } from './types';
+import type { MergedData, AnalysisData, Tournee, GlobalSummary, DepotStats, PostalCodeStats, SaturationData, CustomerPromiseData } from './types';
 import { calculateKpis, calculateDiscrepancyKpis, calculateQualityKpis } from './analysis/kpis';
 import { calculateAnomalies } from './analysis/anomalies';
 import { calculatePerformanceByDriver, calculatePerformanceByGeo, calculatePerformanceByGroup } from './analysis/performance';
@@ -130,6 +130,9 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const depotStats = calculateDepotStats(completedTasks, toleranceSeconds, lateTourTolerance);
     const postalCodeStats = calculatePostalCodeStats(completedTasks, toleranceSeconds);
 
+    const saturationData = calculateSaturationData(completedTasks);
+    const customerPromiseData = calculateCustomerPromiseData(completedTasks, toleranceSeconds);
+
 
     return {
         generalKpis,
@@ -164,6 +167,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         firstTaskLatePercentage,
         depotStats,
         postalCodeStats,
+        saturationData,
+        customerPromiseData,
     };
 }
 
@@ -383,6 +388,110 @@ function calculatePostalCodeStats(data: MergedData[], toleranceSeconds: number):
         .sort((a, b) => parseFloat(b.livraisonsRetard) - parseFloat(a.livraisonsRetard));
 };
 
+function calculateSaturationData(filteredData: MergedData[]): SaturationData[] {
+    const hourlyBuckets: Record<string, { demand: number; capacity: number }> = {};
+    for (let i = 6; i < 23; i++) {
+        const hour = i.toString().padStart(2, '0');
+        hourlyBuckets[`${hour}:00`] = { demand: 0, capacity: 0 };
+    }
+
+    (filteredData || []).forEach(task => {
+        const startHour = new Date(task.heureDebutCreneau * 1000).getUTCHours();
+        const endHour = new Date(task.heureFinCreneau * 1000).getUTCHours();
+        for (let i = startHour; i < endHour; i++) {
+            const hourKey = `${i.toString().padStart(2, '0')}:00`;
+            if (hourlyBuckets[hourKey]) {
+                hourlyBuckets[hourKey].demand++;
+            }
+        }
+
+        const closureHour = new Date(task.heureCloture * 1000).getUTCHours();
+        const capacityHourKey = `${closureHour.toString().padStart(2, '0')}:00`;
+        if (hourlyBuckets[capacityHourKey]) {
+            hourlyBuckets[capacityHourKey].capacity++;
+        }
+    });
+    
+    const data = Object.entries(hourlyBuckets)
+        .map(([hour, data]) => ({ hour, ...data }));
+        
+    return data
+        .filter(item => item.demand > 0 || item.capacity > 0)
+        .map(item => ({ hour: item.hour, gap: item.demand - item.capacity }));
+}
+
+function calculateCustomerPromiseData(filteredData: MergedData[], punctualityThreshold: number): CustomerPromiseData[] {
+    if (!filteredData) return [];
+
+    const buckets: Record<string, { customerPromise: number; urbantzPlan: number; realized: number; late: number }> = {};
+    const startTimestamp = new Date();
+    startTimestamp.setUTCHours(6, 0, 0, 0);
+    const endTimestamp = new Date();
+    endTimestamp.setUTCHours(23, 0, 0, 0);
+
+    for (let i = startTimestamp.getTime(); i < endTimestamp.getTime(); i += 60 * 1000) {
+        const d = new Date(i);
+        const hour = String(d.getUTCHours()).padStart(2, '0');
+        const minute = String(d.getUTCMinutes()).padStart(2, '0');
+        buckets[`${hour}:${minute}`] = { customerPromise: 0, urbantzPlan: 0, realized: 0, late: 0 };
+    }
+
+    const deliveriesBySlot = filteredData.reduce((acc, task) => {
+        const start = new Date(task.heureDebutCreneau * 1000);
+        const end = new Date(task.heureFinCreneau * 1000);
+        const key = `${start.toISOString()}-${end.toISOString()}`;
+        if (!acc[key]) {
+            acc[key] = { count: 0, start, end };
+        }
+        acc[key].count++;
+        return acc;
+    }, {} as Record<string, { count: number; start: Date; end: Date }>);
+
+    Object.values(deliveriesBySlot).forEach(slot => {
+        const durationMinutes = (slot.end.getTime() - slot.start.getTime()) / (1000 * 60);
+        if (durationMinutes === 0) return;
+        const weightPerMinute = slot.count / durationMinutes;
+
+        for (let i = 0; i < durationMinutes; i++) {
+            const intervalStart = new Date(slot.start.getTime() + i * 60 * 1000);
+            const hour = String(intervalStart.getUTCHours()).padStart(2, '0');
+            const minute = String(intervalStart.getUTCMinutes()).padStart(2, '0');
+            const bucketKey = `${hour}:${minute}`;
+            
+            if (buckets[bucketKey]) {
+                buckets[bucketKey].customerPromise += weightPerMinute;
+            }
+        }
+    });
+
+    const lateToleranceSeconds = (punctualityThreshold || 959);
+
+    filteredData.forEach(task => {
+        // Urbantz Plan
+        const approxDate = new Date(task.heureArriveeApprox * 1000);
+        const approxHour = String(approxDate.getUTCHours()).padStart(2, '0');
+        const approxMinute = String(approxDate.getUTCMinutes()).padStart(2, '0');
+        const approxBucketKey = `${approxHour}:${approxMinute}`;
+        if (buckets[approxBucketKey]) {
+            buckets[approxBucketKey].urbantzPlan++;
+        }
+
+        // Realized
+        const closureDate = new Date(task.heureCloture * 1000);
+        const closureHour = String(closureDate.getUTCHours()).padStart(2, '0');
+        const closureMinute = String(closureDate.getUTCMinutes()).padStart(2, '0');
+        const closureBucketKey = `${closureHour}:${closureMinute}`;
+        if (buckets[closureBucketKey]) {
+            buckets[closureBucketKey].realized++;
+            if (task.retard > lateToleranceSeconds) {
+                buckets[closureBucketKey].late++;
+            }
+        }
+    });
+    
+    return Object.entries(buckets).map(([hour, data]) => ({ ...data, hour }));
+}
+
 function createEmptyAnalysisData(): AnalysisData {
     return {
         generalKpis: [],
@@ -417,6 +526,8 @@ function createEmptyAnalysisData(): AnalysisData {
         firstTaskLatePercentage: 0,
         depotStats: [],
         postalCodeStats: [],
+        saturationData: [],
+        customerPromiseData: [],
     };
 }
 

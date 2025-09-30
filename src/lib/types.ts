@@ -263,6 +263,19 @@ export type PostalCodeStats = {
     livraisonsRetard: string;
 };
 
+export type SaturationData = {
+  hour: string;
+  gap: number;
+}
+
+export type CustomerPromiseData = {
+  hour: string;
+  customerPromise: number;
+  urbantzPlan: number;
+  realized: number;
+  late: number;
+}
+
 export type AnalysisData = {
   // Lists for Filters
   depots: string[];
@@ -311,4 +324,34 @@ export type AnalysisData = {
   // Table-specific stats
   depotStats: DepotStats[];
   postalCodeStats: PostalCodeStats[];
+
+  // Chart-specific data
+  saturationData: SaturationData[];
+  customerPromiseData: CustomerPromiseData[];
+};
+
+export type VisualReportData = {
+    analysis: AnalysisData;
+    ai: {
+        title?: string;
+        globalSynthesis?: string;
+        kpiComments?: Record<string, string>;
+        temporalAnalysisComments?: Record<string, string>;
+        anomaliesComments?: Record<string, string>;
+        geoDriverComments?: Record<string, string>;
+        recommendations?: {
+            planning?: string;
+            operations?: string;
+            quality?: string;
+        };
+    };
+    filters: any;
+    extra: {
+        top10Overloaded?: OverloadedTourInfo[];
+        overloadedToursPercentage?: number;
+        negativeReviewsKpi?: Kpi;
+    };
+    config: CustomReportConfig;
+    weeklyAnalyses?: WeeklyAnalysis[];
+    depotWeeklyAnalyses?: DepotWeeklyAnalysis[];
 };
