@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -9,48 +8,12 @@ import { ArrowUpDown, ChevronLeft, ChevronRight, MessageCircleWarning, Info } fr
 import type { MergedData } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
+import { CommentCategorizationTable, CategoryRow } from './CommentCategorizationTable';
 
 
 const ITEMS_PER_PAGE = 25;
 
 type SortKey = keyof MergedData | `tournee.${keyof NonNullable<MergedData['tournee']>}`;
-
-
-const CategoryKeywordTable = ({ data }: { data: Record<string, number> }) => {
-    const total = Object.values(data).reduce((a, b) => a + b, 0);
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-lg">Catégorisation des Commentaires</CardTitle>
-                <CardDescription>
-                    Estimations basées sur des mots-clés.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Catégorie</TableHead>
-                            <TableHead className="text-right">Nombre</TableHead>
-                            <TableHead className="text-right">%</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {Object.entries(data).map(([category, count]) => (
-                            <TableRow key={category}>
-                                <TableCell className="font-medium capitalize">{category}</TableCell>
-                                <TableCell className="text-right">{count}</TableCell>
-                                <TableCell className="text-right">{total > 0 ? ((count / total) * 100).toFixed(1) : 0}%</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-    );
-};
-
 
 export default function NegativeCommentsTable({ data }: { data: MergedData[] }) {
     const [currentPage, setCurrentPage] = useState(1);
@@ -143,7 +106,15 @@ export default function NegativeCommentsTable({ data }: { data: MergedData[] }) 
             }
             if (!found) categories['Autre']++;
         });
-        return categories;
+
+        const total = Object.values(categories).reduce((a,b) => a + b, 0);
+
+        return Object.entries(categories).map(([category, count]) => ({
+            category,
+            count,
+            percentage: total > 0 ? (count / total) * 100 : 0,
+            action: ''
+        }));
     }, [negativeCommentsData]);
 
     if (data.length === 0) {
@@ -183,7 +154,7 @@ export default function NegativeCommentsTable({ data }: { data: MergedData[] }) 
                 <CardContent>
                      <div className="grid md:grid-cols-3 gap-6">
                         <div className="md:col-span-1">
-                             <CategoryKeywordTable data={keywordCategorization} />
+                             <CommentCategorizationTable data={keywordCategorization} onActionChange={() => {}}/>
                         </div>
                         <div className="md:col-span-2 space-y-4">
                             <Input
