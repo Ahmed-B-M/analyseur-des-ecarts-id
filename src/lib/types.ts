@@ -276,6 +276,22 @@ export type CustomerPromiseData = {
   late: number;
 }
 
+export type ActualSlotDistribution = {
+    warehouse: string;
+    slot: string;
+    count: number;
+    percentage: string;
+};
+
+export type SimulatedPromiseData = {
+    hour: string;
+    customerPromise: number;
+    urbantzPlan: number;
+    realized: number;
+    late: number;
+};
+
+
 export type AnalysisData = {
   // Lists for Filters
   depots: string[];
@@ -328,6 +344,8 @@ export type AnalysisData = {
   // Chart-specific data
   saturationData: SaturationData[];
   customerPromiseData: CustomerPromiseData[];
+  actualSlotDistribution: ActualSlotDistribution[];
+  simulatedPromiseData: SimulatedPromiseData[];
 };
 
 export type VisualReportData = {

@@ -122,7 +122,10 @@ export default function DepotAnalysisPage() {
                 </div>
             </div>
 
-            <SimulationView data={filteredData} punctualityThreshold={state.filters.punctualityThreshold || 959} />
+            <SimulationView 
+                actualSlotDistribution={analysisData.actualSlotDistribution} 
+                simulatedPromiseData={analysisData.simulatedPromiseData} 
+            />
 
             <SaturationChart data={analysisData.saturationData} />
             

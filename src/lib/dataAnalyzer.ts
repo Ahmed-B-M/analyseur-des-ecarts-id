@@ -1,4 +1,4 @@
-import type { MergedData, AnalysisData, Tournee, GlobalSummary, DepotStats, PostalCodeStats, SaturationData, CustomerPromiseData } from './types';
+import type { MergedData, AnalysisData, Tournee, GlobalSummary, DepotStats, PostalCodeStats, SaturationData, CustomerPromiseData, ActualSlotDistribution, SimulatedPromiseData } from './types';
 import { calculateKpis, calculateDiscrepancyKpis, calculateQualityKpis } from './analysis/kpis';
 import { calculateAnomalies } from './analysis/anomalies';
 import { calculatePerformanceByDriver, calculatePerformanceByGeo, calculatePerformanceByGroup } from './analysis/performance';
@@ -129,9 +129,9 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     
     const depotStats = calculateDepotStats(completedTasks, toleranceSeconds, lateTourTolerance);
     const postalCodeStats = calculatePostalCodeStats(completedTasks, toleranceSeconds);
-
     const saturationData = calculateSaturationData(completedTasks);
     const customerPromiseData = calculateCustomerPromiseData(completedTasks, toleranceSeconds);
+    const { actualSlotDistribution, simulatedPromiseData } = calculateSimulationData(completedTasks, toleranceSeconds);
 
 
     return {
@@ -169,6 +169,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         postalCodeStats,
         saturationData,
         customerPromiseData,
+        actualSlotDistribution,
+        simulatedPromiseData,
     };
 }
 
@@ -492,6 +494,138 @@ function calculateCustomerPromiseData(filteredData: MergedData[], punctualityThr
     return Object.entries(buckets).map(([hour, data]) => ({ ...data, hour }));
 }
 
+// Helper to format time from minutes for simulation
+const formatTime = (minutes: number) => {
+    const h = Math.floor(minutes / 60).toString().padStart(2, '0');
+    const m = (minutes % 60).toString().padStart(2, '0');
+    return `${h}:${m}`;
+};
+
+function calculateSimulationData(data: MergedData[], punctualityThreshold: number): { actualSlotDistribution: ActualSlotDistribution[], simulatedPromiseData: SimulatedPromiseData[] } {
+    if (!data || data.length === 0) {
+        return { actualSlotDistribution: [], simulatedPromiseData: [] };
+    }
+
+    // --- Actual Slot Distribution ---
+    const dataByWarehouse = data.reduce((acc, task) => {
+        const warehouse = task.tournee?.entrepot;
+        if (warehouse) {
+            if (!acc[warehouse]) acc[warehouse] = [];
+            acc[warehouse].push(task);
+        }
+        return acc;
+    }, {} as Record<string, MergedData[]>);
+
+    const actualSlotDistribution: ActualSlotDistribution[] = [];
+    for (const warehouse in dataByWarehouse) {
+        const tasks = dataByWarehouse[warehouse];
+        const totalOrders = tasks.length;
+        const ordersBySlot = tasks.reduce((acc, task) => {
+            const start = new Date(task.heureDebutCreneau * 1000);
+            const end = new Date(task.heureFinCreneau * 1000);
+            const slotKey = `${start.getUTCHours().toString().padStart(2, '0')}:${start.getUTCMinutes().toString().padStart(2, '0')}-${end.getUTCHours().toString().padStart(2, '0')}:${end.getUTCMinutes().toString().padStart(2, '0')}`;
+            if (!acc[slotKey]) acc[slotKey] = 0;
+            acc[slotKey]++;
+            return acc;
+        }, {} as Record<string, number>);
+        
+        Object.keys(ordersBySlot).sort().forEach(slot => {
+            const count = ordersBySlot[slot];
+            actualSlotDistribution.push({
+                warehouse,
+                slot,
+                count,
+                percentage: ((count / totalOrders) * 100).toFixed(2) + '%'
+            });
+        });
+    }
+
+    // --- Simulated Promise Data ---
+    const totalOrders = data.length;
+    const originalDistribution: Record<number, number> = {};
+    for (let i = 6; i < 22; i++) originalDistribution[i] = 0;
+    data.forEach(task => {
+        const startHour = new Date(task.heureDebutCreneau * 1000).getUTCHours();
+        if (originalDistribution[startHour] !== undefined) {
+            originalDistribution[startHour]++;
+        }
+    });
+
+    const newSlots: { start: number; key: string }[] = [];
+    for (let i = 6 * 60; i < 22 * 60; i += 30) {
+        newSlots.push({ start: i, key: `${formatTime(i)}-${formatTime(i + 120)}` });
+    }
+
+    const simulatedCounts: Record<string, number> = {};
+    let simulatedTotal = 0;
+    newSlots.forEach(slot => {
+        const startHour = Math.floor(slot.start / 60);
+        const nextHour = startHour + 1;
+        const proportion = (slot.start % 60) / 60;
+        const dist1 = originalDistribution[startHour] || 0;
+        const dist2 = originalDistribution[nextHour] || 0;
+        simulatedCounts[slot.key] = dist1 * (1 - proportion) + dist2 * proportion;
+        simulatedTotal += simulatedCounts[slot.key];
+    });
+    
+    if (simulatedTotal > 0) {
+        const normalizationFactor = totalOrders / simulatedTotal;
+        for (const key in simulatedCounts) {
+            simulatedCounts[key] *= normalizationFactor;
+        }
+    }
+
+    let totalPlanOffset = 0, totalRealizedOffset = 0, lateCount = 0;
+    const lateToleranceSeconds = punctualityThreshold * 60;
+    data.forEach(task => {
+        totalPlanOffset += (task.heureArriveeApprox - task.heureDebutCreneau);
+        totalRealizedOffset += (task.heureCloture - task.heureArriveeApprox);
+        if (task.heureCloture > task.heureFinCreneau + lateToleranceSeconds) {
+            lateCount++;
+        }
+    });
+    const avgPlanOffsetMinutes = data.length > 0 ? (totalPlanOffset / data.length) / 60 : 0;
+    const avgRealizedOffsetMinutes = data.length > 0 ? (totalRealizedOffset / data.length) / 60 : 0;
+    const lateProbability = data.length > 0 ? lateCount / data.length : 0;
+
+    const buckets: Record<string, { customerPromise: number; urbantzPlan: number; realized: number; late: number }> = {};
+    for (let i = 6 * 60; i < 23 * 60; i++) {
+        buckets[formatTime(i)] = { customerPromise: 0, urbantzPlan: 0, realized: 0, late: 0 };
+    }
+
+    for (const slotKey in simulatedCounts) {
+        const ordersInSlot = simulatedCounts[slotKey];
+        const [startStr] = slotKey.split('-');
+        const [startH, startM] = startStr.split(':').map(Number);
+        const startMinutes = startH * 60 + startM;
+        const duration = 120;
+        const weightPerMinute = ordersInSlot / duration;
+
+        for (let i = 0; i < duration; i++) {
+            const currentMinute = startMinutes + i;
+            const promiseKey = formatTime(currentMinute);
+            if (buckets[promiseKey]) {
+                buckets[promiseKey].customerPromise += weightPerMinute;
+                const planKey = formatTime(currentMinute + avgPlanOffsetMinutes);
+                if (buckets[planKey]) buckets[planKey].urbantzPlan += weightPerMinute;
+                const realizedKey = formatTime(currentMinute + avgPlanOffsetMinutes + avgRealizedOffsetMinutes);
+                if (buckets[realizedKey]) {
+                    buckets[realizedKey].realized += weightPerMinute;
+                    if (Math.random() < lateProbability) {
+                       buckets[realizedKey].late += weightPerMinute;
+                    }
+                }
+            }
+        }
+    }
+    
+    const simulatedPromiseData = Object.entries(buckets).map(([hour, data]) => ({ ...data, hour }));
+
+    return { actualSlotDistribution, simulatedPromiseData };
+}
+
+
+
 function createEmptyAnalysisData(): AnalysisData {
     return {
         generalKpis: [],
@@ -528,6 +662,8 @@ function createEmptyAnalysisData(): AnalysisData {
         postalCodeStats: [],
         saturationData: [],
         customerPromiseData: [],
+        actualSlotDistribution: [],
+        simulatedPromiseData: [],
     };
 }
 
