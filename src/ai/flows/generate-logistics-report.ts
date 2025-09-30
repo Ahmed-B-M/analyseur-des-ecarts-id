@@ -51,6 +51,13 @@ const DelayHistogramSchema = z.object({
     count: z.number(),
 });
 
+const CommentCategorySchema = z.object({
+    category: z.string(),
+    count: z.number(),
+    percentage: z.number(),
+    action: z.string().optional(),
+});
+
 const ReportConfigSchema = z.object({
     sections: z.object({
         globalKpis: z.boolean().optional(),
@@ -82,6 +89,7 @@ const AnalysisDataSchema = z.object({
     delayHistogram: z.array(DelayHistogramSchema).optional().describe("Histogramme de répartition des écarts."),
     topWarehouseByDelay: z.string().optional().describe("L'entrepôt avec le plus de retards."),
     topCityByDelay: z.string().optional().describe("La ville avec le plus de retards."),
+    commentCategories: z.array(CommentCategorySchema).optional().describe("Catégorisation des commentaires négatifs."),
 });
 
 const ReportInputSchema = z.object({
@@ -122,6 +130,8 @@ const ReportOutputSchema = z.object({
       operations: z.string().optional().describe("Recommandation opérationnelle (ex: focus sur un entrepôt)."),
       quality: z.string().optional().describe("Recommandation visant à améliorer la qualité de service perçue par le client."),
     }).optional(),
+
+    commentCategorization: z.array(CommentCategorySchema).optional().describe("Données structurées pour le tableau de catégorisation des commentaires."),
 });
 export type GenerateLogisticsReportOutput = z.infer<typeof ReportOutputSchema>;
 
@@ -155,6 +165,7 @@ const prompt = ai.definePrompt({
     - Performance par jour: {{{json analysis.performanceByDayOfWeek}}}
     - Performance par créneau: {{{json analysis.performanceByTimeSlot}}}
     - Répartition des écarts: {{{json analysis.delayHistogram}}}
+    - Catégorisation des commentaires: {{{json analysis.commentCategories}}}
     
     ## Instructions Détaillées :
     - **title**: Génère un titre court et factuel basé sur les filtres. Ex: "Rapport Opérationnel - Dépôts Nord" ou "Analyse des Surcharges - Semaines 23, 24".
@@ -180,6 +191,8 @@ const prompt = ai.definePrompt({
 
     - **recommendations**: Uniquement si le ton est 'Orienté Solutions', propose 1 à 3 recommandations concrètes et actionnables. Sinon, laisse cet objet vide.
 
+    - **commentCategorization**: Utilise les données de 'analysis.commentCategories' pour remplir cette section. Ne modifie pas les catégories, les comptes ou les pourcentages. Si 'analysis.commentCategories' n'est pas fourni, laisse ce champ vide.
+
     **Règle d'or : Ne génère des commentaires que pour les sections demandées par l'utilisateur (config.sections). Sois bref, factuel et respecte scrupuleusement le ton demandé. NE PAS inclure de commentaires sur la planification si le ton est neutre. Génère uniquement le JSON.**
     `,
 });
@@ -195,5 +208,3 @@ const generateLogisticsReportFlow = ai.defineFlow(
     return output!;
   }
 );
-
-    

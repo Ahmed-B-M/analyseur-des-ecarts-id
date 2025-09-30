@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CommentCategorizationTable, CategoryRow } from '@/components/logistics/CommentCategorizationTable';
 
 const COLORS = { 'Retard': '#E4002B', 'Avance': '#00C49F', 'Autre': '#FFBB28' };
 
@@ -30,6 +31,24 @@ export default function RapportRDPage() {
     const { state, dispatch, mergedData } = useLogistics();
     const router = useRouter();
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const [commentActions, setCommentActions] = useState<Record<string, string>>({});
+
+    const handleActionChange = (category: string, action: string) => {
+        setCommentActions(prev => ({ ...prev, [category]: action }));
+    };
+
+    const commentCategorizationData: CategoryRow[] = useMemo(() => {
+        if (!state.analysisResults?.aggregated) return [];
+
+        const totalComments = state.analysisResults.aggregated.reduce((sum: number, item: any) => sum + item.count, 0);
+
+        return state.analysisResults.aggregated.map((item: any) => ({
+            category: item.reason,
+            count: item.count,
+            percentage: totalComments > 0 ? (item.count / totalComments) * 100 : 0,
+            action: commentActions[item.reason] || '',
+        }));
+    }, [state.analysisResults, commentActions]);
 
     const handleBarClick = (data: any) => {
         setSelectedCategory(data.reason);
@@ -211,14 +230,20 @@ export default function RapportRDPage() {
             livraisonsRetard: stats.total > 0 ? ((stats.late / stats.total) * 100).toFixed(2) + '%' : '0.00%',
         }));
 
-
         const sheets = [
             { data: depotExportData, sheetName: 'Analyse Entrepôts' },
-            { data: postalCodeExportData, sheetName: 'Classement Codes Postaux' }
+            { data: postalCodeExportData, sheetName: 'Classement Codes Postaux' },
+            { data: commentCategorizationData, sheetName: 'Catégorisation Commentaires' }
         ];
         
         const today = new Date().toLocaleDateString('fr-CA');
         exportToXlsx(sheets, `Rapport_RD_${today}`);
+    };
+
+    const handleDownloadReport = () => {
+        // Here, you would pass the commentCategorizationData to the report generation logic
+        // For now, it just navigates to the report page
+        router.push('/report');
     };
     
     const calculateDepotStatsForExport = (depotName: string, data: MergedData[], toleranceMinutes: number = 15) => {
@@ -233,7 +258,6 @@ export default function RapportRDPage() {
             '% Retard': totalDeliveries > 0 ? `${((lateDeliveries/totalDeliveries)*100).toFixed(2)}%` : '0.00%'
         }
     }
-
 
     if (!mergedData || mergedData.length === 0) {
         return (
@@ -268,7 +292,7 @@ export default function RapportRDPage() {
                             <FileSpreadsheet className="mr-2 h-4 w-4" />
                             Exporter en XLSX
                         </Button>
-                        <Button onClick={() => router.push('/report')}>
+                        <Button onClick={handleDownloadReport}>
                             <Download className="mr-2 h-4 w-4" />
                             Télécharger le Rapport
                         </Button>
@@ -305,6 +329,13 @@ export default function RapportRDPage() {
                             </ResponsiveContainer>
                         </CardContent>
                     </Card>
+                )}
+
+                {commentCategorizationData.length > 0 && (
+                    <CommentCategorizationTable
+                        data={commentCategorizationData}
+                        onActionChange={handleActionChange}
+                    />
                 )}
                 
                 <DepotAnalysisTable data={filteredData} />

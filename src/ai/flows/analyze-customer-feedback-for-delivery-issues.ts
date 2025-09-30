@@ -35,7 +35,7 @@ const analyzeCustomerFeedbackFlow = ai.defineFlow(
     inputSchema: analyzeCustomerFeedbackSignature,
     outputSchema: analyzeCustomerFeedbackFlowOutput,
   },
-  async ({ commentaire }) => {
+  async ({ commentaire }): Promise<AnalyzeCustomerFeedbackOutput> => {
     const prompt = `
       Analyse le commentaire client suivant et classifie-le dans l'une des catégories suivantes : ${CATEGORIES.join(', ')}.
       Ne réponds que par la catégorie.
@@ -55,10 +55,6 @@ const analyzeCustomerFeedbackFlow = ai.defineFlow(
       },
     });
 
-    if (!output) {
-      return { reason: 'Autre' };
-    }
-    
-    return output;
+    return output || { reason: 'Autre' };
   }
 );
