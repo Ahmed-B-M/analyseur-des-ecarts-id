@@ -243,15 +243,41 @@ export type CustomReportConfig = {
 
 
 export type AnalysisData = {
+  // Core Data
+  rawData: MergedData[];
+  filteredData: MergedData[];
+  
+  // Lists for Filters
+  depots: string[];
+  warehouses: string[];
+  cities: string[];
+
+  // KPIs and Summaries
   generalKpis: Kpi[];
   discrepancyKpis: ComparisonKpi[];
   qualityKpis: (Kpi | ComparisonKpi)[];
+  globalSummary: GlobalSummary;
+
+  // Anomaly Detections
   overloadedTours: OverloadedTourInfo[];
   durationDiscrepancies: DurationDiscrepancy[];
   lateStartAnomalies: LateStartAnomaly[];
+  
+  // Performance Breakdowns by Group
   performanceByDriver: PerformanceByDriver[];
   performanceByCity: PerformanceByGeo[];
   performanceByPostalCode: PerformanceByGeo[];
+  performanceByDepot: PerformanceByGroup[];
+  performanceByWarehouse: PerformanceByGroup[];
+  
+  // Temporal Analysis
+  performanceByDayOfWeek: PerformanceByDay[];
+  performanceByTimeSlot: PerformanceByTimeSlot[];
+  workloadByHour: WorkloadByHour[];
+  avgWorkloadByDriverBySlot: AvgWorkloadBySlot[];
+  avgWorkload: AvgWorkload;
+  
+  // Delay/Advance Analysis
   delaysByWarehouse: DelayCount[];
   delaysByHour: DelayByHour[];
   delaysByCity: DelayCount[];
@@ -260,15 +286,9 @@ export type AnalysisData = {
   advancesByHour: DelayByHour[];
   advancesByCity: DelayCount[];
   advancesByPostalCode: DelayCount[];
-  workloadByHour: WorkloadByHour[];
-  avgWorkloadByDriverBySlot: AvgWorkloadBySlot[];
-  avgWorkload: AvgWorkload;
-  performanceByDayOfWeek: PerformanceByDay[];
-  performanceByTimeSlot: PerformanceByTimeSlot[];
   delayHistogram: DelayHistogramBin[];
-  cities: string[];
-  globalSummary: GlobalSummary;
-  performanceByDepot: PerformanceByGroup[];
-  performanceByWarehouse: PerformanceByGroup[];
+  
+  // Specific Metrics
   firstTaskLatePercentage: number;
 };
+

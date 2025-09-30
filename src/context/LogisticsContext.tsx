@@ -1,9 +1,8 @@
 
 'use client';
 
-import { createContext, useContext, useReducer, ReactNode, Dispatch, useMemo, useEffect, useState } from 'react';
-import type { Tournee, Tache, MergedData, AnalysisData } from '@/lib/types';
-import { analyzeData } from '@/lib/dataAnalyzer';
+import { createContext, useContext, useReducer, ReactNode, Dispatch, useEffect, useState } from 'react';
+import type { AnalysisData } from '@/lib/types';
 
 // 1. State & Action Types
 type State = {
@@ -11,14 +10,14 @@ type State = {
   tachesFile: File | null;
   isLoading: boolean;
   error: string | null;
-  data: { tournees: Tournee[]; taches: Tache[] } | null;
+  analysisData: AnalysisData | null;
   filters: Record<string, any>;
 };
 
 type Action =
   | { type: 'SET_FILE'; fileType: 'tournees' | 'taches'; file: File | null }
   | { type: 'START_PROCESSING' }
-  | { type: 'PROCESSING_SUCCESS'; data: { tournees: Tournee[]; taches: Tache[] } }
+  | { type: 'PROCESSING_SUCCESS'; data: AnalysisData }
   | { type: 'PROCESSING_ERROR'; error: string }
   | { type: 'SET_FILTERS'; filters: Record<string, any> }
   | { type: 'RESET' };
@@ -29,7 +28,7 @@ const initialState: State = {
   tachesFile: null,
   isLoading: false,
   error: null,
-  data: null,
+  analysisData: null,
   filters: {
     punctualityThreshold: 959,
     tours100Mobile: false,
@@ -42,18 +41,17 @@ const initialState: State = {
 function logisticsReducer(state: State, action: Action): State {
   switch (action.type) {
     case 'SET_FILE':
-      return { ...state, [`${action.fileType}File`]: action.file, error: null };
+      return { ...state, [`${action.fileType}File`]: action.file, error: null, analysisData: null };
     case 'START_PROCESSING':
       return { ...state, isLoading: true, error: null };
     case 'PROCESSING_SUCCESS':
-      if (!action.data || action.data.tournees.length === 0 || action.data.taches.length === 0) {
-        return { ...state, isLoading: false, error: "Aucune donnée valide n'a été extraite. Vérifiez les fichiers." };
-      }
-      return { ...state, isLoading: false, data: action.data, error: null };
+      return { ...state, isLoading: false, analysisData: action.data, error: null };
     case 'PROCESSING_ERROR':
-      return { ...state, isLoading: false, error: action.error };
+      return { ...state, isLoading: false, error: action.error, analysisData: null };
     case 'SET_FILTERS':
-      return { ...state, filters: action.filters };
+       // When filters change, we need to re-process the data.
+       // We'll set the data to null to trigger the useEffect hook.
+      return { ...state, filters: action.filters, analysisData: null };
     case 'RESET':
       return { ...initialState };
     default:
@@ -65,9 +63,6 @@ function logisticsReducer(state: State, action: Action): State {
 interface LogisticsContextProps {
   state: State;
   dispatch: Dispatch<Action>;
-  mergedData: MergedData[];
-  filteredData: MergedData[];
-  analysisData: AnalysisData | null;
 }
 
 const LogisticsContext = createContext<LogisticsContextProps | undefined>(undefined);
@@ -98,38 +93,18 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
   }, []);
   
   useEffect(() => {
-      if (state.tourneesFile && state.tachesFile && worker && !state.data) {
+      if (state.tourneesFile && state.tachesFile && worker && !state.analysisData && !state.isLoading) {
         dispatch({ type: 'START_PROCESSING' });
         worker.postMessage({
             tourneesFile: state.tourneesFile,
             tachesFile: state.tachesFile,
+            filters: state.filters,
         });
     }
-  }, [state.tourneesFile, state.tachesFile, worker, state.data])
-
-  const mergedData: MergedData[] = useMemo(() => {
-    if (!state.data) return [];
-    const tourneeMap = new Map(state.data.tournees.map((t) => [t.uniqueId, t]));
-    return state.data.taches.map((tache, index) => ({
-      ...tache,
-      ordre: index + 1,
-      tournee: tourneeMap.get(tache.tourneeUniqueId) || null,
-    }));
-  }, [state.data]);
-
-  const filteredData = useMemo(() => {
-    if (!mergedData.length) return [];
-    // This could be expanded with actual filtering logic later
-    return mergedData;
-  }, [mergedData]);
-
-  const analysisData: AnalysisData | null = useMemo(() => {
-    if (!filteredData.length) return null;
-    return analyzeData(filteredData, state.filters);
-  }, [filteredData, state.filters]);
+  }, [state.tourneesFile, state.tachesFile, state.filters, state.analysisData, state.isLoading, worker]);
 
   return (
-    <LogisticsContext.Provider value={{ state, dispatch, mergedData, filteredData, analysisData }}>
+    <LogisticsContext.Provider value={{ state, dispatch }}>
       {children}
     </LogisticsContext.Provider>
   );

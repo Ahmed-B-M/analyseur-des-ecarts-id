@@ -1,19 +1,16 @@
 
 'use client';
 
-import { useReducer, useMemo, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useLogistics } from '@/context/LogisticsContext';
-import type { Tournee, Tache, MergedData, AnalysisData } from '@/lib/types';
 import FileUpload from '@/components/logistics/FileUpload';
 import FilterBar from '@/components/logistics/FilterBar';
 import AnalysisDashboard from '@/components/logistics/AnalysisDashboard';
 import DetailedDataView from '@/components/logistics/DetailedDataView';
 import { Logo } from '@/components/logistics/Logo';
-import { analyzeData } from '@/lib/dataAnalyzer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, AlertCircle, BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DateRange } from 'react-day-picker';
 import { DateRangePicker } from './DateRangePicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import CalendarView from './CalendarView';
@@ -24,7 +21,8 @@ import NegativeCommentsTable from './NegativeCommentsTable';
 
 
 export default function Dashboard() {
-  const { state, dispatch, mergedData, analysisData: contextAnalysisData } = useLogistics();
+  const { state, dispatch } = useLogistics();
+  const { analysisData } = state;
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const handleSetFile = (fileType: 'tournees' | 'taches', file: File | null) => {
@@ -40,111 +38,6 @@ export default function Dashboard() {
     setActiveTab('data');
   }, [setFilters, state.filters]);
 
-  const filteredData = useMemo(() => {
-    if (!mergedData) return [];
-
-    let dataToFilter = mergedData;
-    
-    // MAD Delays Filter
-    if (state.filters.excludeMadDelays && state.filters.madDelays && state.filters.madDelays.length > 0) {
-        const madSet = new Set(state.filters.madDelays);
-        dataToFilter = dataToFilter.filter(item => {
-            if (!item.tournee) return false;
-            const madKey = `${item.tournee.entrepot}|${item.date}`;
-            return !madSet.has(madKey);
-        });
-    }
-
-    // Special filter for "100% mobile" tours
-    if (state.filters.tours100Mobile) {
-        const tourTasks = new Map<string, Tache[]>();
-        dataToFilter.forEach(task => {
-            if (!tourTasks.has(task.tourneeUniqueId)) {
-                tourTasks.set(task.tourneeUniqueId, []);
-            }
-            tourTasks.get(task.tourneeUniqueId)!.push(task);
-        });
-
-        const mobileTourIds = new Set<string>();
-        for (const [tourId, tasks] of tourTasks.entries()) {
-            if (tasks.every(t => t.completedBy && t.completedBy.toLowerCase() === 'mobile')) {
-                mobileTourIds.add(tourId);
-            }
-        }
-        
-        dataToFilter = dataToFilter.filter(task => mobileTourIds.has(task.tourneeUniqueId));
-    }
-
-    // Top Postal Codes by delivery volume filter
-    if (state.filters.topPostalCodes) {
-        const postalCodeCounts = dataToFilter.reduce((acc, item) => {
-            if (item.codePostal) {
-                acc[item.codePostal] = (acc[item.codePostal] || 0) + 1;
-            }
-            return acc;
-        }, {} as Record<string, number>);
-
-        const sortedPostalCodes = Object.keys(postalCodeCounts).sort((a, b) => postalCodeCounts[b] - postalCodeCounts[a]);
-        const topCodes = new Set(sortedPostalCodes.slice(0, state.filters.topPostalCodes));
-        
-        dataToFilter = dataToFilter.filter(item => item.codePostal && topCodes.has(item.codePostal));
-    }
-    
-    return dataToFilter.filter(item => {
-        if (!item.tournee) return false;
-
-        // Date filters
-        if (state.filters.selectedDate) {
-           if (item.date !== state.filters.selectedDate) return false;
-        } else if (state.filters.dateRange) {
-          const { from, to } = state.filters.dateRange as DateRange;
-          const itemDate = new Date(item.date);
-          itemDate.setHours(0,0,0,0); // Normalize item date
-          if (from) {
-            const fromDate = new Date(from);
-            fromDate.setHours(0,0,0,0); // Normalize from date
-            if (itemDate < fromDate) return false;
-          }
-          if (to) {
-            const toDate = new Date(to);
-            toDate.setHours(23,59,59,999); // Include the end date
-            if (itemDate > toDate) return false;
-          }
-        }
-
-        if (state.filters.depot && !item.tournee.entrepot.startsWith(state.filters.depot)) return false;
-        if (state.filters.entrepot && item.tournee.entrepot !== state.filters.entrepot) return false;
-        if (state.filters.city && item.ville !== state.filters.city) return false;
-        if (state.filters.codePostal && item.codePostal !== state.filters.codePostal) return false;
-        if (state.filters.heure && new Date(item.heureCloture * 1000).getUTCHours() !== parseInt(state.filters.heure)) return false;
-
-        return true;
-    });
-  }, [mergedData, state.filters]);
-
-  const analysisData: AnalysisData | null = useMemo(() => {
-    if (!filteredData.length) return null;
-    return analyzeData(filteredData, state.filters);
-  }, [filteredData, state.filters]);
-
-
-  const depots = useMemo(() => {
-    if (!state.data) return [];
-    
-    const depotNames = state.data.tournees.map(t => {
-        const entrepot = t.entrepot || "";
-        return entrepot.split(' ')[0];
-    });
-
-    return [...new Set(depotNames)].filter(Boolean).sort();
-  }, [state.data]);
-
-  const warehouses = useMemo(() => {
-    if (!state.data) return [];
-    return [...new Set(state.data.tournees.map(t => t.entrepot))];
-  }, [state.data]);
-  
-
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
       <header className="flex items-center justify-between p-4 border-b border-border shadow-sm">
@@ -157,13 +50,13 @@ export default function Dashboard() {
         </div>
          <div className="flex items-center gap-2">
             
-            {state.data && (
+            {analysisData && (
             <Button onClick={() => dispatch({type: 'RESET'})} variant="outline" size="sm">Réinitialiser</Button>
             )}
          </div>
       </header>
       <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
-        {!state.data && (
+        {!analysisData && (
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="grid md:grid-cols-2 gap-8">
                 <FileUpload
@@ -194,7 +87,7 @@ export default function Dashboard() {
           </div>
         )}
         
-        {state.isLoading && !state.data && (
+        {state.isLoading && !analysisData && (
           <div className="flex flex-col items-center justify-center h-64 gap-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="text-lg text-muted-foreground">Analyse des données en cours...</p>
@@ -202,15 +95,15 @@ export default function Dashboard() {
           </div>
         )}
 
-        {state.data && (
+        {analysisData && (
           <div className="space-y-6">
             <FilterBar 
               filters={state.filters} 
               setFilters={setFilters} 
-              depots={depots} 
-              warehouses={warehouses}
+              depots={analysisData.depots}
+              warehouses={analysisData.warehouses}
               cities={(analysisData?.cities || [])}
-              allData={mergedData}
+              allData={analysisData.rawData}
             />
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-8 max-w-7xl mx-auto">
@@ -231,32 +124,32 @@ export default function Dashboard() {
                 <AnalysisDashboard 
                   analysisData={analysisData}
                   onFilterAndSwitch={applyFilterAndSwitchTab}
-                  allData={mergedData}
+                  allData={analysisData.rawData}
                   filters={state.filters}
-                  depots={depots}
+                  depots={analysisData.depots}
                 />
               </TabsContent>
               <TabsContent value="comparison" className="mt-6">
                 <ComparisonView
-                    allData={mergedData}
+                    allData={analysisData.rawData}
                     filters={state.filters}
                 />
               </TabsContent>
               <TabsContent value="depotComparison" className="mt-6">
                 <DepotComparison
-                    allData={mergedData}
+                    allData={analysisData.rawData}
                     filters={state.filters}
-                    depots={depots}
+                    depots={analysisData.depots}
                 />
               </TabsContent>
               <TabsContent value="negativeComments" className="mt-6">
-                 <NegativeCommentsTable data={filteredData} />
+                 <NegativeCommentsTable data={analysisData.filteredData} />
               </TabsContent>
               <TabsContent value="calendar" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-1">
                          <CalendarView 
-                            data={mergedData}
+                            data={analysisData.rawData}
                             onDateSelect={(date) => {
                                 setFilters({ ...state.filters, selectedDate: date, dateRange: undefined });
                             }}
@@ -286,7 +179,7 @@ export default function Dashboard() {
                 </div>
               </TabsContent>
               <TabsContent value="data" className="mt-6">
-                <DetailedDataView data={filteredData} />
+                <DetailedDataView data={analysisData.filteredData} />
               </TabsContent>
             </Tabs>
           </div>

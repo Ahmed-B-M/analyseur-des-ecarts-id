@@ -1,7 +1,9 @@
-/// <reference lib="webworker" />
+
+import { processAndAnalyzeData } from '../lib/data-provider';
 import * as XLSX from 'xlsx';
 import type { Tournee, Tache } from '../lib/types';
 
+// ... (keep all the parsing and normalization functions from the original worker)
 const headerAliases: Record<string, Record<string, string[]>> = {
   tournees: {
     nom: ['nom', 'Tournée', 'tournée'],
@@ -245,7 +247,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
 
 self.addEventListener('message', async (event: MessageEvent) => {
   try {
-    const { tourneesFile, tachesFile } = event.data;
+    const { tourneesFile, tachesFile, filters } = event.data;
 
     const [tourneesBuffer, tachesBuffer] = await Promise.all([
       tourneesFile.arrayBuffer(),
@@ -270,7 +272,6 @@ self.addEventListener('message', async (event: MessageEvent) => {
     const tourneeStartTimes = new Map<string, number>();
     const tournees: Tournee[] = rawTournees.map((t: any) => {
       const uniqueId = `${t.nom}|${t.date}|${t.entrepot}`;
-      // Fallback to heureDepartPrevue if demarre is also not available
       const startTime = t.heureDepartReelle || t.demarre || t.heureDepartPrevue;
       tourneeStartTimes.set(uniqueId, startTime);
       return {
@@ -278,7 +279,7 @@ self.addEventListener('message', async (event: MessageEvent) => {
         bacsReels: 0,
         poidsReel: 0,
         uniqueId: uniqueId,
-        heureDepartReelle: startTime // Ensure this is set for dataAnalyzer
+        heureDepartReelle: startTime
       };
     });
 
@@ -293,7 +294,13 @@ self.addEventListener('message', async (event: MessageEvent) => {
       tourneeUniqueId: `${t.nomTournee}|${t.date}|${t.entrepot}`
     }));
 
-    self.postMessage({ type: 'success', data: { tournees, taches } });
+    const analysisData = processAndAnalyzeData(tournees, taches, filters);
+    
+    if (!analysisData) {
+       throw new Error("L'analyse des données a échoué. Aucune donnée n'a été générée.");
+    }
+
+    self.postMessage({ type: 'success', data: analysisData });
 
   } catch (error: any) {
     self.postMessage({ type: 'error', error: `Erreur lors du traitement des fichiers: ${error.message}` });
