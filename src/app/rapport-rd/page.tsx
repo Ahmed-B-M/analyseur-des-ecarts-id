@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useLogistics } from '@/context/LogisticsContext';
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Download, FileSpreadsheet, Percent, Loader2 } from 'lucide-react';
 import HotZonesChart from '@/components/logistics/HotZonesChart';
@@ -44,28 +43,27 @@ export default function RapportRDPage() {
     const chartData = useMemo(() => {
         if (!analysisData) return [];
         
-        return (analysisData.performanceByPostalCode || []).map(item => ({
-            codePostal: item.key,
-            entrepot: filteredData?.find(d => d.codePostal === item.key)?.tournee?.entrepot || 'N/A',
-            totalLivraisons: item.totalTasks,
-            retardPercent: (100 - item.punctualityRateRealized),
+        return (analysisData.postalCodeStats || []).map(item => ({
+            codePostal: item.codePostal,
+            entrepot: item.entrepot,
+            totalLivraisons: item.totalLivraisons,
+            retardPercent: parseFloat(item.livraisonsRetard.slice(0, -1)),
         }));
-    }, [analysisData, filteredData]);
+    }, [analysisData]);
     
     const handleExport = () => {
         if (!analysisData) return;
         
-        const depotExportData = analysisData.performanceByDepot.map(d => ({
-            entrepot: d.key,
-            totalLivraisons: d.totalTasks,
-            ponctualitePrev: d.punctualityRatePlanned,
-            ponctualiteRealisee: d.punctualityRateRealized,
+        const depotExportData = analysisData.depotStats.map(d => ({
+            entrepot: d.entrepot,
+            ponctualitePrev: d.ponctualitePrev,
+            ponctualiteRealisee: d.ponctualiteRealisee,
         }));
         
-        const postalCodeExportData = analysisData.performanceByPostalCode.map(d => ({
-            codePostal: d.key,
-            totalLivraisons: d.totalTasks,
-            livraisonsRetard: 100 - d.punctualityRateRealized,
+        const postalCodeExportData = analysisData.postalCodeStats.map(d => ({
+            codePostal: d.codePostal,
+            totalLivraisons: d.totalLivraisons,
+            livraisonsRetard: d.livraisonsRetard,
         }));
 
         const sheets = [
@@ -134,9 +132,9 @@ export default function RapportRDPage() {
             
             <HotZonesChart data={chartData} />
             
-            <DepotAnalysisTable data={filteredData} />
+            <DepotAnalysisTable data={analysisData.depotStats} />
 
-            <PostalCodeTable data={filteredData} />
+            <PostalCodeTable data={analysisData.postalCodeStats} />
         </div>
     );
 }

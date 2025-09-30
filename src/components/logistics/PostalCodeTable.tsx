@@ -1,54 +1,19 @@
-
 'use client';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMemo, useState } from 'react';
-import { MergedData } from '@/lib/types';
 import { ArrowUp, ArrowDown } from 'lucide-react';
-import { useLogistics } from '@/context/LogisticsContext';
+import type { PostalCodeStats } from '@/lib/types';
 
 type SortConfig = { key: string | null; direction: 'ascending' | 'descending' };
-type PostalCodeStats = ReturnType<typeof calculatePostalCodeStats>[0];
 
 interface PostalCodeTableProps {
-    data: MergedData[];
+    data: PostalCodeStats[];
 }
 
-const calculatePostalCodeStats = (data: MergedData[], toleranceSeconds: number = 959) => {
-    const postalCodeStats: Record<string, { total: number; late: number; depot: string }> = {};
-
-    data.forEach(item => {
-        if (item.codePostal && item.tournee) {
-            if (!postalCodeStats[item.codePostal]) {
-                postalCodeStats[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
-            }
-            postalCodeStats[item.codePostal].total++;
-            // Le retard est défini par un dépassement du créneau horaire du client + la tolérance
-            if (item.retard > toleranceSeconds) {
-                postalCodeStats[item.codePostal].late++;
-            }
-        }
-    });
-
-    return Object.entries(postalCodeStats)
-        .map(([codePostal, stats]) => ({
-            codePostal,
-            entrepot: stats.depot,
-            totalLivraisons: stats.total,
-            livraisonsRetard: stats.total > 0 ? ((stats.late / stats.total) * 100).toFixed(2) + '%' : '0.00%',
-        }))
-        .sort((a, b) => parseFloat(b.livraisonsRetard) - parseFloat(a.livraisonsRetard));
-};
-
-export default function PostalCodeTable({ data: filteredData }: PostalCodeTableProps) {
-    const { state } = useLogistics();
+export default function PostalCodeTable({ data = [] }: PostalCodeTableProps) {
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'livraisonsRetard', direction: 'descending' });
-
-    const data = useMemo(() => {
-        if (!filteredData) return [];
-        return calculatePostalCodeStats(filteredData, state.filters.punctualityThreshold || 959);
-    }, [filteredData, state.filters.punctualityThreshold]);
 
     const sortedData = useMemo(() => {
         const sortableData = [...data];

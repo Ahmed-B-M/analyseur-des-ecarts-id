@@ -1,4 +1,3 @@
-
 import type { LucideProps } from "lucide-react";
 import type { ForwardRefExoticComponent, RefAttributes } from "react";
 
@@ -241,12 +240,30 @@ export type CustomReportConfig = {
     tone: 'Neutre et Factuel' | 'Orienté Solutions';
 }
 
+export type DepotStats = {
+    entrepot: string;
+    ponctualitePrev: string;
+    ponctualiteRealisee: string;
+    tourneesPartiesHeureRetard: string;
+    tourneesRetardAccumule: string;
+    notesNegativesRetard: string;
+    depassementPoids: string;
+    creneauLePlusChoisi: string;
+    creneauLePlusEnRetard: string;
+    intensiteTravailPlanifie: string;
+    intensiteTravailRealise: string;
+    creneauPlusIntense: string;
+    creneauMoinsIntense: string;
+};
+
+export type PostalCodeStats = {
+    codePostal: string;
+    entrepot: string;
+    totalLivraisons: number;
+    livraisonsRetard: string;
+};
 
 export type AnalysisData = {
-  // Core Data
-  rawData: MergedData[];
-  filteredData: MergedData[];
-  
   // Lists for Filters
   depots: string[];
   warehouses: string[];
@@ -290,5 +307,8 @@ export type AnalysisData = {
   
   // Specific Metrics
   firstTaskLatePercentage: number;
-};
 
+  // Table-specific stats
+  depotStats: DepotStats[];
+  postalCodeStats: PostalCodeStats[];
+};

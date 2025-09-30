@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useLogistics } from '@/context/LogisticsContext';
@@ -12,20 +11,21 @@ import './report.css';
 import { MergedData } from '@/lib/types';
 
 export default function ReportPage() {
-    const { mergedData, state } = useLogistics();
+    const { state } = useLogistics();
     const router = useRouter();
+    const { analysisData } = state;
 
     const postalCodeData = useMemo(() => {
-        if (!mergedData) return [];
-        // This calculation should ideally be in a shared utility function
-        const stats = calculatePostalCodeStats(mergedData, state.filters.punctualityThreshold || 959);
-        return stats.map(d => ({
-            ...d,
+        if (!analysisData) return [];
+        return (analysisData.postalCodeStats || []).map(d => ({
+            codePostal: d.codePostal,
+            entrepot: d.entrepot,
+            totalLivraisons: d.totalLivraisons,
             retardPercent: parseFloat(d.livraisonsRetard.slice(0, -1))
         }));
-    }, [mergedData, state.filters.punctualityThreshold]);
+    }, [analysisData]);
 
-    if (!mergedData || mergedData.length === 0) {
+    if (!analysisData) {
         return (
             <div className="flex flex-col items-center justify-center h-screen bg-gray-100 no-print">
                 <div className="bg-white p-8 rounded-lg shadow-md text-center">
@@ -39,29 +39,6 @@ export default function ReportPage() {
             </div>
         );
     }
-    
-     function calculatePostalCodeStats(data: MergedData[], tolerance: number) {
-        // This is a placeholder. In a real app, you'd share this logic.
-        const stats: Record<string, { total: number, late: number, depot: string }> = {};
-         data.forEach(item => {
-             if (item.codePostal && item.tournee) {
-                 if (!stats[item.codePostal]) {
-                     stats[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
-                 }
-                 stats[item.codePostal].total++;
-                 if (item.retard > tolerance) {
-                     stats[item.codePostal].late++;
-                 }
-             }
-         });
-         return Object.entries(stats).map(([codePostal, s]) => ({
-             codePostal,
-             entrepot: s.depot,
-             totalLivraisons: s.total,
-             livraisonsRetard: s.total > 0 ? ((s.late / s.total) * 100).toFixed(2) + '%' : '0.00%',
-         }));
-     }
-
 
     return (
         <>
@@ -95,12 +72,12 @@ export default function ReportPage() {
                     
                     <section className="report-section mb-8 page-landscape">
                         <h2 className="section-title">Analyse Détaillée des Entrepôts</h2>
-                        <DepotAnalysisTable data={mergedData} />
+                        <DepotAnalysisTable data={analysisData.depotStats} />
                     </section>
 
                     <section className="report-section">
                         <h2 className="section-title">Classement des Codes Postaux par Retards</h2>
-                        <PostalCodeTable data={mergedData} />
+                        <PostalCodeTable data={analysisData.postalCodeStats} />
                     </section>
                 </main>
                 
