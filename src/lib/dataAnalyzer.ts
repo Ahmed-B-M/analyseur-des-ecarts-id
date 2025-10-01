@@ -1,3 +1,4 @@
+
 import type { MergedData, AnalysisData, Tournee, GlobalSummary, DepotStats, PostalCodeStats, SaturationData, CustomerPromiseData, ActualSlotDistribution, SimulatedPromiseData } from './types';
 import { calculateKpis, calculateDiscrepancyKpis, calculateQualityKpis } from './analysis/kpis';
 import { calculateAnomalies } from './analysis/anomalies';
@@ -200,13 +201,7 @@ function calculateDepotStats (data: MergedData[], toleranceSeconds: number, late
 
         // Ponctualité Réalisée (incluant les avances de plus de 15 min comme non ponctuelles)
         const realizedOnTime = depotData.filter(d => {
-            let realizedDeviation = 0;
-            if (d.heureCloture < d.heureDebutCreneau) {
-                realizedDeviation = d.heureCloture - d.heureDebutCreneau;
-            } else if (d.heureCloture > d.heureFinCreneau) {
-                realizedDeviation = d.heureCloture - d.heureFinCreneau;
-            }
-            return Math.abs(realizedDeviation) <= toleranceSeconds;
+            return Math.abs(d.retard) <= toleranceSeconds;
         }).length;
         const ponctualiteRealisee = totalDeliveries > 0 ? (realizedOnTime / totalDeliveries) * 100 : 0;
         
