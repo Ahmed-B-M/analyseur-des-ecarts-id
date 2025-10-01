@@ -59,7 +59,7 @@ export type Tache = {
   ville: string;
   notation: number | null;
   commentaire: string | null;
-  avancement?: string;
+  avancement: string;
   completedBy?: string;
   ordre: number;
 };

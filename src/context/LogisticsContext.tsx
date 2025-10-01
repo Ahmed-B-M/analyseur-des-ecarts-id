@@ -119,8 +119,31 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
       if (!internalState.rawData) {
         return internalState;
       }
+
+      // --- Pre-filtering for 100% mobile tours ---
+      let dataToProcess = internalState.rawData;
+      if (internalState.filters.tours100Mobile) {
+          // Group all tasks by tour from the raw data
+          const allTasksByTour = new Map<string, MergedData[]>();
+          internalState.rawData.forEach(task => {
+              if (!allTasksByTour.has(task.tourneeUniqueId)) {
+                  allTasksByTour.set(task.tourneeUniqueId, []);
+              }
+              allTasksByTour.get(task.tourneeUniqueId)!.push(task);
+          });
+
+          // Identify tours that are 100% mobile
+          const mobileTourIds = new Set<string>();
+          for (const [tourId, tasks] of allTasksByTour.entries()) {
+              if (tasks.every(t => t.completedBy?.toLowerCase() === 'mobile')) {
+                  mobileTourIds.add(tourId);
+              }
+          }
+          // Filter the data to only include these tours
+          dataToProcess = internalState.rawData.filter(task => mobileTourIds.has(task.tourneeUniqueId));
+      }
       
-      const filtered = internalState.rawData.filter(item => {
+      const filtered = dataToProcess.filter(item => {
             if (!item.tournee) return false;
             
             // Date filters
@@ -158,26 +181,9 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
             return true;
       });
 
-      // Handle "100% mobile" and "Top Postal Codes" as they require pre-aggregation
+      // Handle "Top Postal Codes" as it requires pre-aggregation
       let dataToAnalyze = filtered;
-
-      if (internalState.filters.tours100Mobile) {
-            const tourTasks = new Map<string, any[]>();
-            dataToAnalyze.forEach(task => {
-                if (!tourTasks.has(task.tourneeUniqueId)) {
-                    tourTasks.set(task.tourneeUniqueId, []);
-                }
-                tourTasks.get(task.tourneeUniqueId)!.push(task);
-            });
-
-            const mobileTourIds = new Set<string>();
-            for (const [tourId, tasks] of tourTasks.entries()) {
-                if (tasks.every(t => t.completedBy && t.completedBy.toLowerCase() === 'mobile')) {
-                    mobileTourIds.add(tourId);
-                }
-            }
-            dataToAnalyze = dataToAnalyze.filter(task => mobileTourIds.has(task.tourneeUniqueId));
-      }
+      
       if (internalState.filters.topPostalCodes) {
             const postalCodeCounts = dataToAnalyze.reduce((acc, item) => {
                 if (item.codePostal) {
