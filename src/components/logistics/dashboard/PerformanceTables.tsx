@@ -1,23 +1,20 @@
 
 'use client';
 import { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowUpDown, Filter, TrendingDown } from 'lucide-react';
+import { ArrowUpDown, Filter } from 'lucide-react';
 import type { AnalysisData, PerformanceByDriver, PerformanceByGeo, PerformanceByGroup } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 type SortConfig<T> = {
     key: keyof T;
     direction: 'asc' | 'desc';
 } | null;
-
-const PRIMARY_COLOR = "hsl(var(--primary))";
 
 function formatSecondsToTime(seconds: number): string {
     const isNegative = seconds < 0;
@@ -39,7 +36,7 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
       postalCode: { key: 'totalTasks', direction: 'desc' },
   });
 
-  const sortedData = useMemo(() => {
+  const processedData = useMemo(() => {
     const sortFn = <T,>(data: T[] | undefined, config: SortConfig<T>): T[] => {
         if (!data) return [];
         if (!config) return data;
@@ -59,19 +56,22 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
         return sorted;
     }
 
-    const maybeSlice = <T extends { totalTasks: number }>(data: T[] | undefined): T[] => {
+    const filterTop20 = <T extends { totalTasks: number; key: string }>(data: T[] | undefined): T[] => {
         if (!data || !showTop20Only) return data || [];
+        
         const sortedByVolume = [...data].sort((a, b) => b.totalTasks - a.totalTasks);
         const sliceCount = Math.ceil(sortedByVolume.length * 0.2);
-        return sortedByVolume.slice(0, sliceCount);
-    }
+        const top20Keys = new Set(sortedByVolume.slice(0, sliceCount).map(item => item.key));
+        
+        return data.filter(item => top20Keys.has(item.key));
+    };
     
     return {
-      performanceByDriver: sortFn<PerformanceByDriver>(analysisData.performanceByDriver, sorts.driver),
-      performanceByCity: sortFn<PerformanceByGeo>(maybeSlice(analysisData.performanceByCity), sorts.city),
-      performanceByPostalCode: sortFn<PerformanceByGeo>(maybeSlice(analysisData.performanceByPostalCode), sorts.postalCode),
-      performanceByDepot: sortFn<PerformanceByGroup>(maybeSlice(analysisData.performanceByDepot), sorts.depot),
-      performanceByWarehouse: sortFn<PerformanceByGroup>(maybeSlice(analysisData.performanceByWarehouse), sorts.warehouse),
+      performanceByDriver: sortFn<PerformanceByDriver>(analysisData.performanceByDriver, sorts.driver), // Top 20% not applicable for drivers
+      performanceByCity: filterTop20(sortFn<PerformanceByGeo>(analysisData.performanceByCity, sorts.city)),
+      performanceByPostalCode: filterTop20(sortFn<PerformanceByGeo>(analysisData.performanceByPostalCode, sorts.postalCode)),
+      performanceByDepot: filterTop20(sortFn<PerformanceByGroup>(analysisData.performanceByDepot, sorts.depot)),
+      performanceByWarehouse: filterTop20(sortFn<PerformanceByGroup>(analysisData.performanceByWarehouse, sorts.warehouse)),
     };
   }, [analysisData, sorts, showTop20Only]);
   
@@ -91,22 +91,6 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
     }
     return sortConfig.direction === 'asc' ? '▲' : '▼';
   };
-
-  const performanceFocusData = useMemo(() => {
-    const data = [
-      ...(analysisData.performanceByDepot || []).map(d => ({ ...d, type: 'Dépôt' })),
-      ...(analysisData.performanceByWarehouse || []).map(d => ({ ...d, type: 'Entrepôt' })),
-      ...(analysisData.performanceByCity || []).map(d => ({ ...d, type: 'Ville' })),
-    ];
-    return data
-      .map(d => ({
-        key: `${d.type}: ${d.key}`,
-        numberOfDelays: Math.round(d.totalTasks * (1 - d.punctualityRateRealized / 100)),
-      }))
-      .sort((a, b) => b.numberOfDelays - a.numberOfDelays)
-      .slice(0, 10);
-  }, [analysisData]);
-
 
   return (
     <Card>
@@ -147,7 +131,7 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {(sortedData.performanceByDriver || []).map(driver => (
+                                {(processedData.performanceByDriver || []).map(driver => (
                                     <TableRow key={driver.key}>
                                         <TableCell>{driver.key}</TableCell>
                                         <TableCell>{driver.totalTours}</TableCell>
@@ -175,7 +159,7 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {(sortedData.performanceByDepot || []).map(item => (
+                        {(processedData.performanceByDepot || []).map(item => (
                           <TableRow key={item.key}>
                             <TableCell className="font-medium">{item.key}</TableCell>
                             <TableCell>{item.totalTasks}</TableCell>
@@ -203,7 +187,7 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {(sortedData.performanceByWarehouse || []).map(item => (
+                          {(processedData.performanceByWarehouse || []).map(item => (
                             <TableRow key={item.key}>
                               <TableCell className="font-medium">{item.key}</TableCell>
                               <TableCell>{item.totalTasks}</TableCell>
@@ -231,7 +215,7 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {sortedData.performanceByCity.map(item => (
+                          {processedData.performanceByCity.map(item => (
                              <TableRow key={item.key}>
                               <TableCell className="font-medium">{item.key}</TableCell>
                               <TableCell>{item.totalTasks}</TableCell>
@@ -259,7 +243,7 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {sortedData.performanceByPostalCode?.map(item => (
+                            {(processedData.performanceByPostalCode || []).map(item => (
                                 <TableRow key={item.key}>
                                     <TableCell>{item.key}</TableCell>
                                     <TableCell>{item.totalTasks}</TableCell>
@@ -278,3 +262,5 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
     </Card>
   )
 }
+
+    
