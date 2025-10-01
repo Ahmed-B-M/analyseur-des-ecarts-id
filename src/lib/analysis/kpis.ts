@@ -13,10 +13,10 @@ export function calculateKpis(completedTasks: MergedData[], uniqueTournees: Tour
     return [
         { title: 'Tournées Analysées', value: uniqueTournees.length.toString(), icon: 'Truck' },
         { title: 'Livraisons Analysées', value: completedTasks.length.toString(), icon: 'ListChecks' },
-        { title: 'Taux de Ponctualité (Réalisé)', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${Math.round(toleranceSeconds / 60)} min`, icon: 'Clock' },
+        { title: 'Taux de Ponctualité (Réalisé)', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±15 min`, icon: 'Clock' },
         { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis (sur 5)`, icon: 'Star' },
-        { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${Math.round(toleranceSeconds / 60)} min après le créneau`, icon: 'Frown' },
-        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< -${Math.round(toleranceSeconds / 60)} min avant le créneau`, icon: 'Smile' },
+        { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> 15 min après le créneau`, icon: 'Frown' },
+        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< -15 min avant le créneau`, icon: 'Smile' },
         { title: 'Avis Négatifs', value: negativeReviews.length.toString(), description: 'Note client de 1 à 3 / 5', icon: 'MessageSquareX' },
     ];
 }

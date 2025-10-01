@@ -149,13 +149,12 @@ function calculatePerformanceByTimeSlot(tasks: MergedData[]): PerformanceByTimeS
 
 
 function createDelayHistogram(tasks: MergedData[], toleranceSeconds: number): DelayHistogramBin[] {
-    const toleranceMinutes = Math.round(toleranceSeconds / 60);
     const bins: { [key: string]: { min: number, max: number, count: number } } = {
         '> 60 min en avance': { min: -Infinity, max: -3601, count: 0 },
         '30-60 min en avance': { min: -3600, max: -1801, count: 0 },
-        [`${toleranceMinutes}-30 min en avance`]: { min: -1800, max: -toleranceSeconds -1, count: 0 },
+        '15-30 min en avance': { min: -1800, max: -toleranceSeconds -1, count: 0 },
         'À l\'heure': { min: -toleranceSeconds, max: toleranceSeconds, count: 0 },
-        [`${toleranceMinutes}-30 min de retard`]: { min: toleranceSeconds + 1, max: 1800, count: 0 },
+        '15-30 min de retard': { min: toleranceSeconds + 1, max: 1800, count: 0 },
         '30-60 min de retard': { min: 1801, max: 3600, count: 0 },
         '> 60 min de retard': { min: 3601, max: Infinity, count: 0 },
     };
@@ -172,9 +171,9 @@ function createDelayHistogram(tasks: MergedData[], toleranceSeconds: number): De
     const sortedBinKeys = [
         '> 60 min en avance',
         '30-60 min en avance',
-        `${toleranceMinutes}-30 min en avance`,
+        '15-30 min en avance',
         'À l\'heure',
-        `${toleranceMinutes}-30 min de retard`,
+        '15-30 min de retard',
         '30-60 min de retard',
         '> 60 min de retard'
     ];

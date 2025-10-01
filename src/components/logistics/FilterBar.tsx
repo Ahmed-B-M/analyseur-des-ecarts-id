@@ -199,9 +199,9 @@ export default function FilterBar({ filters, setFilters, depots = [], warehouses
           <Input 
             id="punctuality-threshold" 
             type="number" 
-            placeholder="ex: 959"
+            placeholder="ex: 900"
             value={filters.punctualityThreshold ?? ''}
-            onChange={(e) => handleFilterChange('punctualityThreshold', e.target.value ? parseInt(e.target.value) : 959)}
+            onChange={(e) => handleFilterChange('punctualityThreshold', e.target.value ? parseInt(e.target.value) : 900)}
            />
         </div>
         <div>

@@ -36,7 +36,7 @@ const initialState: State = {
   rawData: null,
   filteredData: null,
   filters: {
-    punctualityThreshold: 959,
+    punctualityThreshold: 900,
     tours100Mobile: false,
     excludeMadDelays: false,
     madDelays: [],

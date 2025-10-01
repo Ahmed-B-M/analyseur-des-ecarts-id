@@ -8,7 +8,7 @@ import { calculateWorkloadAnalyses } from './analysis/workload';
 
 export function analyzeData(data: MergedData[], filters: Record<string, any>): AnalysisData {
     
-    const toleranceSeconds = filters.punctualityThreshold || 959;
+    const toleranceSeconds = filters.punctualityThreshold || 900;
     const lateTourTolerance = filters.lateTourTolerance || 0;
 
     const completedTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée');
@@ -461,7 +461,7 @@ function calculateCustomerPromiseData(filteredData: MergedData[], punctualityThr
         }
     });
 
-    const lateToleranceSeconds = (punctualityThreshold || 959);
+    const lateToleranceSeconds = (punctualityThreshold || 900);
 
     filteredData.forEach(task => {
         // Urbantz Plan

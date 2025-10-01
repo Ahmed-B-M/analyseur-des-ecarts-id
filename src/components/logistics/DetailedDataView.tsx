@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 
 
 const ITEMS_PER_PAGE = 25;
-const TOLERANCE_MINUTES = 15 * 60; // 15 minutes in seconds
+const TOLERANCE_SECONDS = 900; // 15 minutes in seconds
 
 type SortKey = keyof MergedData | `tournee.${keyof NonNullable<MergedData['tournee']>}`;
 
@@ -128,7 +128,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
                 <TableCell>{formatSecondsToTime(item.heureDebutCreneau)} - {formatSecondsToTime(item.heureFinCreneau)}</TableCell>
                 <TableCell>{formatSecondsToTime(item.heureCloture)}</TableCell>
                 <TableCell className={cn(
-                  item.retard > TOLERANCE_MINUTES ? 'text-destructive' : item.retard < -TOLERANCE_MINUTES ? 'text-blue-500' : 'text-foreground'
+                  item.retard > TOLERANCE_SECONDS ? 'text-destructive' : item.retard < -TOLERANCE_SECONDS ? 'text-blue-500' : 'text-foreground'
                 )}>
                   {item.retard > 0 ? '+' : ''}{Math.floor(item.retard / 60)} min
                 </TableCell>
