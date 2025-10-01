@@ -8,10 +8,10 @@ import { calculateWorkloadAnalyses } from './analysis/workload';
 
 export function analyzeData(data: MergedData[], filters: Record<string, any>): AnalysisData {
     
-    const toleranceSeconds = filters.punctualityThreshold || 900;
+    const toleranceMinutes = 15;
     const lateTourTolerance = filters.lateTourTolerance || 0;
 
-    const completedTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée');
+    const completedTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée' && t.heureCloture > 0 && t.heureFinCreneau > 0);
     
     if (completedTasks.length === 0) {
         return createEmptyAnalysisData();
@@ -19,22 +19,24 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
     // --- Pre-calculation per task ---
     completedTasks.forEach(task => {
-        // Realized delay
-        const isLate = task.retard > toleranceSeconds;
-        const isEarly = task.retard < -toleranceSeconds;
+        // Realized delay in minutes
+        const delayInMinutes = (task.heureCloture - task.heureFinCreneau) / 60;
+        
+        const isLate = delayInMinutes > toleranceMinutes;
+        const isEarly = delayInMinutes < -toleranceMinutes;
         task.retardStatus = isLate ? 'late' : isEarly ? 'early' : 'onTime';
         
-        // Predicted delay
-        let predictedRetard = 0;
+        // Predicted delay in seconds
+        let predictedRetardSeconds = 0;
         if (task.heureArriveeApprox < task.heureDebutCreneau) {
-            predictedRetard = task.heureArriveeApprox - task.heureDebutCreneau;
+            predictedRetardSeconds = task.heureArriveeApprox - task.heureDebutCreneau;
         } else if (task.heureArriveeApprox > task.heureFinCreneau) {
-            predictedRetard = task.heureArriveeApprox - task.heureFinCreneau;
+            predictedRetardSeconds = task.heureArriveeApprox - task.heureFinCreneau;
         }
-        task.retardPrevisionnelS = predictedRetard;
+        task.retardPrevisionnelS = predictedRetardSeconds;
 
-        const isPredictedLate = predictedRetard > toleranceSeconds;
-        const isPredictedEarly = predictedRetard < -toleranceSeconds;
+        const isPredictedLate = predictedRetardSeconds > (toleranceMinutes * 60);
+        const isPredictedEarly = predictedRetardSeconds < -(toleranceMinutes * 60);
         task.retardPrevisionnelStatus = isPredictedLate ? 'late' : isPredictedEarly ? 'early' : 'onTime';
     });
     
@@ -88,8 +90,8 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     });
 
     // --- Calculations ---
-    const generalKpis = calculateKpis(completedTasks, uniqueTournees, toleranceSeconds);
-    const { lateTasks, earlyTasks, punctualityRate, predictedPunctualityRate, outOfTimeTasks, predictedOutOfTimeTasks } = getPunctualityStats(completedTasks, toleranceSeconds);
+    const generalKpis = calculateKpis(completedTasks, uniqueTournees, toleranceMinutes * 60);
+    const { lateTasks, earlyTasks, punctualityRate, predictedPunctualityRate, outOfTimeTasks, predictedOutOfTimeTasks } = getPunctualityStats(completedTasks, toleranceMinutes);
     const discrepancyKpis = calculateDiscrepancyKpis(uniqueTournees, punctualityRate, predictedPunctualityRate, outOfTimeTasks, predictedOutOfTimeTasks);
     
     const { overloadedTours, durationDiscrepancies, lateStartAnomalies } = calculateAnomalies(tourneeMap, uniqueTournees);
@@ -105,7 +107,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         delaysByWarehouse, delaysByCity, delaysByPostalCode, delaysByHour,
         advancesByWarehouse, advancesByCity, advancesByPostalCode, advancesByHour,
         performanceByDayOfWeek, performanceByTimeSlot, delayHistogram
-    } = calculateTemporalAnalyses(lateTasks, earlyTasks, completedTasks, toleranceSeconds);
+    } = calculateTemporalAnalyses(lateTasks, earlyTasks, completedTasks, toleranceMinutes * 60);
 
     const { workloadByHour, avgWorkloadByDriverBySlot, avgWorkload } = calculateWorkloadAnalyses(completedTasks);
 
@@ -128,11 +130,11 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         durationOverrunPercentage: totals.dureePrevue > 0 ? ((totals.dureeReelleCalculee - totals.dureePrevue) / totals.dureePrevue) * 100 : 0,
     };
     
-    const depotStats = calculateDepotStats(completedTasks, toleranceSeconds, lateTourTolerance);
-    const postalCodeStats = calculatePostalCodeStats(completedTasks, toleranceSeconds);
+    const depotStats = calculateDepotStats(completedTasks, toleranceMinutes, lateTourTolerance);
+    const postalCodeStats = calculatePostalCodeStats(completedTasks, toleranceMinutes);
     const saturationData = calculateSaturationData(completedTasks);
-    const customerPromiseData = calculateCustomerPromiseData(completedTasks, toleranceSeconds);
-    const { actualSlotDistribution, simulatedPromiseData } = calculateSimulationData(completedTasks, toleranceSeconds);
+    const customerPromiseData = calculateCustomerPromiseData(completedTasks, toleranceMinutes);
+    const { actualSlotDistribution, simulatedPromiseData } = calculateSimulationData(completedTasks, toleranceMinutes);
 
 
     return {
@@ -175,7 +177,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     };
 }
 
-function calculateDepotStats (data: MergedData[], toleranceSeconds: number, lateTourTolerance: number): DepotStats[] {
+function calculateDepotStats (data: MergedData[], toleranceMinutes: number, lateTourTolerance: number): DepotStats[] {
     const depotNames = [...new Set(data.map(item => item.tournee?.entrepot).filter(Boolean) as string[])];
     
     return depotNames.map(depotName => {
@@ -186,23 +188,13 @@ function calculateDepotStats (data: MergedData[], toleranceSeconds: number, late
 
         const totalDeliveries = depotData.length;
 
-        // Ponctualité Prév. (aligné avec dataAnalyzer.ts)
-        const predictedTasksOnTime = depotData.filter(d => {
-            let predictedRetard = 0;
-            if (d.heureArriveeApprox < d.heureDebutCreneau) {
-                predictedRetard = d.heureArriveeApprox - d.heureDebutCreneau;
-            } else if (d.heureArriveeApprox > d.heureFinCreneau) {
-                predictedRetard = d.heureArriveeApprox - d.heureFinCreneau;
-            }
-            return Math.abs(predictedRetard) <= toleranceSeconds;
-        }).length;
+        // Ponctualité Prév. 
+        const predictedTasksOnTime = depotData.filter(d => d.retardPrevisionnelStatus === 'onTime').length;
         const ponctualitePrev = totalDeliveries > 0 ? (predictedTasksOnTime / totalDeliveries) * 100 : 0;
 
 
-        // Ponctualité Réalisée (incluant les avances de plus de 15 min comme non ponctuelles)
-        const realizedOnTime = depotData.filter(d => {
-            return Math.abs(d.retard) <= toleranceSeconds;
-        }).length;
+        // Ponctualité Réalisée 
+        const realizedOnTime = depotData.filter(d => d.retardStatus === 'onTime').length;
         const ponctualiteRealisee = totalDeliveries > 0 ? (realizedOnTime / totalDeliveries) * 100 : 0;
         
         // % Dépassement de Poids
@@ -227,11 +219,12 @@ function calculateDepotStats (data: MergedData[], toleranceSeconds: number, late
         const depassementPoids = totalTours > 0 ? (overweightToursCount / totalTours) * 100 : 0;
         
         // % des tournées parties à l'heure ET arrivées en retard
-        const lateTourToleranceSeconds = lateTourTolerance * 60;
+        const lateTourToleranceMinutes = lateTourTolerance;
         const onTimeDepartureLateArrivalTours = Object.values(tasksByTour).filter(({ tour, tasks }) => {
            if (!tour || tour.heureDepartReelle > tour.heureDepartPrevue) return false;
            const firstTask = tasks.sort((a,b) => a.ordre - b.ordre)[0];
-           return firstTask && firstTask.retard > lateTourToleranceSeconds;
+           const firstTaskDelayMinutes = (firstTask.heureCloture - firstTask.heureFinCreneau) / 60;
+           return firstTask && firstTaskDelayMinutes > lateTourToleranceMinutes;
         }).length;
         const tourneesPartiesHeureRetard = totalTours > 0 ? (onTimeDepartureLateArrivalTours / totalTours) * 100 : 0;
 
@@ -243,10 +236,10 @@ function calculateDepotStats (data: MergedData[], toleranceSeconds: number, late
             }
 
             // Condition 2: Au moins une livraison doit avoir plus de 15 minutes de retard
-            const fifteenMinutesInSeconds = 15 * 60;
-            const hasSignificantDelay = tasks.some(task =>
-                task.retard > fifteenMinutesInSeconds
-            );
+            const hasSignificantDelay = tasks.some(task => {
+                const delayInMinutes = (task.heureCloture - task.heureFinCreneau) / 60;
+                return delayInMinutes > toleranceMinutes;
+            });
 
             return hasSignificantDelay;
         }).length;
@@ -255,8 +248,8 @@ function calculateDepotStats (data: MergedData[], toleranceSeconds: number, late
 
 
         // % des notes négatives (1-3) qui sont arrivées en retard
-        const negativeRatings = depotData.filter(d => d.notation && d.notation >= 1 && d.notation <= 3);
-        const negativeRatingsLate = negativeRatings.filter(d => d.retard > toleranceSeconds);
+        const negativeRatings = depotData.filter(d => d.notation != null && d.notation >= 1 && d.notation <= 3);
+        const negativeRatingsLate = negativeRatings.filter(d => d.retardStatus === 'late');
         const notesNegativesRetard = negativeRatings.length > 0 ? (negativeRatingsLate.length / negativeRatings.length) * 100 : 0;
 
         
@@ -271,7 +264,7 @@ function calculateDepotStats (data: MergedData[], toleranceSeconds: number, late
                 slotStats[slotKey] = { total: 0, late: 0 };
             }
             slotStats[slotKey].total++;
-            if (task.retard > toleranceSeconds) {
+            if (task.retardStatus === 'late') {
                 slotStats[slotKey].late++;
             }
         });
@@ -359,7 +352,7 @@ function calculateDepotStats (data: MergedData[], toleranceSeconds: number, late
 }
 
 
-function calculatePostalCodeStats(data: MergedData[], toleranceSeconds: number): PostalCodeStats[] {
+function calculatePostalCodeStats(data: MergedData[], toleranceMinutes: number): PostalCodeStats[] {
     const postalCodeStats: Record<string, { total: number; late: number; depot: string }> = {};
 
     data.forEach(item => {
@@ -368,8 +361,7 @@ function calculatePostalCodeStats(data: MergedData[], toleranceSeconds: number):
                 postalCodeStats[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
             }
             postalCodeStats[item.codePostal].total++;
-            // Le retard est défini par un dépassement du créneau horaire du client + la tolérance
-            if (item.retard > toleranceSeconds) {
+            if (item.retardStatus === 'late') {
                 postalCodeStats[item.codePostal].late++;
             }
         }
@@ -417,7 +409,7 @@ function calculateSaturationData(filteredData: MergedData[]): SaturationData[] {
         .map(item => ({ hour: item.hour, gap: item.demand - item.capacity }));
 }
 
-function calculateCustomerPromiseData(filteredData: MergedData[], punctualityThreshold: number): CustomerPromiseData[] {
+function calculateCustomerPromiseData(filteredData: MergedData[], punctualityThresholdMinutes: number): CustomerPromiseData[] {
     if (!filteredData) return [];
 
     const buckets: Record<string, { customerPromise: number; urbantzPlan: number; realized: number; late: number }> = {};
@@ -461,8 +453,6 @@ function calculateCustomerPromiseData(filteredData: MergedData[], punctualityThr
         }
     });
 
-    const lateToleranceSeconds = (punctualityThreshold || 900);
-
     filteredData.forEach(task => {
         // Urbantz Plan
         const approxDate = new Date(task.heureArriveeApprox * 1000);
@@ -480,7 +470,7 @@ function calculateCustomerPromiseData(filteredData: MergedData[], punctualityThr
         const closureBucketKey = `${closureHour}:${closureMinute}`;
         if (buckets[closureBucketKey]) {
             buckets[closureBucketKey].realized++;
-            if (task.retard > lateToleranceSeconds) {
+            if (task.retardStatus === 'late') {
                 buckets[closureBucketKey].late++;
             }
         }
@@ -496,7 +486,7 @@ const formatTime = (minutes: number) => {
     return `${h}:${m}`;
 };
 
-function calculateSimulationData(data: MergedData[], punctualityThreshold: number): { actualSlotDistribution: ActualSlotDistribution[], simulatedPromiseData: SimulatedPromiseData[] } {
+function calculateSimulationData(data: MergedData[], punctualityThresholdMinutes: number): { actualSlotDistribution: ActualSlotDistribution[], simulatedPromiseData: SimulatedPromiseData[] } {
     if (!data || data.length === 0) {
         return { actualSlotDistribution: [], simulatedPromiseData: [] };
     }
@@ -571,11 +561,10 @@ function calculateSimulationData(data: MergedData[], punctualityThreshold: numbe
     }
 
     let totalPlanOffset = 0, totalRealizedOffset = 0, lateCount = 0;
-    const lateToleranceSeconds = punctualityThreshold * 60;
     data.forEach(task => {
         totalPlanOffset += (task.heureArriveeApprox - task.heureDebutCreneau);
         totalRealizedOffset += (task.heureCloture - task.heureArriveeApprox);
-        if (task.heureCloture > task.heureFinCreneau + lateToleranceSeconds) {
+        if (task.retardStatus === 'late') {
             lateCount++;
         }
     });
@@ -663,9 +652,9 @@ function createEmptyAnalysisData(): AnalysisData {
 }
 
 
-function getPunctualityStats(completedTasks: MergedData[], toleranceSeconds: number) {
+function getPunctualityStats(completedTasks: MergedData[], toleranceMinutes: number) {
     const lateTasks = completedTasks.filter(t => t.retardStatus === 'late');
-    const earlyTasks = completedTasks.filter(t => t.retard < -toleranceSeconds);
+    const earlyTasks = completedTasks.filter(t => t.retardStatus === 'early');
     const outOfTimeTasks = lateTasks.length + earlyTasks.length;
 
     const predictedTasksOnTime = completedTasks.filter(t => t.retardPrevisionnelStatus === 'onTime');

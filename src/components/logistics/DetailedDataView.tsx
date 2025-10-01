@@ -10,9 +10,7 @@ import { cn } from '@/lib/utils';
 
 
 const ITEMS_PER_PAGE = 25;
-const TOLERANCE_SECONDS = 900; // 15 minutes in seconds
-
-type SortKey = keyof MergedData | `tournee.${keyof NonNullable<MergedData['tournee']>}`;
+const TOLERANCE_MINUTES = 15;
 
 function formatSecondsToTime(seconds: number): string {
     if (isNaN(seconds) || seconds === 0) return '00:00';
@@ -39,31 +37,38 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
     });
   }, [data, searchTerm]);
 
+  type SortKey = keyof MergedData | `tournee.${keyof NonNullable<MergedData['tournee']>}`;
+  
   const sortedData = useMemo(() => {
-    if (!sortConfig) return filteredData;
-    
-    return [...filteredData].sort((a, b) => {
-      let aValue, bValue;
-      if (sortConfig.key.startsWith('tournee.')) {
-        const subKey = sortConfig.key.split('.')[1] as keyof NonNullable<MergedData['tournee']>;
-        aValue = a.tournee?.[subKey];
-        bValue = b.tournee?.[subKey];
-      } else {
-        aValue = a[sortConfig.key as keyof MergedData];
-        bValue = b[sortConfig.key as keyof MergedData];
-      }
+    let dataToSort = [...filteredData];
 
-      if (aValue == null) return 1;
-      if (bValue == null) return -1;
+    if (sortConfig) {
+        dataToSort.sort((a, b) => {
+            let aValue, bValue;
+            if (sortConfig.key.startsWith('tournee.')) {
+                const subKey = sortConfig.key.split('.')[1] as keyof NonNullable<MergedData['tournee']>;
+                aValue = a.tournee?.[subKey];
+                bValue = b.tournee?.[subKey];
+            } else {
+                aValue = a[sortConfig.key as keyof MergedData];
+                bValue = b[sortConfig.key as keyof MergedData];
+            }
+            
+            if (sortConfig.key === 'retard') { // Special handling for our calculated delay
+                aValue = (a.heureCloture - a.heureFinCreneau) / 60;
+                bValue = (b.heureCloture - b.heureFinCreneau) / 60;
+            }
 
-      if (aValue < bValue) {
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return sortConfig.direction === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
+            if (aValue == null) return 1;
+            if (bValue == null) return -1;
+
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            
+            return 0;
+        });
+    }
+    return dataToSort;
   }, [filteredData, sortConfig]);
 
   const paginatedData = useMemo(() => {
@@ -112,13 +117,15 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
               <TableHead onClick={() => handleSort('ville')} className="cursor-pointer">Ville {renderSortIcon('ville')}</TableHead>
               <TableHead onClick={() => handleSort('heureDebutCreneau')} className="cursor-pointer">Créneau {renderSortIcon('heureDebutCreneau')}</TableHead>
               <TableHead onClick={() => handleSort('heureCloture')} className="cursor-pointer">Heure Clôture {renderSortIcon('heureCloture')}</TableHead>
-              <TableHead onClick={() => handleSort('retard')} className="cursor-pointer">Retard {renderSortIcon('retard')}</TableHead>
+              <TableHead onClick={() => handleSort('retard')} className="cursor-pointer">Écart (min) {renderSortIcon('retard')}</TableHead>
               <TableHead onClick={() => handleSort('notation')} className="cursor-pointer">Note {renderSortIcon('notation')}</TableHead>
               <TableHead>Commentaire</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedData.length > 0 ? paginatedData.map((item, index) => (
+            {paginatedData.length > 0 ? paginatedData.map((item, index) => {
+              const delayInMinutes = Math.floor((item.heureCloture - item.heureFinCreneau) / 60);
+              return (
               <TableRow key={`${item.tourneeUniqueId}-${item.sequence}-${index}`}>
                 <TableCell>{item.date}</TableCell>
                 <TableCell>{item.nomTournee}</TableCell>
@@ -128,14 +135,15 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
                 <TableCell>{formatSecondsToTime(item.heureDebutCreneau)} - {formatSecondsToTime(item.heureFinCreneau)}</TableCell>
                 <TableCell>{formatSecondsToTime(item.heureCloture)}</TableCell>
                 <TableCell className={cn(
-                  item.retard > TOLERANCE_SECONDS ? 'text-destructive' : item.retard < -TOLERANCE_SECONDS ? 'text-blue-500' : 'text-foreground'
+                  delayInMinutes > TOLERANCE_MINUTES ? 'text-destructive' : delayInMinutes < -TOLERANCE_MINUTES ? 'text-blue-500' : 'text-foreground'
                 )}>
-                  {item.retard > 0 ? '+' : ''}{Math.floor(item.retard / 60)} min
+                  {delayInMinutes > 0 ? '+' : ''}{delayInMinutes} min
                 </TableCell>
                 <TableCell>{item.notation ?? 'N/A'}</TableCell>
                 <TableCell className="max-w-xs truncate" title={item.commentaire || ''}>{item.commentaire}</TableCell>
               </TableRow>
-            )) : (
+              )
+            }) : (
                 <TableRow><TableCell colSpan={10} className="text-center h-24">Aucune donnée à afficher.</TableCell></TableRow>
             )}
           </TableBody>
