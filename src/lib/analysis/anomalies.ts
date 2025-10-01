@@ -18,25 +18,26 @@ export function calculateAnomalies(
 
 function calculateOverloadedTours(uniqueTournees: Tournee[]): OverloadedTourInfo[] {
     return uniqueTournees.map(tour => {
-        const isOverloadedByWeight = tour.poidsPrevu > 0 && tour.poidsReel > (tour.poidsPrevu * 1.1); // 10% tolerance vs planned
-        const isOverloadedByBins = tour.bacsPrevus > 0 && tour.bacsReels > tour.bacsPrevus;
-        const isOverloadedByTime = tour.dureePrevue > 0 && tour.dureeReelleCalculee! > (tour.dureePrevue * 1.2); // 20% tolerance
+        // La surcharge est définie comme le poids réel dépassant la capacité du véhicule.
+        const isOverloaded = tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids;
 
-        const depassementPoids = tour.poidsReel - tour.poidsPrevu;
-        const tauxDepassementPoids = tour.poidsPrevu > 0 ? (depassementPoids / tour.poidsPrevu) * 100 : 0;
+        const depassementPoids = tour.poidsReel - tour.capacitePoids;
+        const tauxDepassementPoids = tour.capacitePoids > 0 ? (depassementPoids / tour.capacitePoids) * 100 : 0;
+        
+        // Les calculs de bacs sont conservés pour information mais ne définissent plus la surcharge.
         const depassementBacs = tour.bacsReels - tour.bacsPrevus;
         const tauxDepassementBacs = tour.bacsPrevus > 0 ? (depassementBacs / tour.bacsPrevus) * 100 : 0;
 
         return {
             ...tour, 
-            isOverloaded: isOverloadedByWeight || isOverloadedByBins || isOverloadedByTime,
+            isOverloaded: isOverloaded,
             depassementPoids: depassementPoids,
             tauxDepassementPoids: tauxDepassementPoids,
             depassementBacs: depassementBacs,
             tauxDepassementBacs: tauxDepassementBacs,
         };
     }).filter(t => t.isOverloaded)
-      .sort((a,b) => b.tauxDepassementPoids - a.tauxDepassementPoids || b.tauxDepassementBacs - a.tauxDepassementBacs);
+      .sort((a,b) => b.depassementPoids - a.depassementPoids);
 }
 
 function calculateDurationDiscrepancies(uniqueTournees: Tournee[]): DurationDiscrepancy[] {
