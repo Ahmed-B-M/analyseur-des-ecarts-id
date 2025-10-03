@@ -1,4 +1,5 @@
 
+
 import type { MergedData, AnalysisData, Tournee, GlobalSummary, DepotStats, PostalCodeStats, SaturationData, CustomerPromiseData, ActualSlotDistribution, SimulatedPromiseData, Kpi, ComparisonKpi, OverloadedTourInfo, LateStartAnomaly, DurationDiscrepancy, PerformanceByDriver, PerformanceByGeo, PerformanceByGroup, DelayCount, DelayByHour, PerformanceByDay, PerformanceByTimeSlot, DelayHistogramBin, WorkloadByHour, AvgWorkloadBySlot, AvgWorkload } from './types';
 import { getDay } from 'date-fns';
 
@@ -9,7 +10,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const toleranceSeconds = toleranceMinutes * 60;
     const lateTourTolerance = filters.lateTourTolerance || 0;
 
-    const completedTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée' && t.heureCloture > 0 && t.heureFinCreneau > 0);
+    const completedTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée' && t.heureCloture > 0 && t.heureDebutCreneau > 0 && t.heureFinCreneau > 0);
     
     if (completedTasks.length === 0) {
         return createEmptyAnalysisData();
@@ -21,36 +22,35 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         const debutCreneau = task.heureDebutCreneau;
         const finCreneau = task.heureFinCreneau;
 
-        // Calculate deviation from both start and end of the slot
-        const deviationFromStart = cloture - debutCreneau;
-        const deviationFromEnd = cloture - finCreneau;
+        const ecartDebut = cloture - debutCreneau;
+        const ecartFin = cloture - finCreneau;
 
-        // Determine status based on the defined tolerance
-        if (deviationFromEnd > toleranceSeconds) {
-            task.retardStatus = 'late';
-            task.retard = deviationFromEnd;
-        } else if (deviationFromStart < -toleranceSeconds) {
+        if (ecartDebut < -toleranceSeconds) { // Plus de 15min avant le début
             task.retardStatus = 'early';
-            task.retard = deviationFromStart;
+            task.retard = ecartDebut;
+        } else if (ecartFin > toleranceSeconds) { // Plus de 15min après la fin
+            task.retardStatus = 'late';
+            task.retard = ecartFin;
         } else {
             task.retardStatus = 'onTime';
-            // For on-time tasks, the deviation can be considered 0 for simplicity,
-            // or we can store the most relevant one (e.g., deviation from end).
-            task.retard = deviationFromEnd;
+            task.retard = ecartFin; // Pour le tri, on peut garder l'écart par rapport à la fin
         }
-
+        
         // Predicted delay in seconds
         let predictedRetardSeconds = 0;
-        if (task.heureArriveeApprox < task.heureDebutCreneau) {
-            predictedRetardSeconds = task.heureArriveeApprox - task.heureDebutCreneau;
-        } else if (task.heureArriveeApprox > task.heureFinCreneau) {
-            predictedRetardSeconds = task.heureArriveeApprox - task.heureFinCreneau;
+        const approx = task.heureArriveeApprox;
+        
+        if (approx < debutCreneau - toleranceSeconds) {
+            task.retardPrevisionnelStatus = 'early';
+            predictedRetardSeconds = approx - debutCreneau;
+        } else if (approx > finCreneau + toleranceSeconds) {
+            task.retardPrevisionnelStatus = 'late';
+            predictedRetardSeconds = approx - finCreneau;
+        } else {
+            task.retardPrevisionnelStatus = 'onTime';
+            predictedRetardSeconds = approx - finCreneau;
         }
         task.retardPrevisionnelS = predictedRetardSeconds;
-
-        const isPredictedLate = predictedRetardSeconds > toleranceSeconds;
-        const isPredictedEarly = predictedRetardSeconds < -toleranceSeconds;
-        task.retardPrevisionnelStatus = isPredictedLate ? 'late' : isPredictedEarly ? 'early' : 'onTime';
     });
     
     const tourneeMap = new Map<string, { tour: Tournee, tasks: MergedData[] }>();
@@ -120,7 +120,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         delaysByWarehouse, delaysByCity, delaysByPostalCode, delaysByHour,
         advancesByWarehouse, advancesByCity, advancesByPostalCode, advancesByHour,
         performanceByDayOfWeek, performanceByTimeSlot, delayHistogram
-    } = calculateTemporalAnalyses(lateTasks, earlyTasks, completedTasks, toleranceMinutes * 60);
+    } = calculateTemporalAnalyses(lateTasks, earlyTasks, completedTasks, toleranceSeconds);
 
     const { workloadByHour, avgWorkloadByDriverBySlot, avgWorkload } = calculateWorkloadAnalyses(completedTasks);
 
@@ -205,7 +205,7 @@ function calculateKpis(completedTasks: MergedData[], uniqueTournees: Tournee[], 
         { title: `Taux de Ponctualité (Réalisé)`, value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${toleranceMinutes} min`, icon: 'Clock' },
         { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis (sur 5)`, icon: 'Star' },
         { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${toleranceMinutes} min après le créneau`, icon: 'Frown' },
-        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `> ${toleranceMinutes} min avant le créneau`, icon: 'Smile' },
+        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< ${toleranceMinutes} min avant le créneau`, icon: 'Smile' },
         { title: 'Avis Négatifs', value: negativeReviews.length.toString(), description: 'Note client de 1 à 3 / 5', icon: 'MessageSquareX' },
     ];
 }
@@ -490,7 +490,7 @@ function calculateTemporalAnalyses(
 
     const performanceByDayOfWeek = calculatePerformanceByDayOfWeek(completedTasks);
     const performanceByTimeSlot = calculatePerformanceByTimeSlot(completedTasks);
-    const delayHistogram = createDelayHistogram(completedTasks, toleranceSeconds / 60);
+    const delayHistogram = createDelayHistogram(completedTasks, toleranceSeconds);
 
     return {
         delaysByWarehouse,
@@ -618,7 +618,8 @@ function calculatePerformanceByTimeSlot(tasks: MergedData[]): PerformanceByTimeS
 }
 
 
-function createDelayHistogram(tasks: MergedData[], toleranceMinutes: number): DelayHistogramBin[] {
+function createDelayHistogram(tasks: MergedData[], toleranceSeconds: number): DelayHistogramBin[] {
+    const toleranceMinutes = toleranceSeconds / 60;
     const bins: { [key: string]: { min: number, max: number, count: number } } = {
         '> 60 min en avance': { min: -Infinity, max: -60.01, count: 0 },
         '30-60 min en avance': { min: -60, max: -30.01, count: 0 },
@@ -630,7 +631,15 @@ function createDelayHistogram(tasks: MergedData[], toleranceMinutes: number): De
     };
 
     tasks.forEach(task => {
-        const delayInMinutes = task.retard / 60;
+        let delayInMinutes: number;
+        
+        // Use the same logic as status calculation for consistency
+        if (task.retardStatus === 'early') {
+            delayInMinutes = (task.heureCloture - task.heureDebutCreneau) / 60;
+        } else {
+            delayInMinutes = (task.heureCloture - task.heureFinCreneau) / 60;
+        }
+
         for (const key in bins) {
             if (delayInMinutes >= bins[key].min && delayInMinutes <= bins[key].max) {
                 bins[key].count++;
@@ -806,7 +815,7 @@ function calculateDepotStats (data: MergedData[], toleranceMinutes: number, late
 
             // Condition 2: Au moins une livraison doit avoir plus de 15 minutes de retard
             const hasSignificantDelay = tasks.some(task => {
-                const delayInMinutes = task.retard / 60;
+                const delayInMinutes = (task.heureCloture - task.heureFinCreneau) / 60;
                 return delayInMinutes > toleranceMinutes;
             });
 
@@ -1252,3 +1261,4 @@ export function formatSeconds(seconds: number): string {
 }
 
     
+
