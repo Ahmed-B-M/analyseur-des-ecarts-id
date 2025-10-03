@@ -3,11 +3,11 @@
 import type { MergedData, AnalysisData, Tournee, GlobalSummary, DepotStats, PostalCodeStats, SaturationData, CustomerPromiseData, ActualSlotDistribution, SimulatedPromiseData, Kpi, ComparisonKpi, OverloadedTourInfo, LateStartAnomaly, DurationDiscrepancy, PerformanceByDriver, PerformanceByGeo, PerformanceByGroup, DelayCount, DelayByHour, PerformanceByDay, PerformanceByTimeSlot, DelayHistogramBin, WorkloadByHour, AvgWorkloadBySlot, AvgWorkload } from './types';
 import { getDay } from 'date-fns';
 
+// #region Main Analysis Function
 
 export function analyzeData(data: MergedData[], filters: Record<string, any>): AnalysisData {
     
-    const toleranceMinutes = 15;
-    const toleranceSeconds = toleranceMinutes * 60;
+    const toleranceSeconds = filters.punctualityThreshold || 900;
     const lateTourTolerance = filters.lateTourTolerance || 0;
 
     const completedTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée' && t.heureCloture > 0 && t.heureDebutCreneau > 0 && t.heureFinCreneau > 0);
@@ -105,8 +105,9 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     });
 
     // --- Calculations ---
-    const generalKpis = calculateKpis(completedTasks, uniqueTournees, toleranceMinutes);
-    const { lateTasks, earlyTasks, punctualityRate, predictedPunctualityRate, outOfTimeTasks, predictedOutOfTimeTasks } = getPunctualityStats(completedTasks);
+    const { lateTasks, earlyTasks, punctualityRate, predictedPunctualityRate, outOfTimeTasks, predictedOutOfTimeTasks } = getPunctualityStats(completedTasks, toleranceSeconds);
+
+    const generalKpis = calculateKpis(completedTasks, uniqueTournees, toleranceSeconds);
     const discrepancyKpis = calculateDiscrepancyKpis(uniqueTournees, punctualityRate, predictedPunctualityRate, outOfTimeTasks, predictedOutOfTimeTasks);
     
     const { overloadedTours, durationDiscrepancies, lateStartAnomalies } = calculateAnomalies(tourneeMap, uniqueTournees);
@@ -145,7 +146,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         durationOverrunPercentage: totals.dureePrevue > 0 ? ((totals.dureeReelleCalculee - totals.dureePrevue) / totals.dureePrevue) * 100 : 0,
     };
     
-    const depotStats = calculateDepotStats(completedTasks, toleranceMinutes, lateTourTolerance);
+    const depotStats = calculateDepotStats(completedTasks, toleranceSeconds, lateTourTolerance);
     const postalCodeStats = calculatePostalCodeStats(completedTasks);
     const saturationData = calculateSaturationData(completedTasks);
     const customerPromiseData = calculateCustomerPromiseData(completedTasks);
@@ -192,9 +193,11 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     };
 }
 
+// #endregion
+
 // #region KPI Calculations
-function calculateKpis(completedTasks: MergedData[], uniqueTournees: Tournee[], toleranceMinutes: number): Kpi[] {
-    const punctualityRate = getPunctualityStats(completedTasks).punctualityRate;
+function calculateKpis(completedTasks: MergedData[], uniqueTournees: Tournee[], toleranceSeconds: number): Kpi[] {
+    const punctualityRate = getPunctualityStats(completedTasks, toleranceSeconds).punctualityRate;
     const lateTasks = completedTasks.filter(t => t.retardStatus === 'late');
     const earlyTasks = completedTasks.filter(t => t.retardStatus === 'early');
     const avgRatingData = completedTasks.filter(t => t.notation != null && t.notation > 0);
@@ -204,10 +207,10 @@ function calculateKpis(completedTasks: MergedData[], uniqueTournees: Tournee[], 
     return [
         { title: 'Tournées Analysées', value: uniqueTournees.length.toString(), icon: 'Truck' },
         { title: 'Livraisons Analysées', value: completedTasks.length.toString(), icon: 'ListChecks' },
-        { title: `Taux de Ponctualité (Réalisé)`, value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${toleranceMinutes} min`, icon: 'Clock' },
+        { title: `Taux de Ponctualité (Réalisé)`, value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${toleranceSeconds/60} min`, icon: 'Clock' },
         { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis (sur 5)`, icon: 'Star' },
-        { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${toleranceMinutes} min après le créneau`, icon: 'Frown' },
-        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< ${toleranceMinutes} min avant le créneau`, icon: 'Smile' },
+        { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${toleranceSeconds/60} min après le créneau`, icon: 'Frown' },
+        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< ${toleranceSeconds/60} min avant le créneau`, icon: 'Smile' },
         { title: 'Avis Négatifs', value: negativeReviews.length.toString(), description: 'Note client de 1 à 3 / 5', icon: 'MessageSquareX' },
     ];
 }
@@ -298,13 +301,9 @@ function calculateAnomalies(
 
 function calculateOverloadedTours(uniqueTournees: Tournee[]): OverloadedTourInfo[] {
     return uniqueTournees.map(tour => {
-        // La surcharge est définie comme le poids réel dépassant la capacité du véhicule.
         const isOverloaded = tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids;
-
         const depassementPoids = tour.poidsReel - tour.capacitePoids;
         const tauxDepassementPoids = tour.capacitePoids > 0 ? (depassementPoids / tour.capacitePoids) * 100 : 0;
-        
-        // Les calculs de bacs sont conservés pour information mais ne définissent plus la surcharge.
         const depassementBacs = tour.bacsReels - tour.bacsPrevus;
         const tauxDepassementBacs = tour.bacsPrevus > 0 ? (depassementBacs / tour.bacsPrevus) * 100 : 0;
 
@@ -633,7 +632,6 @@ function createDelayHistogram(tasks: MergedData[], toleranceSeconds: number): De
     };
 
     tasks.forEach(task => {
-        // Use the pre-calculated `retard` field which is now consistent
         const delayInMinutes = task.retard / 60;
 
         for (const key in bins) {
@@ -751,7 +749,8 @@ function calculateAvgWorkloadBySlot(completedTasks: MergedData[]): { avgWorkload
 }
 // #endregion
 
-function calculateDepotStats (data: MergedData[], toleranceMinutes: number, lateTourTolerance: number): DepotStats[] {
+// #region Advanced Stats Calculations
+function calculateDepotStats (data: MergedData[], toleranceSeconds: number, lateTourTolerance: number): DepotStats[] {
     const depotNames = [...new Set(data.map(item => item.tournee?.entrepot).filter(Boolean) as string[])];
     
     return depotNames.map(depotName => {
@@ -761,6 +760,7 @@ function calculateDepotStats (data: MergedData[], toleranceMinutes: number, late
         }
 
         const totalDeliveries = depotData.length;
+        const toleranceMinutes = toleranceSeconds / 60;
 
         // Ponctualité Prév. 
         const predictedTasksOnTime = depotData.filter(d => d.retardPrevisionnelStatus === 'onTime').length;
@@ -1181,9 +1181,9 @@ function calculateSimulationData(data: MergedData[]): { actualSlotDistribution: 
 
     return { actualSlotDistribution, simulatedPromiseData };
 }
+// #endregion
 
-
-
+// #region Utility Functions
 function createEmptyAnalysisData(): AnalysisData {
     return {
         generalKpis: [],
@@ -1226,7 +1226,7 @@ function createEmptyAnalysisData(): AnalysisData {
 }
 
 
-function getPunctualityStats(completedTasks: MergedData[]) {
+function getPunctualityStats(completedTasks: MergedData[], toleranceSeconds: number) {
     const lateTasks = completedTasks.filter(t => t.retardStatus === 'late');
     const earlyTasks = completedTasks.filter(t => t.retardStatus === 'early');
     const onTimeTasks = completedTasks.filter(t => t.retardStatus === 'onTime');
@@ -1255,7 +1255,8 @@ export function formatSeconds(seconds: number): string {
     const m = Math.floor((seconds % 3600) / 60);
     return `${h}h ${m < 10 ? '0' : ''}${m}m`;
 }
-
+// #endregion
     
+
 
 
