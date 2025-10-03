@@ -2,28 +2,18 @@
 'use client';
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowUpDown, Filter } from 'lucide-react';
+import { Filter, ArrowUpDown } from 'lucide-react';
 import type { AnalysisData, PerformanceByDriver, PerformanceByGeo, PerformanceByGroup } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { DriverPerformanceTable } from './DriverPerformanceTable';
+import { GeoPerformanceTable } from './GeoPerformanceTable';
 
 type SortConfig<T> = {
     key: keyof T;
     direction: 'asc' | 'desc';
 } | null;
-
-function formatSecondsToTime(seconds: number): string {
-    const isNegative = seconds < 0;
-    seconds = Math.abs(seconds);
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.round(seconds % 60);
-    return `${isNegative ? '-' : ''}${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
 
 export function PerformanceTables({ analysisData }: { analysisData: AnalysisData }) {
   const [showTop20Only, setShowTop20Only] = useState(false);
@@ -56,18 +46,18 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
         return sorted;
     }
 
-    const filterTop20 = <T extends { totalTasks: number; key: string }>(data: T[] | undefined): T[] => {
+    const filterTop20 = <T extends { totalTasks: number }>(data: T[] | undefined): T[] => {
         if (!data || !showTop20Only) return data || [];
         
         const sortedByVolume = [...data].sort((a, b) => b.totalTasks - a.totalTasks);
         const sliceCount = Math.ceil(sortedByVolume.length * 0.2);
-        const top20Keys = new Set(sortedByVolume.slice(0, sliceCount).map(item => item.key));
+        const topKeys = new Set(sortedByVolume.slice(0, sliceCount).map((item: any) => item.key));
         
-        return data.filter(item => top20Keys.has(item.key));
+        return data.filter((item: any) => topKeys.has(item.key));
     };
     
     return {
-      performanceByDriver: sortFn<PerformanceByDriver>(analysisData.performanceByDriver, sorts.driver), // Top 20% not applicable for drivers
+      performanceByDriver: sortFn<PerformanceByDriver>(analysisData.performanceByDriver, sorts.driver),
       performanceByCity: filterTop20(sortFn<PerformanceByGeo>(analysisData.performanceByCity, sorts.city)),
       performanceByPostalCode: filterTop20(sortFn<PerformanceByGeo>(analysisData.performanceByPostalCode, sorts.postalCode)),
       performanceByDepot: filterTop20(sortFn<PerformanceByGroup>(analysisData.performanceByDepot, sorts.depot)),
@@ -118,144 +108,43 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
                   <TabsTrigger value="postalCode">Par Code Postal</TabsTrigger>
               </TabsList>
               <TabsContent value="driver" className="mt-4">
-                  <ScrollArea className="h-96">
-                       <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'key')}>Livreur {renderSortIcon('driver', 'key')}</TableHead>
-                                    <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'totalTours')}>Nb. Tournées {renderSortIcon('driver', 'totalTours')}</TableHead>
-                                    <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'punctualityRate')}>Ponctualité {renderSortIcon('driver', 'punctualityRate')}</TableHead>
-                                    <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgDelay')}>Retard Moyen (min) {renderSortIcon('driver', 'avgDelay')}</TableHead>
-                                    <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'overweightToursCount')}>Dépassements Poids {renderSortIcon('driver', 'overweightToursCount')}</TableHead>
-                                    <TableHead className="cursor-pointer group" onClick={() => handleSort('driver', 'avgRating')}>Notation Moy. {renderSortIcon('driver', 'avgRating')}</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {(processedData.performanceByDriver || []).map(driver => (
-                                    <TableRow key={driver.key}>
-                                        <TableCell>{driver.key}</TableCell>
-                                        <TableCell>{driver.totalTours}</TableCell>
-                                        <TableCell>{driver.punctualityRate.toFixed(1)}%</TableCell>
-                                        <TableCell>{driver.avgDelay.toFixed(1)}</TableCell>
-                                        <TableCell>{driver.overweightToursCount}</TableCell>
-                                        <TableCell>{driver.avgRating?.toFixed(2) || 'N/A'}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                   </ScrollArea>
+                  <DriverPerformanceTable
+                    data={processedData.performanceByDriver}
+                    onSort={(key) => handleSort('driver', key)}
+                    renderSortIcon={(key) => renderSortIcon('driver', key)}
+                  />
               </TabsContent>
               <TabsContent value="depot" className="mt-4">
-                 <ScrollArea className="h-96">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'key')}>Dépôt {renderSortIcon('depot', 'key')}</TableHead>
-                          <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'totalTasks')}>Nb. Tâches {renderSortIcon('depot', 'totalTasks')}</TableHead>
-                          <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('depot', 'punctualityRateRealized')}</TableHead>
-                          <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('depot', 'avgDurationDiscrepancy')}</TableHead>
-                          <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('depot', 'avgWeightDiscrepancy')}</TableHead>
-                          <TableHead className="cursor-pointer group" onClick={() => handleSort('depot', 'lateWithBadReviewPercentage')}>% Insat. {renderSortIcon('depot', 'lateWithBadReviewPercentage')}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(processedData.performanceByDepot || []).map(item => (
-                          <TableRow key={item.key}>
-                            <TableCell className="font-medium">{item.key}</TableCell>
-                            <TableCell>{item.totalTasks}</TableCell>
-                            <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
-                            <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
-                            <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
-                            <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                 </ScrollArea>
+                 <GeoPerformanceTable
+                    data={processedData.performanceByDepot}
+                    onSort={(key) => handleSort('depot', key)}
+                    renderSortIcon={(key) => renderSortIcon('depot', key)}
+                    groupTitle="Dépôt"
+                 />
               </TabsContent>
               <TabsContent value="warehouse" className="mt-4">
-                   <ScrollArea className="h-96">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                             <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'key')}>Entrepôt {renderSortIcon('warehouse', 'key')}</TableHead>
-                             <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'totalTasks')}>Nb. Tâches {renderSortIcon('warehouse', 'totalTasks')}</TableHead>
-                             <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('warehouse', 'punctualityRateRealized')}</TableHead>
-                             <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('warehouse', 'avgDurationDiscrepancy')}</TableHead>
-                             <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('warehouse', 'avgWeightDiscrepancy')}</TableHead>
-                             <TableHead className="cursor-pointer group" onClick={() => handleSort('warehouse', 'lateWithBadReviewPercentage')}>% Insat. {renderSortIcon('warehouse', 'lateWithBadReviewPercentage')}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {(processedData.performanceByWarehouse || []).map(item => (
-                            <TableRow key={item.key}>
-                              <TableCell className="font-medium">{item.key}</TableCell>
-                              <TableCell>{item.totalTasks}</TableCell>
-                              <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
-                              <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
-                              <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
-                              <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                   </ScrollArea>
+                   <GeoPerformanceTable
+                    data={processedData.performanceByWarehouse}
+                    onSort={(key) => handleSort('warehouse', key)}
+                    renderSortIcon={(key) => renderSortIcon('warehouse', key)}
+                    groupTitle="Entrepôt"
+                 />
               </TabsContent>
               <TabsContent value="city" className="mt-4">
-                   <ScrollArea className="h-96">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'key')}>Ville {renderSortIcon('city', 'key')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'totalTasks')}>Nb. Tâches {renderSortIcon('city', 'totalTasks')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('city', 'punctualityRateRealized')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('city', 'avgDurationDiscrepancy')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('city', 'avgWeightDiscrepancy')}</TableHead>
-                            <TableHead className="cursor-pointer group" onClick={() => handleSort('city', 'lateWithBadReviewPercentage')}>% Insat. {renderSortIcon('city', 'lateWithBadReviewPercentage')}</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {processedData.performanceByCity.map(item => (
-                             <TableRow key={item.key}>
-                              <TableCell className="font-medium">{item.key}</TableCell>
-                              <TableCell>{item.totalTasks}</TableCell>
-                              <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
-                              <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
-                              <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
-                              <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                   </ScrollArea>
+                   <GeoPerformanceTable
+                    data={processedData.performanceByCity}
+                    onSort={(key) => handleSort('city', key)}
+                    renderSortIcon={(key) => renderSortIcon('city', key)}
+                    groupTitle="Ville"
+                 />
               </TabsContent>
               <TabsContent value="postalCode" className="mt-4">
-                   <ScrollArea className="h-96">
-                       <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'key')}>Code Postal {renderSortIcon('postalCode', 'key')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'totalTasks')}>Tâches {renderSortIcon('postalCode', 'totalTasks')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'punctualityRateRealized')}>Ponctualité {renderSortIcon('postalCode', 'punctualityRateRealized')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'avgDurationDiscrepancy')}>Écart Durée {renderSortIcon('postalCode', 'avgDurationDiscrepancy')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'avgWeightDiscrepancy')}>Écart Poids {renderSortIcon('postalCode', 'avgWeightDiscrepancy')}</TableHead>
-                                <TableHead className="cursor-pointer group" onClick={() => handleSort('postalCode', 'lateWithBadReviewPercentage')}>% Insat. sur Retard {renderSortIcon('postalCode', 'lateWithBadReviewPercentage')}</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {(processedData.performanceByPostalCode || []).map(item => (
-                                <TableRow key={item.key}>
-                                    <TableCell>{item.key}</TableCell>
-                                    <TableCell>{item.totalTasks}</TableCell>
-                                    <TableCell><span className={cn(item.punctualityRateRealized < item.punctualityRatePlanned - 2 && "text-destructive font-bold")}>{item.punctualityRateRealized.toFixed(1)}%</span><span className="text-xs text-muted-foreground"> ({item.punctualityRatePlanned.toFixed(1)}%)</span></TableCell>
-                                    <TableCell className={cn(item.avgDurationDiscrepancy > 600 && "text-destructive font-bold")}>{formatSecondsToTime(item.avgDurationDiscrepancy)}</TableCell>
-                                    <TableCell className={cn(item.avgWeightDiscrepancy > 20 && "text-destructive font-bold")}>{item.avgWeightDiscrepancy.toFixed(1)} kg</TableCell>
-                                    <TableCell>{item.lateWithBadReviewPercentage.toFixed(1)}%</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                   </ScrollArea>
+                   <GeoPerformanceTable
+                    data={processedData.performanceByPostalCode}
+                    onSort={(key) => handleSort('postalCode', key)}
+                    renderSortIcon={(key) => renderSortIcon('postalCode', key)}
+                    groupTitle="Code Postal"
+                 />
               </TabsContent>
           </Tabs>
       </CardContent>
