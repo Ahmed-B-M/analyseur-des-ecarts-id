@@ -22,18 +22,20 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         const debutCreneau = task.heureDebutCreneau;
         const finCreneau = task.heureFinCreneau;
 
-        const ecartDebut = cloture - debutCreneau;
-        const ecartFin = cloture - finCreneau;
-
-        if (ecartDebut < -toleranceSeconds) { // Plus de 15min avant le début
+        // Strict status calculation
+        if (cloture < debutCreneau - toleranceSeconds) {
             task.retardStatus = 'early';
-            task.retard = ecartDebut;
-        } else if (ecartFin > toleranceSeconds) { // Plus de 15min après la fin
+        } else if (cloture > finCreneau + toleranceSeconds) {
             task.retardStatus = 'late';
-            task.retard = ecartFin;
         } else {
             task.retardStatus = 'onTime';
-            task.retard = ecartFin; // Pour le tri, on peut garder l'écart par rapport à la fin
+        }
+
+        // Consistent delay calculation for sorting/metrics
+        if (task.retardStatus === 'early') {
+            task.retard = cloture - debutCreneau;
+        } else {
+            task.retard = cloture - finCreneau;
         }
         
         // Predicted delay in seconds
@@ -467,7 +469,7 @@ function calculatePerformanceByGroup(tasks: MergedData[], tourneeMap: Map<string
             avgWeightDiscrepancy: data.tournees.size > 0 ? totalWeightDiscrepancy / data.tournees.size : 0,
             lateWithBadReviewPercentage: lateTasks.length > 0 ? (lateTasksWithBadReview.length / lateTasks.length) * 100 : 0
         };
-    }).sort((a, b) => (b.punctualityRatePlanned - b.punctualityRateRealized) - (a.punctualityRatePlanned - a.punctualityRateRealized));
+    }).sort((a, b) => (b.punctualityRatePlanned - a.punctualityRateRealized) - (a.punctualityRatePlanned - a.punctualityRateRealized));
 }
 // #endregion
 
@@ -631,14 +633,8 @@ function createDelayHistogram(tasks: MergedData[], toleranceSeconds: number): De
     };
 
     tasks.forEach(task => {
-        let delayInMinutes: number;
-        
-        // Use the same logic as status calculation for consistency
-        if (task.retardStatus === 'early') {
-            delayInMinutes = (task.heureCloture - task.heureDebutCreneau) / 60;
-        } else {
-            delayInMinutes = (task.heureCloture - task.heureFinCreneau) / 60;
-        }
+        // Use the pre-calculated `retard` field which is now consistent
+        const delayInMinutes = task.retard / 60;
 
         for (const key in bins) {
             if (delayInMinutes >= bins[key].min && delayInMinutes <= bins[key].max) {
@@ -1261,4 +1257,5 @@ export function formatSeconds(seconds: number): string {
 }
 
     
+
 
