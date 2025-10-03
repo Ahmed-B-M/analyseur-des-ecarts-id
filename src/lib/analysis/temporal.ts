@@ -20,7 +20,7 @@ export function calculateTemporalAnalyses(
 
     const performanceByDayOfWeek = calculatePerformanceByDayOfWeek(completedTasks);
     const performanceByTimeSlot = calculatePerformanceByTimeSlot(completedTasks);
-    const delayHistogram = createDelayHistogram(completedTasks, toleranceSeconds);
+    const delayHistogram = createDelayHistogram(completedTasks, toleranceSeconds / 60);
 
     return {
         delaysByWarehouse,
@@ -89,13 +89,13 @@ function calculatePerformanceByDayOfWeek(tasks: MergedData[]): PerformanceByDay[
         const totalTasks = data.totalTasks;
         const delays = data.lateTasks.length;
         const advances = data.earlyTasks.length;
-        const sumOfDelays = data.lateTasks.reduce((sum, task) => sum + task.retard, 0);
+        const sumOfDelays = data.lateTasks.reduce((sum, task) => sum + ((task.heureCloture - task.heureFinCreneau) / 60), 0);
 
         return {
             day: dayNames[parseInt(dayIndex)],
             totalTasks,
             punctualityRate: totalTasks > 0 ? ((totalTasks - delays) / totalTasks) * 100 : 100,
-            avgDelay: delays > 0 ? (sumOfDelays / delays) / 60 : 0,
+            avgDelay: delays > 0 ? (sumOfDelays / delays) : 0,
             delays,
             advances
         };
@@ -134,13 +134,13 @@ function calculatePerformanceByTimeSlot(tasks: MergedData[]): PerformanceByTimeS
         const totalTasks = data.totalTasks;
         const delays = data.lateTasks.length;
         const advances = data.earlyTasks.length;
-        const sumOfDelays = data.lateTasks.reduce((sum, task) => sum + task.retard, 0);
+        const sumOfDelays = data.lateTasks.reduce((sum, task) => sum + ((task.heureCloture - task.heureFinCreneau) / 60), 0);
 
         return {
             slot: slotName,
             totalTasks,
             punctualityRate: totalTasks > 0 ? ((totalTasks - delays) / totalTasks) * 100 : 100,
-            avgDelay: delays > 0 ? (sumOfDelays / delays) / 60 : 0,
+            avgDelay: delays > 0 ? (sumOfDelays / delays) : 0,
             delays,
             advances
         };
@@ -148,20 +148,21 @@ function calculatePerformanceByTimeSlot(tasks: MergedData[]): PerformanceByTimeS
 }
 
 
-function createDelayHistogram(tasks: MergedData[], toleranceSeconds: number): DelayHistogramBin[] {
+function createDelayHistogram(tasks: MergedData[], toleranceMinutes: number): DelayHistogramBin[] {
     const bins: { [key: string]: { min: number, max: number, count: number } } = {
-        '> 60 min en avance': { min: -Infinity, max: -3601, count: 0 },
-        '30-60 min en avance': { min: -3600, max: -1801, count: 0 },
-        '15-30 min en avance': { min: -1800, max: -toleranceSeconds -1, count: 0 },
-        'À l\'heure': { min: -toleranceSeconds, max: toleranceSeconds, count: 0 },
-        '15-30 min de retard': { min: toleranceSeconds + 1, max: 1800, count: 0 },
-        '30-60 min de retard': { min: 1801, max: 3600, count: 0 },
-        '> 60 min de retard': { min: 3601, max: Infinity, count: 0 },
+        '> 60 min en avance': { min: -Infinity, max: -60.01, count: 0 },
+        '30-60 min en avance': { min: -60, max: -30.01, count: 0 },
+        [`${toleranceMinutes}-30 min en avance`]: { min: -30, max: -toleranceMinutes - 0.01, count: 0 },
+        'À l\'heure': { min: -toleranceMinutes, max: toleranceMinutes, count: 0 },
+        [`${toleranceMinutes}-30 min de retard`]: { min: toleranceMinutes + 0.01, max: 30, count: 0 },
+        '30-60 min de retard': { min: 30.01, max: 60, count: 0 },
+        '> 60 min de retard': { min: 60.01, max: Infinity, count: 0 },
     };
 
     tasks.forEach(task => {
+        const delayInMinutes = (task.heureCloture - task.heureFinCreneau) / 60;
         for (const key in bins) {
-            if (task.retard >= bins[key].min && task.retard <= bins[key].max) {
+            if (delayInMinutes >= bins[key].min && delayInMinutes <= bins[key].max) {
                 bins[key].count++;
                 break;
             }
@@ -171,9 +172,9 @@ function createDelayHistogram(tasks: MergedData[], toleranceSeconds: number): De
     const sortedBinKeys = [
         '> 60 min en avance',
         '30-60 min en avance',
-        '15-30 min en avance',
+        `${toleranceMinutes}-30 min en avance`,
         'À l\'heure',
-        '15-30 min de retard',
+        `${toleranceMinutes}-30 min de retard`,
         '30-60 min de retard',
         '> 60 min de retard'
     ];

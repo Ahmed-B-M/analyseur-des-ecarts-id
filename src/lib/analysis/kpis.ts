@@ -2,10 +2,10 @@
 import type { MergedData, Tournee, Kpi, ComparisonKpi, OverloadedTourInfo, LateStartAnomaly } from '../types';
 import { formatSeconds } from '../dataAnalyzer';
 
-export function calculateKpis(completedTasks: MergedData[], uniqueTournees: Tournee[], toleranceSeconds: number): Kpi[] {
+export function calculateKpis(completedTasks: MergedData[], uniqueTournees: Tournee[], toleranceMinutes: number): Kpi[] {
     const punctualityRate = getPunctualityRate(completedTasks);
     const lateTasks = completedTasks.filter(t => t.retardStatus === 'late');
-    const earlyTasks = completedTasks.filter(t => t.retard < -toleranceSeconds);
+    const earlyTasks = completedTasks.filter(t => t.retardStatus === 'early');
     const avgRatingData = completedTasks.filter(t => t.notation != null && t.notation > 0);
     const avgRating = avgRatingData.length > 0 ? avgRatingData.reduce((acc, t) => acc + t.notation!, 0) / avgRatingData.length : 0;
     const negativeReviews = completedTasks.filter(t => t.notation != null && t.notation <= 3);
@@ -13,10 +13,10 @@ export function calculateKpis(completedTasks: MergedData[], uniqueTournees: Tour
     return [
         { title: 'Tournées Analysées', value: uniqueTournees.length.toString(), icon: 'Truck' },
         { title: 'Livraisons Analysées', value: completedTasks.length.toString(), icon: 'ListChecks' },
-        { title: 'Taux de Ponctualité (Réalisé)', value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±15 min`, icon: 'Clock' },
+        { title: `Taux de Ponctualité (Réalisé)`, value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${toleranceMinutes} min`, icon: 'Clock' },
         { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis (sur 5)`, icon: 'Star' },
-        { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> 15 min après le créneau`, icon: 'Frown' },
-        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< -15 min avant le créneau`, icon: 'Smile' },
+        { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${toleranceMinutes} min après le créneau`, icon: 'Frown' },
+        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< -${toleranceMinutes} min avant le créneau`, icon: 'Smile' },
         { title: 'Avis Négatifs', value: negativeReviews.length.toString(), description: 'Note client de 1 à 3 / 5', icon: 'MessageSquareX' },
     ];
 }

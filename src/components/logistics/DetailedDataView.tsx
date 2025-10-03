@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -37,7 +38,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
     });
   }, [data, searchTerm]);
 
-  type SortKey = keyof MergedData | `tournee.${keyof NonNullable<MergedData['tournee']>}`;
+  type SortKey = keyof MergedData | `tournee.${keyof NonNullable<MergedData['tournee']>}` | 'ecart';
   
   const sortedData = useMemo(() => {
     let dataToSort = [...filteredData];
@@ -49,14 +50,12 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
                 const subKey = sortConfig.key.split('.')[1] as keyof NonNullable<MergedData['tournee']>;
                 aValue = a.tournee?.[subKey];
                 bValue = b.tournee?.[subKey];
+            } else if (sortConfig.key === 'ecart') {
+                aValue = (a.heureCloture - a.heureFinCreneau);
+                bValue = (b.heureCloture - b.heureFinCreneau);
             } else {
                 aValue = a[sortConfig.key as keyof MergedData];
                 bValue = b[sortConfig.key as keyof MergedData];
-            }
-            
-            if (sortConfig.key === 'retard') { // Special handling for our calculated delay
-                aValue = (a.heureCloture - a.heureFinCreneau) / 60;
-                bValue = (b.heureCloture - b.heureFinCreneau) / 60;
             }
 
             if (aValue == null) return 1;
@@ -117,7 +116,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
               <TableHead onClick={() => handleSort('ville')} className="cursor-pointer">Ville {renderSortIcon('ville')}</TableHead>
               <TableHead onClick={() => handleSort('heureDebutCreneau')} className="cursor-pointer">Créneau {renderSortIcon('heureDebutCreneau')}</TableHead>
               <TableHead onClick={() => handleSort('heureCloture')} className="cursor-pointer">Heure Clôture {renderSortIcon('heureCloture')}</TableHead>
-              <TableHead onClick={() => handleSort('retard')} className="cursor-pointer">Écart (min) {renderSortIcon('retard')}</TableHead>
+              <TableHead onClick={() => handleSort('ecart')} className="cursor-pointer">Écart (min) {renderSortIcon('ecart')}</TableHead>
               <TableHead onClick={() => handleSort('notation')} className="cursor-pointer">Note {renderSortIcon('notation')}</TableHead>
               <TableHead>Commentaire</TableHead>
             </TableRow>

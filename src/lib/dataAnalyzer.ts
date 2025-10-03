@@ -8,7 +8,7 @@ import { calculateWorkloadAnalyses } from './analysis/workload';
 
 export function analyzeData(data: MergedData[], filters: Record<string, any>): AnalysisData {
     
-    const toleranceMinutes = 15;
+    const toleranceMinutes = filters.punctualityThreshold ? filters.punctualityThreshold / 60 : 15;
     const lateTourTolerance = filters.lateTourTolerance || 0;
 
     const completedTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée' && t.heureCloture > 0 && t.heureFinCreneau > 0);
@@ -19,7 +19,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
     // --- Pre-calculation per task ---
     completedTasks.forEach(task => {
-        // Realized delay in minutes
+        // Realized delay in minutes, based on closure time as requested
         const delayInMinutes = (task.heureCloture - task.heureFinCreneau) / 60;
         
         const isLate = delayInMinutes > toleranceMinutes;
@@ -90,7 +90,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     });
 
     // --- Calculations ---
-    const generalKpis = calculateKpis(completedTasks, uniqueTournees, toleranceMinutes * 60);
+    const generalKpis = calculateKpis(completedTasks, uniqueTournees, toleranceMinutes);
     const { lateTasks, earlyTasks, punctualityRate, predictedPunctualityRate, outOfTimeTasks, predictedOutOfTimeTasks } = getPunctualityStats(completedTasks, toleranceMinutes);
     const discrepancyKpis = calculateDiscrepancyKpis(uniqueTournees, punctualityRate, predictedPunctualityRate, outOfTimeTasks, predictedOutOfTimeTasks);
     
@@ -655,12 +655,14 @@ function createEmptyAnalysisData(): AnalysisData {
 function getPunctualityStats(completedTasks: MergedData[], toleranceMinutes: number) {
     const lateTasks = completedTasks.filter(t => t.retardStatus === 'late');
     const earlyTasks = completedTasks.filter(t => t.retardStatus === 'early');
+    const onTimeTasks = completedTasks.filter(t => t.retardStatus === 'onTime');
+
     const outOfTimeTasks = lateTasks.length + earlyTasks.length;
 
     const predictedTasksOnTime = completedTasks.filter(t => t.retardPrevisionnelStatus === 'onTime');
     const predictedOutOfTimeTasks = completedTasks.length - predictedTasksOnTime.length;
 
-    const punctualityRate = completedTasks.length > 0 ? ((completedTasks.length - outOfTimeTasks) / completedTasks.length) * 100 : 100;
+    const punctualityRate = completedTasks.length > 0 ? (onTimeTasks.length / completedTasks.length) * 100 : 100;
     const predictedPunctualityRate = completedTasks.length > 0 ? (predictedTasksOnTime.length / completedTasks.length) * 100 : 100;
 
     return {
