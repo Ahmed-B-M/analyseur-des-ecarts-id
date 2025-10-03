@@ -8,7 +8,7 @@ import { calculateWorkloadAnalyses } from './analysis/workload';
 
 export function analyzeData(data: MergedData[], filters: Record<string, any>): AnalysisData {
     
-    const toleranceMinutes = filters.punctualityThreshold ? filters.punctualityThreshold / 60 : 15;
+    const toleranceMinutes = 15;
     const lateTourTolerance = filters.lateTourTolerance || 0;
 
     const completedTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée' && t.heureCloture > 0 && t.heureFinCreneau > 0);
@@ -19,12 +19,27 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
     // --- Pre-calculation per task ---
     completedTasks.forEach(task => {
-        // Realized delay in minutes, based on closure time as requested
-        const delayInMinutes = (task.heureCloture - task.heureFinCreneau) / 60;
+        const cloture = task.heureCloture;
+        const debutCreneau = task.heureDebutCreneau;
+        const finCreneau = task.heureFinCreneau;
+
+        let delayInMinutes = 0;
         
+        if (cloture < debutCreneau) {
+            // Delivery is before the slot even starts
+            delayInMinutes = (cloture - debutCreneau) / 60;
+        } else {
+            // Delivery is within or after the slot
+            delayInMinutes = (cloture - finCreneau) / 60;
+        }
+
         const isLate = delayInMinutes > toleranceMinutes;
-        const isEarly = delayInMinutes < -toleranceMinutes;
+        const isEarly = (cloture < debutCreneau) && ((debutCreneau - cloture) / 60 > toleranceMinutes);
+
         task.retardStatus = isLate ? 'late' : isEarly ? 'early' : 'onTime';
+        
+        // Retain the original delay calculation for other metrics if needed, but punctuality is based on the logic above
+        task.retard = cloture - finCreneau;
         
         // Predicted delay in seconds
         let predictedRetardSeconds = 0;

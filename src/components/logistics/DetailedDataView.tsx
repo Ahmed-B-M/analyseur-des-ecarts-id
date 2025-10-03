@@ -51,8 +51,8 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
                 aValue = a.tournee?.[subKey];
                 bValue = b.tournee?.[subKey];
             } else if (sortConfig.key === 'ecart') {
-                aValue = (a.heureCloture - a.heureFinCreneau);
-                bValue = (b.heureCloture - b.heureFinCreneau);
+                aValue = a.heureCloture - (a.heureCloture < a.heureDebutCreneau ? a.heureDebutCreneau : a.heureFinCreneau);
+                bValue = b.heureCloture - (b.heureCloture < b.heureDebutCreneau ? b.heureDebutCreneau : b.heureFinCreneau);
             } else {
                 aValue = a[sortConfig.key as keyof MergedData];
                 bValue = b[sortConfig.key as keyof MergedData];
@@ -123,7 +123,11 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
           </TableHeader>
           <TableBody>
             {paginatedData.length > 0 ? paginatedData.map((item, index) => {
-              const delayInMinutes = Math.floor((item.heureCloture - item.heureFinCreneau) / 60);
+              const delayInMinutes = Math.floor((item.heureCloture - (item.heureCloture < item.heureDebutCreneau ? item.heureDebutCreneau : item.heureFinCreneau)) / 60);
+
+              const isLate = item.retardStatus === 'late';
+              const isEarly = item.retardStatus === 'early';
+
               return (
               <TableRow key={`${item.tourneeUniqueId}-${item.sequence}-${index}`}>
                 <TableCell>{item.date}</TableCell>
@@ -134,7 +138,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
                 <TableCell>{formatSecondsToTime(item.heureDebutCreneau)} - {formatSecondsToTime(item.heureFinCreneau)}</TableCell>
                 <TableCell>{formatSecondsToTime(item.heureCloture)}</TableCell>
                 <TableCell className={cn(
-                  delayInMinutes > TOLERANCE_MINUTES ? 'text-destructive' : delayInMinutes < -TOLERANCE_MINUTES ? 'text-blue-500' : 'text-foreground'
+                  isLate ? 'text-destructive' : isEarly ? 'text-blue-500' : 'text-foreground'
                 )}>
                   {delayInMinutes > 0 ? '+' : ''}{delayInMinutes} min
                 </TableCell>
