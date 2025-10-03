@@ -143,45 +143,42 @@ function calculatePerformanceByTimeSlot(tasks: MergedData[]): PerformanceByTimeS
             delays,
             advances
         };
-    }).filter(s => s.totalTasks > 0); // Only return slots with data
+    }).filter(s => s.totalTasks > 0); 
 }
 
 
 function createDelayHistogram(tasks: MergedData[], toleranceSeconds: number): DelayHistogramBin[] {
     const toleranceMinutes = toleranceSeconds / 60;
-    const bins: { [key: string]: { min: number, max: number, count: number } } = {
-        '> 60 min en avance': { min: -Infinity, max: -60.01, count: 0 },
-        '30-60 min en avance': { min: -60, max: -30.01, count: 0 },
-        [`${toleranceMinutes}-30 min en avance`]: { min: -30, max: -toleranceMinutes - 0.01, count: 0 },
-        'À l\'heure': { min: -toleranceMinutes, max: toleranceMinutes, count: 0 },
-        [`${toleranceMinutes}-30 min de retard`]: { min: toleranceMinutes + 0.01, max: 30, count: 0 },
-        '30-60 min de retard': { min: 30.01, max: 60, count: 0 },
-        '> 60 min de retard': { min: 60.01, max: Infinity, count: 0 },
-    };
+
+    const bins = [
+        { label: `> 60 min en avance`, min: -Infinity, max: -60, count: 0 },
+        { label: `30-60 min en avance`, min: -60, max: -30, count: 0 },
+        { label: `${toleranceMinutes}-30 min en avance`, min: -30, max: -toleranceMinutes, count: 0 },
+        { label: 'À l\'heure', min: -toleranceMinutes, max: toleranceMinutes, count: 0 },
+        { label: `${toleranceMinutes}-30 min de retard`, min: toleranceMinutes, max: 30, count: 0 },
+        { label: `30-60 min de retard`, min: 30, max: 60, count: 0 },
+        { label: `> 60 min de retard`, min: 60, max: Infinity, count: 0 },
+    ];
 
     tasks.forEach(task => {
         const delayInMinutes = task.retard / 60;
 
-        for (const key in bins) {
-            if (delayInMinutes >= bins[key].min && delayInMinutes <= bins[key].max) {
-                bins[key].count++;
-                break;
-            }
+        if (delayInMinutes < bins[0].max) {
+            bins[0].count++;
+        } else if (delayInMinutes >= bins[1].min && delayInMinutes < bins[1].max) {
+            bins[1].count++;
+        } else if (delayInMinutes >= bins[2].min && delayInMinutes < bins[2].max) {
+            bins[2].count++;
+        } else if (delayInMinutes >= bins[3].min && delayInMinutes <= bins[3].max) {
+            bins[3].count++;
+        } else if (delayInMinutes > bins[4].min && delayInMinutes <= bins[4].max) {
+            bins[4].count++;
+        } else if (delayInMinutes > bins[5].min && delayInMinutes <= bins[5].max) {
+            bins[5].count++;
+        } else if (delayInMinutes > bins[6].min) {
+            bins[6].count++;
         }
     });
-    
-    const sortedBinKeys = [
-        '> 60 min en avance',
-        '30-60 min en avance',
-        `${toleranceMinutes}-30 min en avance`,
-        'À l\'heure',
-        `${toleranceMinutes}-30 min de retard`,
-        '30-60 min de retard',
-        '> 60 min de retard'
-    ];
 
-    return sortedBinKeys.map(key => ({
-        range: key,
-        count: bins[key].count
-    }));
+    return bins.map(b => ({ range: b.label, count: b.count }));
 }

@@ -4,7 +4,11 @@ import { getPunctualityStats, formatSeconds } from './utils';
 export function calculateKpis(completedTasks: MergedData[], uniqueTournees: Tournee[], toleranceSeconds: number): Kpi[] {
     const punctualityRate = getPunctualityStats(completedTasks, toleranceSeconds).punctualityRate;
     const lateTasks = completedTasks.filter(t => t.retardStatus === 'late');
-    const earlyTasks = completedTasks.filter(t => t.retardStatus === 'early');
+    
+    // Aligner le calcul des avances sur les catégories du graphique
+    const earlyTasksWithinTolerance = completedTasks.filter(t => t.retardStatus === 'early' && t.retard >= -toleranceSeconds);
+    const earlyTasksBeyondTolerance = completedTasks.filter(t => t.retardStatus === 'early' && t.retard < -toleranceSeconds);
+
     const avgRatingData = completedTasks.filter(t => t.notation != null && t.notation > 0);
     const avgRating = avgRatingData.length > 0 ? avgRatingData.reduce((acc, t) => acc + t.notation!, 0) / avgRatingData.length : 0;
     const negativeReviews = completedTasks.filter(t => t.notation != null && t.notation <= 3);
@@ -15,7 +19,8 @@ export function calculateKpis(completedTasks: MergedData[], uniqueTournees: Tour
         { title: `Taux de Ponctualité (Réalisé)`, value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±15 min`, icon: 'Clock' },
         { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis (sur 5)`, icon: 'Star' },
         { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> 15 min après le créneau`, icon: 'Frown' },
-        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< 15 min avant le créneau`, icon: 'Smile' },
+        { title: 'Livraisons en Avance (< 15 min)', value: earlyTasksWithinTolerance.length.toString(), description: `Arrivées juste avant le créneau`, icon: 'Smile' },
+        { title: 'Livraisons Très en Avance (> 15 min)', value: earlyTasksBeyondTolerance.length.toString(), description: `Arrivées bien avant le créneau`, icon: 'Coffee' },
         { title: 'Avis Négatifs', value: negativeReviews.length.toString(), description: 'Note client de 1 à 3 / 5', icon: 'MessageSquareX' },
     ];
 }

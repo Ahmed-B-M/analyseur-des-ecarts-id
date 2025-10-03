@@ -262,5 +262,3 @@ export function PerformanceTables({ analysisData }: { analysisData: AnalysisData
     </Card>
   )
 }
-
-    
