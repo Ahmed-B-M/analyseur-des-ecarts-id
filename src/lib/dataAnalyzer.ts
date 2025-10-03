@@ -6,6 +6,7 @@ import { getDay } from 'date-fns';
 export function analyzeData(data: MergedData[], filters: Record<string, any>): AnalysisData {
     
     const toleranceMinutes = 15;
+    const toleranceSeconds = toleranceMinutes * 60;
     const lateTourTolerance = filters.lateTourTolerance || 0;
 
     const completedTasks = data.filter(t => t.tournee && t.avancement?.toLowerCase() === 'complétée' && t.heureCloture > 0 && t.heureFinCreneau > 0);
@@ -20,23 +21,24 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         const debutCreneau = task.heureDebutCreneau;
         const finCreneau = task.heureFinCreneau;
 
-        // Ecart en secondes
-        let delayInSeconds;
-        if (cloture < debutCreneau) {
-            // Livraison avant le début du créneau
-            delayInSeconds = cloture - debutCreneau;
+        // Calculate deviation from both start and end of the slot
+        const deviationFromStart = cloture - debutCreneau;
+        const deviationFromEnd = cloture - finCreneau;
+
+        // Determine status based on the defined tolerance
+        if (deviationFromEnd > toleranceSeconds) {
+            task.retardStatus = 'late';
+            task.retard = deviationFromEnd;
+        } else if (deviationFromStart < -toleranceSeconds) {
+            task.retardStatus = 'early';
+            task.retard = deviationFromStart;
         } else {
-            // Livraison pendant ou après le créneau
-            delayInSeconds = cloture - finCreneau;
+            task.retardStatus = 'onTime';
+            // For on-time tasks, the deviation can be considered 0 for simplicity,
+            // or we can store the most relevant one (e.g., deviation from end).
+            task.retard = deviationFromEnd;
         }
 
-        const toleranceSeconds = toleranceMinutes * 60;
-        const isLate = delayInSeconds > toleranceSeconds;
-        const isEarly = delayInSeconds < -toleranceSeconds;
-
-        task.retardStatus = isLate ? 'late' : isEarly ? 'early' : 'onTime';
-        task.retard = delayInSeconds; // keep original deviation in seconds
-        
         // Predicted delay in seconds
         let predictedRetardSeconds = 0;
         if (task.heureArriveeApprox < task.heureDebutCreneau) {
@@ -203,7 +205,7 @@ function calculateKpis(completedTasks: MergedData[], uniqueTournees: Tournee[], 
         { title: `Taux de Ponctualité (Réalisé)`, value: `${punctualityRate.toFixed(1)}%`, description: `Seuil de tolérance: ±${toleranceMinutes} min`, icon: 'Clock' },
         { title: 'Notation Moyenne Client', value: avgRating.toFixed(2), description: `Basé sur ${avgRatingData.length} avis (sur 5)`, icon: 'Star' },
         { title: 'Livraisons en Retard', value: lateTasks.length.toString(), description: `> ${toleranceMinutes} min après le créneau`, icon: 'Frown' },
-        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `< -${toleranceMinutes} min avant le créneau`, icon: 'Smile' },
+        { title: 'Livraisons en Avance', value: earlyTasks.length.toString(), description: `> ${toleranceMinutes} min avant le créneau`, icon: 'Smile' },
         { title: 'Avis Négatifs', value: negativeReviews.length.toString(), description: 'Note client de 1 à 3 / 5', icon: 'MessageSquareX' },
     ];
 }
