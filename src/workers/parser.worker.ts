@@ -1,9 +1,10 @@
 
 import { processAndAnalyzeData } from '../lib/data-provider';
 import * as XLSX from 'xlsx';
-import type { Tournee, Tache } from '../lib/types';
+import type { Tournee, Tache, MergedData } from '../lib/types';
+import { getNomDepot } from '../lib/config-depots';
 
-// ... (keep all the parsing and normalization functions from the original worker)
+
 const headerAliases: Record<string, Record<string, string[]>> = {
   tournees: {
     nom: ['nom', 'Tournée', 'tournée'],
@@ -65,12 +66,12 @@ function findHeader(header: string, fileType: 'tournees' | 'taches'): string | n
 }
 
 function parseTime(value: any): number {
-    if (typeof value === 'number') { // Excel time (fraction of a day)
-        if (value > 1) { // Likely already seconds, but from a mis-formatted cell
+    if (typeof value === 'number') { 
+        if (value > 1) {
              const date = XLSX.SSF.parse_date_code(value);
              if(date.H || date.M || date.S) return (date.H || 0) * 3600 + (date.M || 0) * 60 + (date.S || 0);
         }
-        return Math.round(value * 24 * 60 * 60); // to seconds from midnight
+        return Math.round(value * 24 * 60 * 60); 
     }
     if (typeof value === 'string') {
         const parts = value.split(':').map(Number);
@@ -84,20 +85,17 @@ function parseTime(value: any): number {
 function parseDate(value: any): string {
     if (!value) return '';
     try {
-        // Handle Excel's numeric date format
         if (typeof value === 'number' && value > 1) {
             const date = XLSX.SSF.parse_date_code(value);
             if (date.y && date.m && date.d) {
                 return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
             }
         }
-        // Handle string dates like "DD/MM/YYYY" or other standard formats
         if (typeof value === 'string') {
             let date: Date;
             if (value.includes('/')) {
                 const parts = value.split(' ')[0].split('/');
                 if (parts.length === 3) {
-                    // Assuming DD/MM/YYYY
                     date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
                 } else {
                     date = new Date(value);
@@ -164,7 +162,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (!row || row.every(cell => cell === null || cell === '')) {
-        continue; // Skip empty rows
+        continue;
     }
       
     const newRow: any = {};
@@ -200,18 +198,16 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
           const num = parseFloat(String(value).replace(',', '.'));
           newRow[key] = isNaN(num) ? (isOptionalNullable ? null : 0) : num;
            if (key === 'distancePrevue' && headers[colIndex].toLowerCase().includes('(m)')) {
-              newRow[key] = newRow[key] / 1000; // Convert meters to km
+              newRow[key] = newRow[key] / 1000;
            }
       } else {
           newRow[key] = String(value).trim();
       }
     }
     
-    // --- Post-processing and fallback logic ---
-
     if (fileType === 'tournees') {
         if (newRow.nom && String(newRow.nom).toUpperCase().startsWith('R')) {
-            continue; // Skip backup tours starting with 'R'
+            continue;
         }
         if (!newRow.heureDepartReelle && newRow.demarre) {
             newRow.heureDepartReelle = newRow.demarre;
@@ -219,7 +215,6 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
     }
     
     if (fileType === 'taches') {
-        // Fallback for missing heureArriveeReelle
         if (!newRow.heureArriveeReelle && colMap['heureCloture'] !== undefined) {
              const clotureValue = row[colMap['heureCloture']];
              if (clotureValue !== null && clotureValue !== undefined) {
@@ -227,7 +222,6 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
              }
         }
         
-        // Handle overnight tours
         if (tourneeStartTimes) {
             const uniqueId = `${newRow.nomTournee}|${newRow.date}|${newRow.entrepot}`;
             const tourneeStartTime = tourneeStartTimes.get(uniqueId);
@@ -247,11 +241,15 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
 
 function mergeData(tournees: Tournee[], taches: Tache[]): MergedData[] {
   const tourneeMap = new Map(tournees.map((t) => [t.uniqueId, t]));
-  return taches.map((tache, index) => ({
-    ...tache,
-    ordre: index + 1,
-    tournee: tourneeMap.get(tache.tourneeUniqueId) || null,
-  }));
+  return taches.map((tache, index) => {
+    const tournee = tourneeMap.get(tache.tourneeUniqueId) || null;
+    return {
+      ...tache,
+      ordre: index + 1,
+      tournee: tournee,
+      depot: getNomDepot(tache.entrepot), 
+    };
+  });
 }
 
 

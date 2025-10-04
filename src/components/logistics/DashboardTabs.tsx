@@ -4,7 +4,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { DateRangePicker } from './DateRangePicker';
-import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings } from 'lucide-react';
+import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck } from 'lucide-react';
 import AnalysisDashboard from './AnalysisDashboard';
 import DetailedDataView from './DetailedDataView';
 import CalendarView from './CalendarView';
@@ -12,6 +12,7 @@ import ComparisonView from './ComparisonView';
 import DepotComparison from './DepotComparison';
 import NegativeCommentsTable from './NegativeCommentsTable';
 import NegativeRatingsSummary from './NegativeRatingsSummary';
+import QualitySummary from './QualitySummary';
 import HotZonesChart from './HotZonesChart';
 import DepotAnalysisTable from './DepotAnalysisTable';
 import PostalCodeTable from './PostalCodeTable';
@@ -51,12 +52,13 @@ export default function DashboardTabs({
 
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-10 max-w-full mx-auto">
+            <TabsList className="grid w-full grid-cols-11 max-w-full mx-auto">
                 <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
                 <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
                 <TabsTrigger value="depotComparison"><LayoutDashboard className="w-4 h-4 mr-2" />Comparaison Dépôts</TabsTrigger>
                 <TabsTrigger value="negativeComments"><MessageCircleWarning className="w-4 h-4 mr-2" />Avis Négatifs</TabsTrigger>
                 <TabsTrigger value="negativeRatings"><StarOff className="w-4 h-4 mr-2" />Notes Négatives</TabsTrigger>
+                <TabsTrigger value="quality"><ShieldCheck className="w-4 h-4 mr-2" />Synthèse Qualité</TabsTrigger>
                 <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Analyse par Période</TabsTrigger>
                 <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
                 <TabsTrigger value="rdp"><LayoutDashboard className="w-4 h-4 mr-2" />RDP</TabsTrigger>
@@ -88,6 +90,9 @@ export default function DashboardTabs({
             </TabsContent>
             <TabsContent value="negativeRatings" className="mt-6">
                 <NegativeRatingsSummary data={filteredData} />
+            </TabsContent>
+            <TabsContent value="quality" className="mt-6">
+                <QualitySummary data={filteredData} />
             </TabsContent>
             <TabsContent value="calendar" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
