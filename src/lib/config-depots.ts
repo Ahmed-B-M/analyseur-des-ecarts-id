@@ -5,9 +5,6 @@ export const prefixesDepots: { [key: string]: string[] } = {
   ],
   "VLG": [
     "Villeneuve"
-  ],
-  "aaa": [
-    "solo"
   ]
 };
 
