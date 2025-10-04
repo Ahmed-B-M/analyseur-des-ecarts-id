@@ -53,8 +53,8 @@ export type Tache = {
   tempsServiceReel?: number; // in seconds
   retard: number; // in seconds
   retardPrevisionnelS?: number; // in seconds
-  retardStatus?: 'late' | 'early' | 'onTime';
-  retardPrevisionnelStatus?: 'late' | 'early' | 'onTime';
+  retardStatus?: 'late' | 'early' | 'onTime' | 'tooEarly';
+  retardPrevisionnelStatus?: 'late' | 'early' | 'onTime' | 'tooEarly';
   poids: number; // in kg
   ville: string;
   notation: number | null;
@@ -346,6 +346,8 @@ export type AnalysisData = {
   customerPromiseData: CustomerPromiseData[];
   actualSlotDistribution: ActualSlotDistribution[];
   simulatedPromiseData: SimulatedPromiseData[];
+  rawData: MergedData[];
+  filteredData: MergedData[];
 };
 
 export type VisualReportData = {
