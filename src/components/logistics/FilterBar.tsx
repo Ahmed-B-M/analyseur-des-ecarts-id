@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -27,12 +28,21 @@ interface FilterBarProps {
   depots: string[];
   warehouses: string[];
   cities: string[];
+  carriers: string[];
   allData: MergedData[];
 }
 
 const ALL_ITEMS_VALUE = '__ALL__';
 
-export default function FilterBar({ filters, setFilters, depots = [], warehouses = [], cities = [], allData = [] }: FilterBarProps) {
+export default function FilterBar({ 
+    filters, 
+    setFilters, 
+    depots = [], 
+    warehouses = [], 
+    cities = [], 
+    carriers = [], 
+    allData = [] 
+}: FilterBarProps) {
   const [isMadManagerOpen, setIsMadManagerOpen] = useState(false);
 
   const handleFilterChange = (key: string, value: any) => {
@@ -72,7 +82,8 @@ export default function FilterBar({ filters, setFilters, depots = [], warehouses
   }
 
   const activeFilters = Object.keys(filters).filter(key => 
-    !['punctualityThreshold', 'madDelays', 'lateTourTolerance'].includes(key) && filters[key] !== undefined && filters[key] !== null && filters[key] !== false && filters[key] !== ''
+    !['punctualityThreshold', 'madDelays', 'lateTourTolerance', 'driverNameFilterType'].includes(key) && 
+    filters[key] !== undefined && filters[key] !== null && filters[key] !== false && filters[key] !== ''
   );
   
   const getFilterLabel = (key: string) => {
@@ -87,6 +98,8 @@ export default function FilterBar({ filters, setFilters, depots = [], warehouses
           case 'tours100Mobile': return '100% Mobile';
           case 'excludeMadDelays': return 'Exclure MAD';
           case 'topPostalCodes': return 'Top Codes Postaux';
+          case 'carrier': return 'Transporteur';
+          case 'driverName': return 'Nom du livreur';
           default: return key;
       }
   }
@@ -119,12 +132,15 @@ export default function FilterBar({ filters, setFilters, depots = [], warehouses
        if (key === 'topPostalCodes') {
         return value;
       }
+      if (key === 'driverName') {
+        return `${filters.driverNameFilterType === 'suffix' ? 'Suffixe' : 'Préfixe'}: ${value}`;
+      }
       return value;
   }
 
   return (
     <div className="p-4 bg-card rounded-lg border shadow-sm space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end">
         <div>
           <Label>Période d'Analyse</Label>
           <DateRangePicker 
@@ -167,6 +183,23 @@ export default function FilterBar({ filters, setFilters, depots = [], warehouses
             </SelectContent>
           </Select>
         </div>
+         <div>
+          <Label htmlFor="carrier-select">Transporteur</Label>
+           <Select
+            value={filters.carrier || ALL_ITEMS_VALUE}
+            onValueChange={(value) => handleFilterChange('carrier', value)}
+          >
+            <SelectTrigger id="carrier-select">
+              <SelectValue placeholder="Tous les transporteurs" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_ITEMS_VALUE}>Tous les transporteurs</SelectItem>
+              {carriers.map(carrier => (
+                <SelectItem key={carrier} value={carrier}>{carrier}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div>
           <Label htmlFor="city-select">Ville</Label>
            <Select
@@ -183,6 +216,33 @@ export default function FilterBar({ filters, setFilters, depots = [], warehouses
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex gap-2">
+            <div className="flex-grow">
+                <Label htmlFor="driver-name">Nom du livreur</Label>
+                <Input 
+                    id="driver-name" 
+                    type="text" 
+                    placeholder="ex: STT"
+                    value={filters.driverName || ''}
+                    onChange={(e) => handleFilterChange('driverName', e.target.value)}
+                />
+            </div>
+            <div className="w-28">
+                 <Label htmlFor="driver-name-filter-type">Type</Label>
+                <Select
+                    value={filters.driverNameFilterType || 'prefix'}
+                    onValueChange={(value) => handleFilterChange('driverNameFilterType', value)}
+                    >
+                    <SelectTrigger id="driver-name-filter-type">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="prefix">Préfixe</SelectItem>
+                        <SelectItem value="suffix">Suffixe</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
         <div>
           <Label htmlFor="top-postal-codes">Top Codes Postaux (volume)</Label>

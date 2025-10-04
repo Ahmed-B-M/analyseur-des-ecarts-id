@@ -6,6 +6,7 @@ import type { AnalysisData, MergedData } from '@/lib/types';
 import { analyzeData } from '@/lib/dataAnalyzer';
 import { DateRange } from 'react-day-picker';
 import { getNomDepot } from '@/lib/config-depots';
+import { getCarrierFromDriverName } from '@/lib/utils';
 
 // 1. State & Action Types
 type State = {
@@ -53,12 +54,18 @@ function logisticsReducer(state: State, action: Action): State {
     case 'START_PROCESSING':
       return { ...state, isLoading: true, error: null };
     case 'PROCESSING_SUCCESS':
-        const initialAnalysis = analyzeData(action.data, state.filters);
+        // Enrich data with carrier information
+        const enrichedData = action.data.map(item => ({
+            ...item,
+            carrier: item.tournee ? getCarrierFromDriverName(item.tournee.livreur) : null
+        }));
+
+        const initialAnalysis = analyzeData(enrichedData, state.filters);
         return { 
             ...state, 
             isLoading: false, 
-            rawData: action.data, 
-            filteredData: action.data,
+            rawData: enrichedData, 
+            filteredData: enrichedData,
             analysisData: initialAnalysis,
             error: null 
         };
@@ -177,6 +184,20 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
                 const madSet = new Set(internalState.filters.madDelays);
                 const madKey = `${item.tournee.entrepot}|${item.date}`;
                 if(madSet.has(madKey)) return false;
+            }
+            
+            // Carrier filter
+            if (internalState.filters.carrier && item.carrier !== internalState.filters.carrier) return false;
+
+            // Driver name filter
+            if (internalState.filters.driverName) {
+                const driverName = item.tournee.livreur.toLowerCase();
+                const filterValue = internalState.filters.driverName.toLowerCase();
+                if (internalState.filters.driverNameFilterType === 'suffix') {
+                    if (!driverName.endsWith(filterValue)) return false;
+                } else { // prefix by default
+                    if (!driverName.startsWith(filterValue)) return false;
+                }
             }
             
             return true;

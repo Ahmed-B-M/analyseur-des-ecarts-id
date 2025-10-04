@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useLogistics } from '@/context/LogisticsContext';
 import FileUpload from '@/components/logistics/FileUpload';
 import FilterBar from '@/components/logistics/FilterBar';
@@ -28,6 +28,17 @@ export default function Dashboard() {
     setFilters({...state.filters, ...filter, selectedDate: undefined, dateRange: undefined});
     setActiveTab('data');
   }, [setFilters, state.filters]);
+
+  const carriers = useMemo(() => {
+    if (!rawData) return [];
+    const carrierSet = new Set<string>();
+    rawData.forEach(item => {
+      if (item.carrier) {
+        carrierSet.add(item.carrier);
+      }
+    });
+    return Array.from(carrierSet).sort();
+  }, [rawData]);
   
 
   return (
@@ -95,6 +106,7 @@ export default function Dashboard() {
               depots={analysisData.depots}
               warehouses={analysisData.warehouses}
               cities={analysisData.cities}
+              carriers={carriers}
               allData={rawData}
             />
             <DashboardTabs 
