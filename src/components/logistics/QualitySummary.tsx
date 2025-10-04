@@ -10,11 +10,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MergedData } from '@/lib/types';
 import { useMemo } from 'react';
 import { getCarrierFromDriverName, getNomDepot } from '@/lib/utils';
 import CommentCategorizationTable from './CommentCategorizationTable';
 import { categorizeComment, CommentCategory } from '@/lib/comment-categorization';
+import EmailGenerator from './EmailGenerator';
 
 interface QualitySummaryProps {
     data: MergedData[];
@@ -161,15 +163,13 @@ const QualitySummary = ({ data }: QualitySummaryProps) => {
       const totalRatings = allStats?.ratingCount || 0;
       const averageRating = allStats && allStats.ratingCount > 0 ? (allStats.totalRating / allStats.ratingCount).toFixed(2) : 'N/A';
       const negativeRatingsCount = negativeStats?.negativeRatingCount || 0;
-      const commentCount = negativeStats?.commentCount || 0;
       const categorySummary = negativeStats 
         ? Object.entries(negativeStats.categoryCounts)
             .map(([cat, count]) => `${count} ${cat}`)
             .join(', ')
         : '';
 
-
-      return { depot, carrier, driver, totalRatings, averageRating, negativeRatingsCount, commentCount, categorySummary };
+      return { depot, carrier, driver, totalRatings, averageRating, negativeRatingsCount, categorySummary };
     });
 
     return combined
@@ -204,80 +204,93 @@ const QualitySummary = ({ data }: QualitySummaryProps) => {
     }));
   }, [data]);
 
-
   if (negativeRatings.length === 0) {
     return (
-      <div className="flex items-center justify-center h-40">
-        <p className="text-muted-foreground">Aucune note négative ({"<="} 3) à afficher pour la sélection actuelle.</p>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Analyse de la Qualité</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">Aucune note négative ({"<="} 3) à afficher pour la sélection actuelle.</p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
-      <Card className="col-span-1 lg:col-span-2">
+    <div className='space-y-6'>
+      <div className="flex justify-end">
+        <EmailGenerator 
+            data={data} 
+            summaryByDepot={summaryByDepot}
+            summaryByCarrier={summaryByCarrier}
+            summaryByDriver={summaryByDriver}
+            unassignedDrivers={unassignedDrivers}
+        />
+      </div>
+      <Card>
         <CardHeader>
-          <CardTitle>Synthèse par Dépôt</CardTitle>
+          <CardTitle>Synthèses Générales de la Qualité</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader><TableRow><TableHead>Dépôt</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (globale)</TableHead><TableHead>Nb. Commentaires (sur notes {"<="} 3)</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {summaryByDepot.map(({ depot, totalRatings, negativeRatingsCount, averageRating, commentCount }) => (
-                <TableRow key={depot}><TableCell>{depot} ({totalRatings})</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <Tabs defaultValue="depot">
+            <TabsList>
+              <TabsTrigger value="depot">Par Dépôt</TabsTrigger>
+              <TabsTrigger value="carrier">Par Transporteur</TabsTrigger>
+              <TabsTrigger value="driver">Par Livreur</TabsTrigger>
+            </TabsList>
+            <TabsContent value="depot">
+              <Table>
+                <TableHeader><TableRow><TableHead>Dépôt</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (globale)</TableHead><TableHead>Nb. Commentaires</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {summaryByDepot.map(({ depot, totalRatings, negativeRatingsCount, averageRating, commentCount }) => (
+                    <TableRow key={depot}><TableCell>{depot} ({totalRatings})</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TabsContent>
+            <TabsContent value="carrier">
+              <Table>
+                <TableHeader><TableRow><TableHead>Dépôt</TableHead><TableHead>Transporteur</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (globale)</TableHead><TableHead>Nb. Commentaires</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {summaryByCarrier.map(({ depot, carrier, totalRatings, negativeRatingsCount, averageRating, commentCount }, index) => (
+                    <TableRow key={index}><TableCell>{depot}</TableCell><TableCell>{carrier} ({totalRatings})</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TabsContent>
+            <TabsContent value="driver">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Dépôt</TableHead>
+                    <TableHead>Transporteur</TableHead>
+                    <TableHead>Livreur</TableHead>
+                    <TableHead>Nb. Mauvaises Notes</TableHead>
+                    <TableHead>Note Moyenne (globale)</TableHead>
+                    <TableHead>Catégories de Commentaires</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {summaryByDriver.map(({ depot, carrier, driver, totalRatings, negativeRatingsCount, averageRating, categorySummary }, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{depot}</TableCell>
+                      <TableCell>{carrier}</TableCell>
+                      <TableCell>{driver} ({totalRatings})</TableCell>
+                      <TableCell>{negativeRatingsCount}</TableCell>
+                      <TableCell>{averageRating}</TableCell>
+                      <TableCell>{categorySummary}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
-       <Card className="col-span-1 lg:col-span-2">
-        <CardHeader>
-          <CardTitle>Synthèse par Transporteur et Dépôt</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader><TableRow><TableHead>Dépôt</TableHead><TableHead>Transporteur</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (globale)</TableHead><TableHead>Nb. Commentaires (sur notes {"<="} 3)</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {summaryByCarrier.map(({ depot, carrier, totalRatings, negativeRatingsCount, averageRating, commentCount }, index) => (
-                <TableRow key={index}><TableCell>{depot}</TableCell><TableCell>{carrier} ({totalRatings})</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-      <Card className="col-span-1 lg:col-span-2">
-        <CardHeader>
-          <CardTitle>Synthèse par Livreur</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Dépôt</TableHead>
-                <TableHead>Transporteur</TableHead>
-                <TableHead>Livreur</TableHead>
-                <TableHead>Nb. Mauvaises Notes</TableHead>
-                <TableHead>Note Moyenne (globale)</TableHead>
-                <TableHead>Catégories de Commentaires</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {summaryByDriver.map(({ depot, carrier, driver, totalRatings, negativeRatingsCount, averageRating, categorySummary }, index) => (
-                <TableRow key={index}>
-                  <TableCell>{depot}</TableCell>
-                  <TableCell>{carrier}</TableCell>
-                  <TableCell>{driver} ({totalRatings})</TableCell>
-                  <TableCell>{negativeRatingsCount}</TableCell>
-                  <TableCell>{averageRating}</TableCell>
-                  <TableCell>{categorySummary}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      
       {unassignedDrivers.length > 0 && (
-        <Card className="col-span-1 lg:col-span-2">
+        <Card>
           <CardHeader>
             <CardTitle>Livreurs sans Transporteur Assigné</CardTitle>
           </CardHeader>
@@ -293,9 +306,8 @@ const QualitySummary = ({ data }: QualitySummaryProps) => {
           </CardContent>
         </Card>
       )}
-      <div className="col-span-1 lg:col-span-2">
-        <CommentCategorizationTable data={data} />
-      </div>
+
+      <CommentCategorizationTable data={data} />
     </div>
   );
 };
