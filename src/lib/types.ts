@@ -1,3 +1,4 @@
+
 import type { LucideProps } from "lucide-react";
 import type { ForwardRefExoticComponent, RefAttributes } from "react";
 
@@ -246,7 +247,7 @@ export type DepotStats = {
     ponctualiteRealisee: string;
     tourneesPartiesHeureRetard: string;
     tourneesRetardAccumule: string;
-    notesNegativesRetard: string;
+    noteMoyenne: string;
     depassementPoids: string;
     creneauLePlusChoisi: string;
     creneauLePlusEnRetard: string;

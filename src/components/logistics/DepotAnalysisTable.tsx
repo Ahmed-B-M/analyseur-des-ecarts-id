@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -54,6 +55,10 @@ export default function DepotAnalysisTable({ data = [] }: DepotAnalysisTableProp
         if (sortConfig.key !== columnKey) return null;
         return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 inline h-4 w-4" /> : <ArrowDown className="ml-2 inline h-4 w-4" />;
     };
+    
+    // Check if the noteMoyenne field is present in the data to decide which column to show
+    const showNoteMoyenne = data.length > 0 && data[0].noteMoyenne !== undefined;
+
 
     return (
         <Card>
@@ -69,7 +74,11 @@ export default function DepotAnalysisTable({ data = [] }: DepotAnalysisTableProp
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('ponctualiteRealisee')}>Ponctualité Réalisée {renderSortIcon('ponctualiteRealisee')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('tourneesPartiesHeureRetard')}>% Tournées Départ à l'heure / Arrivée en retard {renderSortIcon('tourneesPartiesHeureRetard')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('tourneesRetardAccumule')}>% Tournées Départ OK / Retard Liv. &gt; 15min {renderSortIcon('tourneesRetardAccumule')}</TableHead>
-                                <TableHead className="cursor-pointer" onClick={() => handleSort('notesNegativesRetard')}>% Notes Négatives (1-3) en Retard {renderSortIcon('notesNegativesRetard')}</TableHead>
+                                {showNoteMoyenne ? (
+                                    <TableHead className="cursor-pointer" onClick={() => handleSort('noteMoyenne')}>Note Moyenne {renderSortIcon('noteMoyenne')}</TableHead>
+                                ) : (
+                                    <TableHead className="cursor-pointer" onClick={() => handleSort('notesNegativesRetard')}>% Notes Négatives (1-3) en Retard {renderSortIcon('notesNegativesRetard')}</TableHead>
+                                )}
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('depassementPoids')}>% Dépassement de Poids {renderSortIcon('depassementPoids')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('creneauLePlusChoisi')}>Créneau le plus choisi {renderSortIcon('creneauLePlusChoisi')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('creneauLePlusEnRetard')}>Créneau le plus en retard {renderSortIcon('creneauLePlusEnRetard')}</TableHead>
@@ -87,7 +96,12 @@ export default function DepotAnalysisTable({ data = [] }: DepotAnalysisTableProp
                                 <TableCell>{row.ponctualiteRealisee}</TableCell>
                                 <TableCell>{row.tourneesPartiesHeureRetard}</TableCell>
                                 <TableCell>{row.tourneesRetardAccumule}</TableCell>
-                                <TableCell>{row.notesNegativesRetard}</TableCell>
+                                {showNoteMoyenne ? (
+                                    <TableCell>{row.noteMoyenne}</TableCell>
+                                ) : (
+                                    // @ts-ignore
+                                    <TableCell>{row.notesNegativesRetard}</TableCell>
+                                )}
                                 <TableCell>{row.depassementPoids}</TableCell>
                                 <TableCell>{row.creneauLePlusChoisi}</TableCell>
                                 <TableCell>{row.creneauLePlusEnRetard}</TableCell>

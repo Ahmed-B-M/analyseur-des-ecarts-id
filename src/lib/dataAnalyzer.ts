@@ -1,4 +1,5 @@
-import type { MergedData, AnalysisData, Tournee } from './types';
+
+import type { MergedData, AnalysisData, Tournee, DepotStats } from './types';
 import { getDay } from 'date-fns';
 import { getNomDepot } from './config-depots';
 
@@ -352,7 +353,7 @@ function calculatePerformanceByGroup(tasks: MergedData[], tourneeMap: Map<string
             avgWeightDiscrepancy: data.tournees.size > 0 ? totalWeightDiscrepancy / data.tournees.size : 0,
             lateWithBadReviewPercentage: lateTasks.length > 0 ? (lateTasksWithBadReview.length / lateTasks.length) * 100 : 0
         };
-    }).sort((a, b) => (b.punctualityRatePlanned - a.punctualityRateRealized) - (a.punctualityRatePlanned - a.punctualityRateRealized));
+    }).sort((a, b) => (b.punctualityRatePlanned - b.punctualityRateRealized) - (a.punctualityRatePlanned - a.punctualityRateRealized));
 }
 // #endregion
 
@@ -655,7 +656,7 @@ function calculateDepotStats (data: MergedData[], toleranceSeconds: number, late
     }).filter(Boolean) as AnalysisData['depotStats'];
 }
 
-function calculateWarehouseStats(data: MergedData[], toleranceSeconds: number, lateTourTolerance: number): AnalysisData['depotStats'] {
+function calculateWarehouseStats(data: MergedData[], toleranceSeconds: number, lateTourTolerance: number): DepotStats[] {
     const warehouseNames = [...new Set(data.map(item => item.entrepot).filter(Boolean) as string[])];
     
     return warehouseNames.map(warehouseName => {
@@ -690,9 +691,9 @@ function calculateWarehouseStats(data: MergedData[], toleranceSeconds: number, l
         ).length;
         const tourneesRetardAccumule = totalTours > 0 ? (significantDelayTours / totalTours) * 100 : 0;
 
-        const negativeRatings = warehouseData.filter(d => d.notation != null && d.notation <= 3);
-        const negativeRatingsLate = negativeRatings.filter(d => d.retardStatus === 'late');
-        const notesNegativesRetard = negativeRatings.length > 0 ? (negativeRatingsLate.length / negativeRatings.length) * 100 : 0;
+        const ratedTasks = warehouseData.filter(d => d.notation != null && d.notation > 0);
+        const sumOfRatings = ratedTasks.reduce((sum, task) => sum + task.notation!, 0);
+        const noteMoyenne = ratedTasks.length > 0 ? (sumOfRatings / ratedTasks.length).toFixed(2) : "N/A";
         
         const slotStats: Record<string, { total: number, late: number }> = {};
         warehouseData.forEach(task => {
@@ -731,14 +732,14 @@ function calculateWarehouseStats(data: MergedData[], toleranceSeconds: number, l
             ponctualiteRealisee: `${ponctualiteRealisee.toFixed(1)}%`,
             tourneesPartiesHeureRetard: `${tourneesPartiesHeureRetard.toFixed(1)}%`,
             tourneesRetardAccumule: `${tourneesRetardAccumule.toFixed(1)}%`,
-            notesNegativesRetard: `${notesNegativesRetard.toFixed(1)}%`,
+            noteMoyenne: noteMoyenne,
             depassementPoids: `${depassementPoids.toFixed(1)}%`,
             creneauLePlusChoisi, creneauLePlusEnRetard,
             intensiteTravailPlanifie: avgWorkload.avgPlanned.toFixed(2),
             intensiteTravailRealise: avgWorkload.avgReal.toFixed(2),
             creneauPlusIntense, creneauMoinsIntense,
         };
-    }).filter(Boolean) as AnalysisData['depotStats'];
+    }).filter(Boolean) as DepotStats[];
 }
 
 
