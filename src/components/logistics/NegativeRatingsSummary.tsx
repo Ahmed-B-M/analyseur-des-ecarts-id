@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Warehouse, StarOff } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { getNomDepot } from '@/lib/config-depots';
 
 interface DriverRatingStat {
   name: string;
@@ -31,7 +32,7 @@ export default function NegativeRatingsSummary({ data }: { data: MergedData[] })
         const byDepot: Record<string, MergedData[]> = {};
         // Group tasks by depot first
         data.forEach(item => {
-            const depot = item.entrepot?.split(' ')[0] || 'Inconnu';
+            const depot = getNomDepot(item.entrepot);
             if (!byDepot[depot]) byDepot[depot] = [];
             byDepot[depot].push(item);
         });

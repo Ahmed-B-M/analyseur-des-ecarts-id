@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Badge } from '../ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getNomDepot } from '@/lib/config-depots';
 
 const ITEMS_PER_PAGE = 10;
 type SortKey = keyof MergedData | `tournee.${keyof NonNullable<MergedData['tournee']>}`;
@@ -101,7 +102,7 @@ function ByDepotView({ data }: { data: MergedData[] }) {
     const commentsByDepot = useMemo(() => {
         const grouped: Record<string, MergedData[]> = {};
         data.forEach(item => {
-            const depot = item.entrepot?.split(' ')[0] || 'Inconnu';
+            const depot = getNomDepot(item.entrepot);
             if (!grouped[depot]) grouped[depot] = [];
             grouped[depot].push(item);
         });

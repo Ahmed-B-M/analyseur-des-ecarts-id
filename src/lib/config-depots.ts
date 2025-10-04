@@ -1,10 +1,23 @@
 
 export const prefixesDepots: { [key: string]: string[] } = {
   "Aix": [
-    "AIX"
+    "Aix"
+  ],
+  "Castries": [
+    "Cast"
+  ],
+  "Rungis": [
+    "Rung"
+  ],
+  "Antibes": [
+    "Solo"
   ],
   "VLG": [
-    "Villeneuve"
+    "Villeneuve",
+    "Vill"
+  ],
+  "Vitry": [
+    "Vitr"
   ]
 };
 
