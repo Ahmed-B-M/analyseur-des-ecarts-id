@@ -68,7 +68,7 @@ export default function DepotAnalysisTable({ data = [] }: DepotAnalysisTableProp
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('ponctualitePrev')}>Ponctualité Prév. {renderSortIcon('ponctualitePrev')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('ponctualiteRealisee')}>Ponctualité Réalisée {renderSortIcon('ponctualiteRealisee')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('tourneesPartiesHeureRetard')}>% Tournées Départ à l'heure / Arrivée en retard {renderSortIcon('tourneesPartiesHeureRetard')}</TableHead>
-                                <TableHead className="cursor-pointer" onClick={() => handleSort('tourneesRetardAccumule')}>% Tournées Départ OK / Retard Liv. > 15min {renderSortIcon('tourneesRetardAccumule')}</TableHead>
+                                <TableHead className="cursor-pointer" onClick={() => handleSort('tourneesRetardAccumule')}>% Tournées Départ OK / Retard Liv. &gt; 15min {renderSortIcon('tourneesRetardAccumule')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('notesNegativesRetard')}>% Notes Négatives (1-3) en Retard {renderSortIcon('notesNegativesRetard')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('depassementPoids')}>% Dépassement de Poids {renderSortIcon('depassementPoids')}</TableHead>
                                 <TableHead className="cursor-pointer" onClick={() => handleSort('creneauLePlusChoisi')}>Créneau le plus choisi {renderSortIcon('creneauLePlusChoisi')}</TableHead>
@@ -82,7 +82,7 @@ export default function DepotAnalysisTable({ data = [] }: DepotAnalysisTableProp
                     <TableBody>
                         {sortedData.map((row) => (
                             row && <TableRow key={row.entrepot}>
-                                <TableCell>{row.entrepot}</TableCell>
+                                <TableCell>{row.entrepot.replace('Depot', 'Entrepôt')}</TableCell>
                                 <TableCell>{row.ponctualitePrev}</TableCell>
                                 <TableCell>{row.ponctualiteRealisee}</TableCell>
                                 <TableCell>{row.tourneesPartiesHeureRetard}</TableCell>

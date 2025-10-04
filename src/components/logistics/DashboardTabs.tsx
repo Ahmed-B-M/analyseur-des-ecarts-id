@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -137,10 +136,8 @@ export default function DashboardTabs({
                 <SlotAnalysisChart data={filteredData} />
             </TabsContent>
             <TabsContent value="reportRD" className="mt-6 space-y-6">
-                <DeliveryVolumeChart data={filteredData} />
-                <SlotAnalysisChart data={filteredData} />
                 <HotZonesChart data={chartData} />
-                <DepotAnalysisTable data={analysisData.depotStats} />
+                <DepotAnalysisTable data={analysisData.warehouseStats} />
                 <PostalCodeTable data={analysisData.postalCodeStats} />
             </TabsContent>
             <TabsContent value="settings" className="mt-6">

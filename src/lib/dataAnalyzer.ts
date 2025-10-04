@@ -19,12 +19,15 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
 
         if (heureCloture < heureDebutCreneau - toleranceSeconds) {
             task.retardStatus = 'early';
-            task.retard = heureCloture - heureDebutCreneau;
         } else if (heureCloture > heureFinCreneau + toleranceSeconds) {
             task.retardStatus = 'late';
-            task.retard = heureCloture - heureFinCreneau;
         } else {
             task.retardStatus = 'onTime';
+        }
+        
+        if (task.retardStatus === 'early') {
+            task.retard = heureCloture - heureDebutCreneau;
+        } else {
             task.retard = heureCloture - heureFinCreneau;
         }
 
@@ -91,6 +94,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
     const globalSummary = calculateGlobalSummary(uniqueTournees, predictedPunctualityRate, punctualityRate);
     
     const depotStats = calculateDepotStats(completedTasks, toleranceSeconds, lateTourTolerance);
+    const warehouseStats = calculateWarehouseStats(completedTasks, toleranceSeconds, lateTourTolerance);
     const postalCodeStats = calculatePostalCodeStats(completedTasks);
     const saturationData = calculateSaturationData(completedTasks);
     const customerPromiseData = calculateCustomerPromiseData(completedTasks);
@@ -116,6 +120,7 @@ export function analyzeData(data: MergedData[], filters: Record<string, any>): A
         performanceByWarehouse,
         firstTaskLatePercentage,
         depotStats,
+        warehouseStats,
         postalCodeStats,
         saturationData,
         customerPromiseData,
@@ -650,6 +655,93 @@ function calculateDepotStats (data: MergedData[], toleranceSeconds: number, late
     }).filter(Boolean) as AnalysisData['depotStats'];
 }
 
+function calculateWarehouseStats(data: MergedData[], toleranceSeconds: number, lateTourTolerance: number): AnalysisData['depotStats'] {
+    const warehouseNames = [...new Set(data.map(item => item.entrepot).filter(Boolean) as string[])];
+    
+    return warehouseNames.map(warehouseName => {
+        const warehouseData = data.filter(item => item.entrepot === warehouseName);
+        if (warehouseData.length === 0) return null;
+
+        const totalDeliveries = warehouseData.length;
+        const predictedTasksOnTime = warehouseData.filter(d => d.retardPrevisionnelStatus === 'onTime').length;
+        const ponctualitePrev = totalDeliveries > 0 ? (predictedTasksOnTime / totalDeliveries) * 100 : 0;
+        const realizedOnTime = warehouseData.filter(d => d.retardStatus === 'onTime').length;
+        const ponctualiteRealisee = totalDeliveries > 0 ? (realizedOnTime / totalDeliveries) * 100 : 0;
+        
+        const tasksByTour = warehouseData.reduce((acc, task) => {
+            if (!acc[task.tourneeUniqueId]) acc[task.tourneeUniqueId] = { tasks: [], tour: task.tournee };
+            acc[task.tourneeUniqueId].tasks.push(task);
+            return acc;
+        }, {} as Record<string, { tasks: MergedData[], tour: MergedData['tournee'] }>);
+
+        const overweightToursCount = Object.values(tasksByTour).filter(({ tour, tasks }) => tour && tasks.reduce((s,t) => s + t.poids, 0) > tour.capacitePoids).length;
+        const totalTours = Object.keys(tasksByTour).length;
+        const depassementPoids = totalTours > 0 ? (overweightToursCount / totalTours) * 100 : 0;
+        
+        const onTimeDepartureLateArrivalTours = Object.values(tasksByTour).filter(({ tour, tasks }) => {
+           if (!tour || tour.heureDepartReelle > tour.heureDepartPrevue) return false;
+           const firstTask = tasks.sort((a,b) => a.ordre - b.ordre)[0];
+           return firstTask && (firstTask.retard / 60) > lateTourTolerance;
+        }).length;
+        const tourneesPartiesHeureRetard = totalTours > 0 ? (onTimeDepartureLateArrivalTours / totalTours) * 100 : 0;
+
+        const significantDelayTours = Object.values(tasksByTour).filter(({ tour, tasks }) => 
+            tour && tour.heureDepartReelle <= tour.heureDepartPrevue && tasks.some(t => t.retardStatus === 'late')
+        ).length;
+        const tourneesRetardAccumule = totalTours > 0 ? (significantDelayTours / totalTours) * 100 : 0;
+
+        const negativeRatings = warehouseData.filter(d => d.notation != null && d.notation <= 3);
+        const negativeRatingsLate = negativeRatings.filter(d => d.retardStatus === 'late');
+        const notesNegativesRetard = negativeRatings.length > 0 ? (negativeRatingsLate.length / negativeRatings.length) * 100 : 0;
+        
+        const slotStats: Record<string, { total: number, late: number }> = {};
+        warehouseData.forEach(task => {
+            const slotKey = `${formatTime(task.heureDebutCreneau)}-${formatTime(task.heureFinCreneau)}`;
+            if (!slotStats[slotKey]) slotStats[slotKey] = { total: 0, late: 0 };
+            slotStats[slotKey].total++;
+            if (task.retardStatus === 'late') slotStats[slotKey].late++;
+        });
+
+        let creneauLePlusChoisi = "N/A";
+        if (Object.keys(slotStats).length > 0) {
+            const [slot, stats] = Object.entries(slotStats).reduce((a, b) => a[1].total > b[1].total ? a : b);
+            creneauLePlusChoisi = `${slot} (${((stats.total / totalDeliveries) * 100).toFixed(1)}%)`;
+        }
+        
+        let creneauLePlusEnRetard = "N/A";
+        const lateSlots = Object.entries(slotStats).filter(([, stats]) => stats.late > 0);
+        if (lateSlots.length > 0) {
+            const [worstSlot, worstSlotStats] = lateSlots.reduce((a, b) => (a[1].late / a[1].total) > (b[1].late / b[1].total) ? a : b);
+            creneauLePlusEnRetard = `${worstSlot} (${((worstSlotStats.late / worstSlotStats.total) * 100).toFixed(1)}%)`;
+        }
+
+        const { avgWorkloadByDriverBySlot, avgWorkload } = calculateAvgWorkloadBySlot(warehouseData);
+        let creneauPlusIntense = "N/A", creneauMoinsIntense = "N/A";
+        const realIntensities = avgWorkloadByDriverBySlot.filter(s => s.avgReal > 0);
+        if (realIntensities.length > 0) {
+            const mostIntense = realIntensities.reduce((max, curr) => curr.avgReal > max.avgReal ? curr : max);
+            creneauPlusIntense = `${mostIntense.slot} (${mostIntense.avgReal.toFixed(2)})`;
+            const leastIntense = realIntensities.reduce((min, curr) => curr.avgReal < min.avgReal ? curr : min);
+            creneauMoinsIntense = `${leastIntense.slot} (${leastIntense.avgReal.toFixed(2)})`;
+        }
+
+        return {
+            entrepot: warehouseName,
+            ponctualitePrev: `${ponctualitePrev.toFixed(1)}%`,
+            ponctualiteRealisee: `${ponctualiteRealisee.toFixed(1)}%`,
+            tourneesPartiesHeureRetard: `${tourneesPartiesHeureRetard.toFixed(1)}%`,
+            tourneesRetardAccumule: `${tourneesRetardAccumule.toFixed(1)}%`,
+            notesNegativesRetard: `${notesNegativesRetard.toFixed(1)}%`,
+            depassementPoids: `${depassementPoids.toFixed(1)}%`,
+            creneauLePlusChoisi, creneauLePlusEnRetard,
+            intensiteTravailPlanifie: avgWorkload.avgPlanned.toFixed(2),
+            intensiteTravailRealise: avgWorkload.avgReal.toFixed(2),
+            creneauPlusIntense, creneauMoinsIntense,
+        };
+    }).filter(Boolean) as AnalysisData['depotStats'];
+}
+
+
 function calculatePostalCodeStats(data: MergedData[]): AnalysisData['postalCodeStats'] {
     const postalCodeStats: Record<string, { total: number; late: number; depot: string }> = {};
     data.forEach(item => {
@@ -764,7 +856,7 @@ function createEmptyAnalysisData(): AnalysisData {
         cities: [], depots: [], warehouses: [],
         globalSummary: { punctualityRatePlanned: 0, punctualityRateRealized: 0, avgDurationDiscrepancyPerTour: 0, avgWeightDiscrepancyPerTour: 0, weightOverrunPercentage: 0, durationOverrunPercentage: 0 },
         performanceByDepot: [], performanceByWarehouse: [], firstTaskLatePercentage: 0,
-        depotStats: [], postalCodeStats: [], saturationData: [], customerPromiseData: [],
+        depotStats: [], warehouseStats: [], postalCodeStats: [], saturationData: [], customerPromiseData: [],
         actualSlotDistribution: [], simulatedPromiseData: [], rawData: [], filteredData: []
     };
 }

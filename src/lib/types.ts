@@ -326,12 +326,8 @@ export type AnalysisData = {
   // Delay/Advance Analysis
   delaysByWarehouse: DelayCount[];
   delaysByHour: DelayByHour[];
-  delaysByCity: DelayCount[];
-  delaysByPostalCode: DelayCount[];
   advancesByWarehouse: DelayCount[];
   advancesByHour: DelayByHour[];
-  advancesByCity: DelayCount[];
-  advancesByPostalCode: DelayCount[];
   delayHistogram: DelayHistogramBin[];
   
   // Specific Metrics
@@ -339,6 +335,7 @@ export type AnalysisData = {
 
   // Table-specific stats
   depotStats: DepotStats[];
+  warehouseStats: DepotStats[];
   postalCodeStats: PostalCodeStats[];
 
   // Chart-specific data
