@@ -5,6 +5,7 @@ import { createContext, useContext, useReducer, ReactNode, Dispatch, useEffect, 
 import type { AnalysisData, MergedData } from '@/lib/types';
 import { analyzeData } from '@/lib/dataAnalyzer';
 import { DateRange } from 'react-day-picker';
+import { getNomDepot } from '@/lib/config-depots';
 
 // 1. State & Action Types
 type State = {
@@ -165,7 +166,7 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
               }
             }
 
-            if (internalState.filters.depot && !item.tournee.entrepot.startsWith(internalState.filters.depot)) return false;
+            if (internalState.filters.depot && getNomDepot(item.tournee.entrepot) !== internalState.filters.depot) return false;
             if (internalState.filters.entrepot && item.tournee.entrepot !== internalState.filters.entrepot) return false;
             if (internalState.filters.city && item.ville !== internalState.filters.city) return false;
             if (internalState.filters.codePostal && item.codePostal !== internalState.filters.codePostal) return false;
