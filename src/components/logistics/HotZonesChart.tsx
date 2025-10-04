@@ -10,8 +10,6 @@ import {
   ZAxis,
   Tooltip,
   ResponsiveContainer,
-  Legend,
-  Dot,
 } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -85,19 +83,28 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 
 export default function HotZonesChart({ data }: HotZonesChartProps) {
+    const top20Data = useMemo(() => {
+        if (!data || data.length === 0) {
+            return [];
+        }
+        const sortedData = [...data].sort((a, b) => b.totalLivraisons - a.totalLivraisons);
+        const top20Count = Math.ceil(sortedData.length * 0.2);
+        return sortedData.slice(0, top20Count);
+    }, [data]);
+
     const depots = useMemo(() => {
-        return [...new Set(data.map(d => d.entrepot))].map(depot => ({
+        return [...new Set(top20Data.map(d => d.entrepot))].map(depot => ({
             value: depot,
             color: getColorForDepot(depot)
         }));
-    }, [data]);
+    }, [top20Data]);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Carte des Zones Critiques par Code Postal</CardTitle>
+        <CardTitle>Carte des Zones Critiques par Code Postal (Top 20%)</CardTitle>
         <CardDescription>
-          Analyse croisée du volume de livraison et du taux de retard par zone.
+          Analyse croisée du volume et du retard pour les 20% des codes postaux avec le plus de livraisons.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -130,7 +137,7 @@ export default function HotZonesChart({ data }: HotZonesChartProps) {
               <ZAxis type="number" dataKey="totalLivraisons" range={[50, 1000]} name="Volume" />
               <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
                {depots.map(depot => (
-                 <Scatter key={depot.value} name={depot.value} data={data.filter(d => d.entrepot === depot.value)} fill={depot.color} shape="circle" />
+                 <Scatter key={depot.value} name={depot.value} data={top20Data.filter(d => d.entrepot === depot.value)} fill={depot.color} shape="circle" />
                ))}
             </ScatterChart>
           </ResponsiveContainer>

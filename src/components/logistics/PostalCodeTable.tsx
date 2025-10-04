@@ -1,7 +1,7 @@
 'use client';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMemo, useState } from 'react';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import type { PostalCodeStats } from '@/lib/types';
@@ -15,8 +15,17 @@ interface PostalCodeTableProps {
 export default function PostalCodeTable({ data = [] }: PostalCodeTableProps) {
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'livraisonsRetard', direction: 'descending' });
 
+    const top20Data = useMemo(() => {
+        if (!data || data.length === 0) {
+            return [];
+        }
+        const sortedByVolume = [...data].sort((a, b) => b.totalLivraisons - a.totalLivraisons);
+        const top20Count = Math.ceil(sortedByVolume.length * 0.2);
+        return sortedByVolume.slice(0, top20Count);
+    }, [data]);
+
     const sortedData = useMemo(() => {
-        const sortableData = [...data];
+        const sortableData = [...top20Data];
         if (sortConfig.key) {
             sortableData.sort((a, b) => {
                 const key = sortConfig.key as keyof PostalCodeStats;
@@ -35,7 +44,7 @@ export default function PostalCodeTable({ data = [] }: PostalCodeTableProps) {
             });
         }
         return sortableData;
-    }, [data, sortConfig]);
+    }, [top20Data, sortConfig]);
 
     const handleSort = (key: string) => {
         const direction = sortConfig.key === key && sortConfig.direction === 'ascending' ? 'descending' : 'ascending';
@@ -50,7 +59,10 @@ export default function PostalCodeTable({ data = [] }: PostalCodeTableProps) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Classement des Codes Postaux par Retards</CardTitle>
+                <CardTitle>Classement des Codes Postaux par Retards (Top 20%)</CardTitle>
+                <CardDescription>
+                    Focus sur les 20% des codes postaux avec le plus grand volume de livraisons, classés par taux de retard.
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <Table>

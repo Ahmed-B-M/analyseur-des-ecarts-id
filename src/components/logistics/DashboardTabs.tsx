@@ -1,9 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { DateRangePicker } from './DateRangePicker';
-import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck } from 'lucide-react';
+import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck, MessageSquare } from 'lucide-react';
 import AnalysisDashboard from './AnalysisDashboard';
 import DetailedDataView from './DetailedDataView';
 import CalendarView from './CalendarView';
@@ -16,9 +17,18 @@ import HotZonesChart from './HotZonesChart';
 import DepotAnalysisTable from './DepotAnalysisTable';
 import PostalCodeTable from './PostalCodeTable';
 import SlotAnalysisChart from './SlotAnalysisChart';
-import DeliveryVolumeChart from './DeliveryVolumeChart';
+import GlobalCommentView from './GlobalCommentView';
 import type { AnalysisData, MergedData } from '@/lib/types';
 import DepotConfigurator from './DepotConfigurator';
+import CommentProcessing from './CommentProcessing';
+import { Badge } from '@/components/ui/badge';
+
+// Define a type for the processed actions for clarity
+interface ProcessedAction {
+  id: string;
+  category: string;
+  action: string;
+}
 
 interface DashboardTabsProps {
     activeTab: string;
@@ -41,6 +51,16 @@ export default function DashboardTabs({
     setFilters,
     applyFilterAndSwitchTab
 }: DashboardTabsProps) {
+    const [processedActions, setProcessedActions] = useState<ProcessedAction[]>([]);
+
+    const handleCommentProcessed = (action: ProcessedAction) => {
+        // Add the new action and prevent duplicates
+        if (!processedActions.find(p => p.id === action.id)) {
+            setProcessedActions(prev => [...prev, action]);
+        }
+    };
+
+    const processedCommentIds = processedActions.map(p => p.id);
 
     const chartData = analysisData ? (analysisData.postalCodeStats || []).map(item => ({
         codePostal: item.codePostal,
@@ -49,9 +69,14 @@ export default function DashboardTabs({
         retardPercent: parseFloat(item.livraisonsRetard.slice(0, -1)),
     })) : [];
 
+    const unprocessedCommentsCount = filteredData.filter(d => {
+        const commentId = `${d.tourneeUniqueId}-${d.sequence || d.ordre}`; // Consistent ID generation
+        return d.commentaire && d.notation != null && d.notation <= 3 && !processedCommentIds.includes(commentId);
+    }).length;
+
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-11 max-w-full mx-auto">
+            <TabsList className="grid w-full grid-cols-12 max-w-full mx-auto">
                 <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
                 <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
                 <TabsTrigger value="depotComparison"><LayoutDashboard className="w-4 h-4 mr-2" />Comparaison Dépôts</TabsTrigger>
@@ -62,9 +87,30 @@ export default function DashboardTabs({
                 <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
                 <TabsTrigger value="rdp"><LayoutDashboard className="w-4 h-4 mr-2" />RDP</TabsTrigger>
                 <TabsTrigger value="reportRD"><FileSpreadsheet className="w-4 h-4 mr-2" />Rapport RD</TabsTrigger>
+                <TabsTrigger value="commentProcessing">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Traitement des commentaires
+                    {unprocessedCommentsCount > 0 && <Badge className="ml-2">{unprocessedCommentsCount}</Badge>}
+                </TabsTrigger>
                 <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-2" />Paramètres</TabsTrigger>
             </TabsList>
 
+            {/* TabsContent remains the same, but props passed to children will be updated */}
+            <TabsContent value="reportRD" className="mt-6 space-y-6">
+                <GlobalCommentView data={filteredData} processedActions={processedActions} /> 
+                <HotZonesChart data={chartData} />
+                <DepotAnalysisTable data={analysisData.warehouseStats} />
+                <PostalCodeTable data={analysisData.postalCodeStats} />
+            </TabsContent>
+            <TabsContent value="commentProcessing" className="mt-6">
+                <CommentProcessing 
+                    data={filteredData} 
+                    onCommentProcessed={handleCommentProcessed}
+                    processedCommentIds={processedCommentIds}
+                />
+            </TabsContent>
+            
+            {/* Other TabsContent sections */}
             <TabsContent value="dashboard" className="mt-6">
                 <AnalysisDashboard 
                     analysisData={analysisData}
@@ -101,10 +147,7 @@ export default function DashboardTabs({
                             onDateSelect={(date) => {
                                 setFilters({ ...filters, selectedDate: date, dateRange: undefined });
                             }}
-                            onWeekSelect={(week) => {
-                                // This now only visually selects the week, it does not filter.
-                                // Filtering is handled by DateRangePicker or day click.
-                            }}
+                            onWeekSelect={(week) => {}}
                         />
                     </div>
                     <div className="md:col-span-2">
@@ -134,11 +177,6 @@ export default function DashboardTabs({
                 <DepotAnalysisTable data={analysisData.depotStats} />
                 <PostalCodeTable data={analysisData.postalCodeStats} />
                 <SlotAnalysisChart data={filteredData} />
-            </TabsContent>
-            <TabsContent value="reportRD" className="mt-6 space-y-6">
-                <HotZonesChart data={chartData} />
-                <DepotAnalysisTable data={analysisData.warehouseStats} />
-                <PostalCodeTable data={analysisData.postalCodeStats} />
             </TabsContent>
             <TabsContent value="settings" className="mt-6">
                 <DepotConfigurator />
