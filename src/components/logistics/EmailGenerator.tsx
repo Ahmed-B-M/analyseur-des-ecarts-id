@@ -65,9 +65,10 @@ const generateEmailBody = (
           h1, h2, h3 { color: #00338D; }
           h1 { border-bottom: 2px solid #00338D; padding-bottom: 10px; }
           table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; white-space: nowrap; }
           th { background-color: #f2f2f2; font-weight: bold; }
           .card { border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+          .table-container { overflow-x: auto; }
           ul { padding-left: 20px; }
         </style>
       </head>
@@ -78,89 +79,95 @@ const generateEmailBody = (
         
         <div class="card">
           <h2>Synthèse Globale des Avis Négatifs</h2>
-          <table>
-            <thead><tr><th>Catégorie de Commentaire</th><th>Pourcentage</th><th>Actions Correctives Traitées</th></tr></thead>
-            <tbody>
-              ${categoryPercentages.map(({ category, percentage }) => `
-                <tr>
-                  <td>${category}</td>
-                  <td>${percentage}</td>
-                  <td>
-                    ${(actionsByCategory[category] && actionsByCategory[category].length > 0)
-                        ? `<ul>${actionsByCategory[category].map(action => `<li>${action}</li>`).join('')}</ul>`
-                        : `<span style="color: #888;">Aucune action</span>`
-                    }
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          <div class="table-container">
+            <table>
+              <thead><tr><th>Catégorie de Commentaire</th><th>Pourcentage</th><th>Actions Correctives Traitées</th></tr></thead>
+              <tbody>
+                ${categoryPercentages.map(({ category, percentage }) => `
+                  <tr>
+                    <td>${category}</td>
+                    <td>${percentage}</td>
+                    <td>
+                      ${(actionsByCategory[category] && actionsByCategory[category].length > 0)
+                          ? `<ul>${actionsByCategory[category].map(action => `<li>${action}</li>`).join('')}</ul>`
+                          : `<span style="color: #888;">Aucune action</span>`
+                      }
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div class="card">
           <h2>Analyse Détaillée des Entrepôts</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Entrepôt</th>
-                <th>Ponctualité Prév.</th>
-                <th>Ponctualité Réalisée</th>
-                <th>% Tournées Départ à l'heure / Arrivée en retard</th>
-                <th>% Tournées Départ OK / Retard Liv. &gt; 15min</th>
-                <th>Note Moyenne</th>
-                <th>% Dépassement Poids</th>
-                <th>Créneau le plus choisi</th>
-                <th>Créneau le plus en retard</th>
-                <th>Intensité Travail Planifié</th>
-                <th>Intensité Travail Réalisé</th>
-                <th>Créneau le plus intense</th>
-                <th>Créneau le moins intense</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${depotStats.map(stat => `
+          <div class="table-container">
+            <table>
+              <thead>
                 <tr>
-                  <td>${stat.entrepot}</td>
-                  <td>${stat.ponctualitePrev}</td>
-                  <td>${stat.ponctualiteRealisee}</td>
-                  <td>${stat.tourneesPartiesHeureRetard}</td>
-                  <td>${stat.tourneesRetardAccumule}</td>
-                  <td>${stat.noteMoyenne}</td>
-                  <td>${stat.depassementPoids}</td>
-                  <td>${stat.creneauLePlusChoisi}</td>
-                  <td>${stat.creneauLePlusEnRetard}</td>
-                  <td>${stat.intensiteTravailPlanifie}</td>
-                  <td>${stat.intensiteTravailRealise}</td>
-                  <td>${stat.creneauPlusIntense}</td>
-                  <td>${stat.creneauMoinsIntense}</td>
+                  <th>Entrepôt</th>
+                  <th>Ponctualité Prév.</th>
+                  <th>Ponctualité Réalisée</th>
+                  <th>% Tournées Départ à l'heure / Arrivée en retard</th>
+                  <th>% Tournées Départ OK / Retard Liv. &gt; 15min</th>
+                  <th>Note Moyenne</th>
+                  <th>% Dépassement Poids</th>
+                  <th>Créneau le plus choisi</th>
+                  <th>Créneau le plus en retard</th>
+                  <th>Intensité Travail Planifié</th>
+                  <th>Intensité Travail Réalisé</th>
+                  <th>Créneau le plus intense</th>
+                  <th>Créneau le moins intense</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${depotStats.map(stat => `
+                  <tr>
+                    <td>${stat.entrepot}</td>
+                    <td>${stat.ponctualitePrev}</td>
+                    <td>${stat.ponctualiteRealisee}</td>
+                    <td>${stat.tourneesPartiesHeureRetard}</td>
+                    <td>${stat.tourneesRetardAccumule}</td>
+                    <td>${stat.noteMoyenne}</td>
+                    <td>${stat.depassementPoids}</td>
+                    <td>${stat.creneauLePlusChoisi}</td>
+                    <td>${stat.creneauLePlusEnRetard}</td>
+                    <td>${stat.intensiteTravailPlanifie}</td>
+                    <td>${stat.intensiteTravailRealise}</td>
+                    <td>${stat.creneauPlusIntense}</td>
+                    <td>${stat.creneauMoinsIntense}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>
         
         <div class="card">
           <h2>Classement des Codes Postaux par Retards (Top 20%)</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Code Postal</th>
-                <th>Entrepôt</th>
-                <th>Nb. Livraisons</th>
-                <th>% Livraisons en Retard</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${postalCodeStats.map(stat => `
+          <div class="table-container">
+            <table>
+              <thead>
                 <tr>
-                  <td>${stat.codePostal}</td>
-                  <td>${stat.entrepot}</td>
-                  <td>${stat.totalLivraisons}</td>
-                  <td>${stat.livraisonsRetard}</td>
+                  <th>Code Postal</th>
+                  <th>Entrepôt</th>
+                  <th>Nb. Livraisons</th>
+                  <th>% Livraisons en Retard</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${postalCodeStats.map(stat => `
+                  <tr>
+                    <td>${stat.codePostal}</td>
+                    <td>${stat.entrepot}</td>
+                    <td>${stat.totalLivraisons}</td>
+                    <td>${stat.livraisonsRetard}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <p>Cordialement,</p>
@@ -190,7 +197,7 @@ const EmailGenerator = ({ depotStats, postalCodeStats, globalCommentData }: Emai
             Générer l'Email du Rapport
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-6xl">
         <DialogHeader>
           <DialogTitle>Aperçu de l'Email du Rapport</DialogTitle>
         </DialogHeader>
