@@ -1,0 +1,291 @@
+{
+  "entities": {
+    "Tournee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tournee",
+      "type": "object",
+      "description": "Represents a planned delivery tour.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Tournee entity."
+        },
+        "nom": {
+          "type": "string",
+          "description": "Name of the delivery tour."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date of the delivery tour (YYYY-MM-DD).",
+          "format": "date"
+        },
+        "entrepot": {
+          "type": "string",
+          "description": "Warehouse associated with the delivery tour."
+        },
+        "kilometragePrevus": {
+          "type": "number",
+          "description": "Planned mileage for the delivery tour."
+        },
+        "dureePrevues": {
+          "type": "number",
+          "description": "Planned duration for the delivery tour (in seconds)."
+        },
+        "poidsMax": {
+          "type": "number",
+          "description": "Maximum weight allowed for the delivery tour (in kg)."
+        },
+        "capaciteBacs": {
+          "type": "number",
+          "description": "Maximum capacity in bins for the delivery tour."
+        }
+      },
+      "required": [
+        "id",
+        "nom",
+        "date",
+        "entrepot"
+      ]
+    },
+    "Tache": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tache",
+      "type": "object",
+      "description": "Represents a task within a delivery tour.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Tache entity."
+        },
+        "tourneeId": {
+          "type": "string",
+          "description": "Reference to Tournee. (Relationship: Tournee 1:N Tache).  Composite key formed of nom de la tournée + date + entrepôt"
+        },
+        "date": {
+          "type": "string",
+          "description": "Date of the delivery task (YYYY-MM-DD).",
+          "format": "date"
+        },
+        "heurePrevue": {
+          "type": "number",
+          "description": "Planned time for the delivery task (seconds from midnight)."
+        },
+        "heureRealisee": {
+          "type": "number",
+          "description": "Actual time of the delivery task (seconds from midnight)."
+        },
+        "poidsReel": {
+          "type": "number",
+          "description": "Actual weight of the delivery task (in kg)."
+        },
+        "notation": {
+          "type": "number",
+          "description": "Customer rating for the delivery task."
+        },
+        "commentaire": {
+          "type": "string",
+          "description": "Customer feedback for the delivery task."
+        }
+      },
+      "required": [
+        "id",
+        "tourneeId",
+        "date"
+      ]
+    },
+    "Depot": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Depot",
+      "type": "object",
+      "description": "Represents a delivery depot.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Depot entity."
+        },
+        "nom": {
+          "type": "string",
+          "description": "Name of the delivery depot."
+        },
+        "address": {
+          "type": "string",
+          "description": "Address of the delivery depot."
+        },
+        "codePostal": {
+          "type": "string",
+          "description": "Postal code of the delivery depot."
+        },
+        "ville": {
+          "type": "string",
+          "description": "City of the delivery depot."
+        }
+      },
+      "required": [
+        "id",
+        "nom"
+      ]
+    },
+    "Entrepot": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Entrepot",
+      "type": "object",
+      "description": "Represents a warehouse.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Entrepot entity."
+        },
+        "nom": {
+          "type": "string",
+          "description": "Name of the warehouse."
+        },
+        "address": {
+          "type": "string",
+          "description": "Address of the warehouse."
+        },
+        "codePostal": {
+          "type": "string",
+          "description": "Postal code of the warehouse."
+        },
+        "ville": {
+          "type": "string",
+          "description": "City of the warehouse."
+        }
+      },
+      "required": [
+        "id",
+        "nom"
+      ]
+    },
+    "Livreur": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Livreur",
+      "type": "object",
+      "description": "Represents a delivery driver.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Livreur entity."
+        },
+        "nom": {
+          "type": "string",
+          "description": "Name of the delivery driver."
+        },
+        "tourneeIds": {
+          "type": "array",
+          "description": "References to Tournees. (Relationship: Livreur 1:N Tournee)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "nom"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/entrepots/{entrepotId}",
+        "definition": {
+          "entityName": "Entrepot",
+          "schema": {
+            "$ref": "#/backend/entities/Entrepot"
+          },
+          "description": "Collection of Entrepot documents. Each document represents a warehouse.",
+          "params": [
+            {
+              "name": "entrepotId",
+              "description": "The unique identifier for the warehouse."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/entrepots/{entrepotId}/tournees/{tourneeId}",
+        "definition": {
+          "entityName": "Tournee",
+          "schema": {
+            "$ref": "#/backend/entities/Tournee"
+          },
+          "description": "Subcollection of Tournee documents under each Entrepot. Each Tournee represents a planned delivery tour.",
+          "params": [
+            {
+              "name": "entrepotId",
+              "description": "The unique identifier for the warehouse."
+            },
+            {
+              "name": "tourneeId",
+              "description": "The unique identifier for the delivery tour."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId}",
+        "definition": {
+          "entityName": "Tache",
+          "schema": {
+            "$ref": "#/backend/entities/Tache"
+          },
+          "description": "Subcollection of Tache documents under each Tournee. Each Tache represents a task within a delivery tour.",
+          "params": [
+            {
+              "name": "entrepotId",
+              "description": "The unique identifier for the warehouse."
+            },
+            {
+              "name": "tourneeId",
+              "description": "The unique identifier for the delivery tour."
+            },
+            {
+              "name": "tacheId",
+              "description": "The unique identifier for the delivery task."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/depots/{depotId}",
+        "definition": {
+          "entityName": "Depot",
+          "schema": {
+            "$ref": "#/backend/entities/Depot"
+          },
+          "description": "Collection of Depot documents. Each document represents a delivery depot.",
+          "params": [
+            {
+              "name": "depotId",
+              "description": "The unique identifier for the delivery depot."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/livreurs/{livreurId}",
+        "definition": {
+          "entityName": "Livreur",
+          "schema": {
+            "$ref": "#/backend/entities/Livreur"
+          },
+          "description": "Collection of Livreur documents. Each document represents a delivery driver.",
+          "params": [
+            {
+              "name": "livreurId",
+              "description": "The unique identifier for the delivery driver."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to optimize for authorization independence, scalability, and the specific query patterns described in the application requirements.  The core structure is based around top-level collections for `Entrepot`, `Depot`, and `Livreur`. The `Tournee` and `Tache` collections are structured as subcollections under `Entrepot` to maintain a logical hierarchy and to denormalize the entrepot. Since the 'tourneeId' contains composited information, we can reliably recreate the parent reference from any tache document.\n\n**Authorization Independence:** Access to `Tournee` and `Tache` documents is implicitly controlled by the top-level `Entrepot` documents, since they are structured as subcollections. Denormalization is used to avoid `get()` calls in security rules and ensure atomic operations.  Since the business rules describe the 'tourneeId' field as containing composited data (nom de la tournée + date + entrepôt), there is no need to denormalize more fields for authorization.  The composited key is the key to the tournee parent document.\n\n**QAPs Support:**\n*   List all Tournees for a given Entrepot: This is directly supported by querying the `/entrepots/{entrepotId}/tournees` collection.\n*   List all Taches for a given Entrepot and Tournee: This is directly supported by querying the `/entrepots/{entrepotId}/tournees/{tourneeId}/taches` collection.\n*   List all Entrepot: Directly supported by querying the top-level `/entrepots` collection.\n*   List all Depot: Directly supported by querying the top-level `/depots` collection.\n*   List all Livreur: Directly supported by querying the top-level `/livreurs` collection."
+  }
+}

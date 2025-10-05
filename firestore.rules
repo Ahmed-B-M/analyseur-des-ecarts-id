@@ -1,0 +1,162 @@
+/**
+ * @file Firebase Security Rules for Tournee Management App
+ *
+ * @description This ruleset enforces a hierarchical data model with owner-only access to Entrepots, Depots, and Livreurs.
+ * Tournees and Taches are subcollections under Entrepots, inheriting the Entrepot's ownership.
+ *
+ * @dataStructure
+ * - /entrepots/{entrepotId}: Represents a warehouse, owned by the user {entrepotId}.
+ * - /entrepots/{entrepotId}/tournees/{tourneeId}: Represents a delivery tour, associated with a specific entrepot.
+ * - /entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId}: Represents a task within a delivery tour.
+ * - /depots/{depotId}: Represents a delivery depot, owned by the user {depotId}.
+ * - /livreurs/{livreurId}: Represents a delivery driver, owned by the user {livreurId}.
+ *
+ * @keySecurityDecisions
+ * - Strict ownership model: Users can only read and write data for Entrepots, Depots, and Livreurs they own.
+ * - Tournees and Taches inherit the ownership of their parent Entrepot.
+ * - Listing of collections is restricted to the owner.
+ * - No schema validation is performed beyond requiring essential fields for authorization.
+ *
+ * @denormalizationForAuthorization
+ * - No denormalization is needed, as the hierarchical structure and parameter-based checks are sufficient for authorization.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to Entrepot documents.
+     * @path /entrepots/{entrepotId}
+     * @allow (create) User 'user_abc' can create an Entrepot document if request.auth.uid == entrepotId.
+     * @allow (get, list) User 'user_abc' can read Entrepot document if request.auth.uid == entrepotId.
+     * @allow (update, delete) User 'user_abc' can update/delete Entrepot document if request.auth.uid == entrepotId and document exists.
+     * @deny (create) User 'user_xyz' cannot create an Entrepot document if request.auth.uid != entrepotId.
+     * @principle Enforces document ownership for writes.
+     */
+    match /entrepots/{entrepotId} {
+      // Helper function to check if the user is the owner
+      function isOwner(entrepotId) {
+        return request.auth != null && request.auth.uid == entrepotId;
+      }
+
+      // Helper function to check if the user is the owner and the document exists
+      function isExistingOwner(entrepotId) {
+        return isOwner(entrepotId) && resource != null;
+      }
+
+      allow get: if isOwner(entrepotId);
+      allow list: if isOwner(entrepotId);
+      allow create: if isOwner(entrepotId);
+      allow update: if isExistingOwner(entrepotId);
+      allow delete: if isExistingOwner(entrepotId);
+    }
+
+    /**
+     * @description Controls access to Tournee documents under an Entrepot.
+     * @path /entrepots/{entrepotId}/tournees/{tourneeId}
+     * @allow (create) User 'user_abc' can create a Tournee document if request.auth.uid == entrepotId.
+     * @allow (get, list) User 'user_abc' can read Tournee document if request.auth.uid == entrepotId.
+     * @allow (update, delete) User 'user_abc' can update/delete Tournee document if request.auth.uid == entrepotId and document exists.
+     * @deny (create) User 'user_xyz' cannot create a Tournee document if request.auth.uid != entrepotId.
+     * @principle Enforces document ownership for writes.
+     */
+    match /entrepots/{entrepotId}/tournees/{tourneeId} {
+      // Helper function to check if the user is the owner of the parent entrepot
+      function isOwner(entrepotId) {
+        return request.auth != null && request.auth.uid == entrepotId;
+      }
+
+      // Helper function to check if the user is the owner of the parent entrepot and the document exists
+      function isExistingOwner(entrepotId) {
+        return isOwner(entrepotId) && resource != null;
+      }
+
+      allow get: if isOwner(entrepotId);
+      allow list: if isOwner(entrepotId);
+      allow create: if isOwner(entrepotId);
+      allow update: if isExistingOwner(entrepotId);
+      allow delete: if isExistingOwner(entrepotId);
+    }
+
+    /**
+     * @description Controls access to Tache documents under a Tournee.
+     * @path /entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId}
+     * @allow (create) User 'user_abc' can create a Tache document if request.auth.uid == entrepotId.
+     * @allow (get, list) User 'user_abc' can read Tache document if request.auth.uid == entrepotId.
+     * @allow (update, delete) User 'user_abc' can update/delete Tache document if request.auth.uid == entrepotId and document exists.
+     * @deny (create) User 'user_xyz' cannot create a Tache document if request.auth.uid != entrepotId.
+     * @principle Enforces document ownership for writes.
+     */
+    match /entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId} {
+      // Helper function to check if the user is the owner of the parent entrepot
+      function isOwner(entrepotId) {
+        return request.auth != null && request.auth.uid == entrepotId;
+      }
+
+      // Helper function to check if the user is the owner of the parent entrepot and the document exists
+      function isExistingOwner(entrepotId) {
+        return isOwner(entrepotId) && resource != null;
+      }
+
+      allow get: if isOwner(entrepotId);
+      allow list: if isOwner(entrepotId);
+      allow create: if isOwner(entrepotId);
+      allow update: if isExistingOwner(entrepotId);
+      allow delete: if isExistingOwner(entrepotId);
+    }
+
+    /**
+     * @description Controls access to Depot documents.
+     * @path /depots/{depotId}
+     * @allow (create) User 'user_abc' can create a Depot document if request.auth.uid == depotId.
+     * @allow (get, list) User 'user_abc' can read Depot document if request.auth.uid == depotId.
+     * @allow (update, delete) User 'user_abc' can update/delete Depot document if request.auth.uid == depotId and document exists.
+     * @deny (create) User 'user_xyz' cannot create a Depot document if request.auth.uid != depotId.
+     * @principle Enforces document ownership for writes.
+     */
+    match /depots/{depotId} {
+      // Helper function to check if the user is the owner
+      function isOwner(depotId) {
+        return request.auth != null && request.auth.uid == depotId;
+      }
+
+      // Helper function to check if the user is the owner and the document exists
+      function isExistingOwner(depotId) {
+        return isOwner(depotId) && resource != null;
+      }
+
+      allow get: if isOwner(depotId);
+      allow list: if isOwner(depotId);
+      allow create: if isOwner(depotId);
+      allow update: if isExistingOwner(depotId);
+      allow delete: if isExistingOwner(depotId);
+    }
+
+    /**
+     * @description Controls access to Livreur documents.
+     * @path /livreurs/{livreurId}
+     * @allow (create) User 'user_abc' can create a Livreur document if request.auth.uid == livreurId.
+     * @allow (get, list) User 'user_abc' can read Livreur document if request.auth.uid == livreurId.
+     * @allow (update, delete) User 'user_abc' can update/delete Livreur document if request.auth.uid == livreurId and document exists.
+     * @deny (create) User 'user_xyz' cannot create a Livreur document if request.auth.uid != livreurId.
+     * @principle Enforces document ownership for writes.
+     */
+    match /livreurs/{livreurId} {
+      // Helper function to check if the user is the owner
+      function isOwner(livreurId) {
+        return request.auth != null && request.auth.uid == livreurId;
+      }
+
+      // Helper function to check if the user is the owner and the document exists
+      function isExistingOwner(livreurId) {
+        return isOwner(livreurId) && resource != null;
+      }
+
+      allow get: if isOwner(livreurId);
+      allow list: if isOwner(livreurId);
+      allow create: if isOwner(livreurId);
+      allow update: if isExistingOwner(livreurId);
+      allow delete: if isExistingOwner(livreurId);
+    }
+  }
+}
