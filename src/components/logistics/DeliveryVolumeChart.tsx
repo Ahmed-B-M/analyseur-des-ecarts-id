@@ -6,19 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { MergedData } from '@/lib/types';
-import { useLogistics } from '@/context/LogisticsContext';
 
 interface DeliveryVolumeChartProps {
   data: MergedData[];
 }
 
-// Helper function to format seconds into HH:MM
-const formatTime = (seconds: number) => {
+// Helper function to format seconds into HHh
+const formatTime = (seconds: number): string => {
     if (isNaN(seconds) || seconds < 0) return 'N/A';
     const date = new Date(seconds * 1000);
-    const hours = date.getUTCHours().toString().padStart(2, '0');
-    return `${hours}h`;
+    const hours = date.getUTCHours();
+    if (isNaN(hours)) return 'N/A';
+    return `${String(hours).padStart(2, '0')}h`;
 };
+
 
 // Generate a color palette for the chart
 const COLORS = [
@@ -27,8 +28,6 @@ const COLORS = [
 ];
 
 export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) {
-  const { state } = useLogistics();
-  const punctualityThreshold = state.filters.punctualityThreshold || 959;
 
   const { chartData, slots, totalEarly, totalLate } = useMemo(() => {
     const volumeByHourAndSlot: Record<string, Record<string, { onTime: number; offTime: number }>> = {};
@@ -40,10 +39,12 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
       if (item.heureDebutCreneau && item.heureFinCreneau && item.heureCloture) {
         const slotStart = formatTime(item.heureDebutCreneau);
         const slotEnd = formatTime(item.heureFinCreneau);
+        if (slotStart === 'N/A' || slotEnd === 'N/A') return;
         const slotLabel = `${slotStart}-${slotEnd}`;
         allSlots.add(slotLabel);
 
         const deliveryHour = new Date(item.heureCloture * 1000).getUTCHours();
+        if (isNaN(deliveryHour)) return;
         const deliveryHourLabel = `${String(deliveryHour).padStart(2, '0')}h`;
 
         if (!volumeByHourAndSlot[deliveryHourLabel]) {
@@ -53,8 +54,8 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
           volumeByHourAndSlot[deliveryHourLabel][slotLabel] = { onTime: 0, offTime: 0 };
         }
 
-        const isLate = item.retard > punctualityThreshold;
-        const isEarly = item.retard < -punctualityThreshold;
+        const isLate = item.retardStatus === 'late';
+        const isEarly = item.retardStatus === 'early';
 
         if (isLate) totalLate++;
         if (isEarly) totalEarly++;
@@ -73,7 +74,7 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
     const finalChartData = sortedHours.map(hour => {
       const entry: { [key: string]: string | number } = { hour };
       sortedSlots.forEach(slot => {
-        const slotData = volumeByHourAndSlot[hour][slot] || { onTime: 0, offTime: 0 };
+        const slotData = volumeByHourAndSlot[hour]?.[slot] || { onTime: 0, offTime: 0 };
         entry[`${slot}-onTime`] = slotData.onTime;
         entry[`${slot}-offTime`] = slotData.offTime;
       });
@@ -81,7 +82,7 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
     });
 
     return { chartData: finalChartData, slots: sortedSlots, totalEarly, totalLate };
-  }, [data, punctualityThreshold]);
+  }, [data]);
 
   if (!chartData.length) {
     return null;
