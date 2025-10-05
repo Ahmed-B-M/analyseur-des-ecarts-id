@@ -15,9 +15,9 @@ import { MergedData, SuiviCommentaire, DepotStats, PostalCodeStats } from '@/lib
 import { useMemo } from 'react';
 import { getCarrierFromDriverName, getNomDepot } from '@/lib/utils';
 import { CommentCategory } from '@/lib/comment-categorization';
-import EmailGenerator from './EmailGenerator';
 import GlobalCommentView from './GlobalCommentView';
 import { CategorizedComment } from './CommentCategorizationTable';
+import QualityEmailGenerator from './QualityEmailGenerator';
 
 interface QualitySummaryProps {
     data: MergedData[];
@@ -231,14 +231,12 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
   return (
     <div className='space-y-6'>
-      <div className="flex justify-end">
-        <EmailGenerator 
-          warehouseStats={warehouseStats}
-          postalCodeStats={postalCodeStats}
-          globalCommentData={{
-              processedActions: processedActions || [],
-              categorizedComments: allCommentsForSummary || []
-          }}
+       <div className="flex justify-end">
+        <QualityEmailGenerator 
+          summaryByDepot={summaryByDepot}
+          summaryByCarrier={summaryByCarrier}
+          summaryByDriver={summaryByDriver}
+          unassignedDrivers={unassignedDrivers}
         />
       </div>
 
