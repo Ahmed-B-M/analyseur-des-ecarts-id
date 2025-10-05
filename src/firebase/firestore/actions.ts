@@ -1,6 +1,7 @@
+
 'use client';
 
-import { collection, addDoc, Firestore } from 'firebase/firestore';
+import { collection, addDoc, Firestore, DocumentReference, updateDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 
@@ -43,6 +44,23 @@ export async function saveSuiviCommentaire(
     });
     errorEmitter.emit('permission-error', permissionError);
     // Re-throw the original error to be caught by the calling component
+    throw serverError;
+  }
+}
+
+export async function updateSuiviCommentaire(
+  docRef: DocumentReference,
+  dataToUpdate: Partial<{ categorie: string; actionCorrective: string; statut: string }>
+) {
+  try {
+    await updateDoc(docRef, dataToUpdate);
+  } catch (serverError) {
+    const permissionError = new FirestorePermissionError({
+      path: docRef.path,
+      operation: 'update',
+      requestResourceData: dataToUpdate,
+    });
+    errorEmitter.emit('permission-error', permissionError);
     throw serverError;
   }
 }

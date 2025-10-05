@@ -7,10 +7,10 @@ import { Input } from '@/components/ui/input';
 import type { MergedData } from '@/lib/types';
 import { commentCategories, categorizeComment, CommentCategory } from '@/lib/comment-categorization';
 import { useToast } from '@/hooks/use-toast';
-import { saveSuiviCommentaire } from '@/firebase/firestore/actions';
+import { saveSuiviCommentaire, updateSuiviCommentaire } from '@/firebase/firestore/actions';
 import { useFirestore } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { useMemoFirebase } from '@/firebase/provider';
 import type { SuiviCommentaireWithId } from './ActionFollowUpView';
 import { Loader2 } from 'lucide-react';
@@ -36,7 +36,6 @@ const CommentProcessing: React.FC<CommentProcessingProps> = ({ data }) => {
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  // Fetch all existing follow-ups from Firestore
   const suiviCollectionRef = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'suiviCommentaires');
@@ -44,22 +43,17 @@ const CommentProcessing: React.FC<CommentProcessingProps> = ({ data }) => {
 
   const { data: existingSuivis, isLoading: isLoadingSuivis } = useCollection<SuiviCommentaireWithId>(suiviCollectionRef);
 
-  // Generate a set of IDs for comments that have already been processed
   const processedCommentIds = useMemo(() => {
       if (!existingSuivis) return new Set();
-      // The ID in `suiviCommentaires` is the auto-generated doc ID. 
-      // We need to build a key from the data to match against incoming comments.
       return new Set(existingSuivis.map(s => `${s.nomTournee}|${s.date}|${s.entrepot}-${s.sequence}`));
   }, [existingSuivis]);
 
 
   useEffect(() => {
-      // Don't do anything until we have the list of processed comments
       if (isLoadingSuivis) return;
 
       const unprocessedComments = data
           .filter(item => {
-              // Create a unique, stable ID for each comment from the source data
               const uniqueCommentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
               return item.commentaire && item.notation != null && item.notation <= 3 && !processedCommentIds.has(uniqueCommentId);
           })
@@ -91,20 +85,35 @@ const CommentProcessing: React.FC<CommentProcessingProps> = ({ data }) => {
           await saveSuiviCommentaire(firestore, { ...comment });
           toast({ title: "Succès", description: "L'action corrective a été enregistrée." });
           
-          // Remove the processed comment from the local state to update the UI instantly
           setCommentsToProcess(prev => prev.filter(c => c.id !== comment.id));
 
       } catch (e: any) {
            toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
       }
   };
+  
+    const handleCategoryChange = async (id: string, newCategory: CommentCategory) => {
+        if (!firestore) return;
+        const comment = commentsToProcess.find(c => c.id === id);
+        if (!comment) return;
+
+        setCommentsToProcess(commentsToProcess.map(c => c.id === id ? { ...c, category: newCategory } : c));
+        
+        const existingSuivi = existingSuivis?.find(s => `${s.nomTournee}|${s.date}|${s.entrepot}-${s.sequence}` === id);
+
+        if(existingSuivi) {
+            const docRef = doc(firestore, 'suiviCommentaires', existingSuivi.id);
+            await updateSuiviCommentaire(docRef, { categorie: newCategory });
+            toast({
+                title: "Catégorie mise à jour",
+                description: `La catégorie a été changée en "${newCategory}". Le rapport va s'actualiser.`
+            });
+        }
+    };
+
 
   const handleActionChange = (id: string, action: string) => {
     setCommentsToProcess(commentsToProcess.map(c => c.id === id ? { ...c, action } : c));
-  };
-
-  const handleCategoryChange = (id: string, category: CommentCategory) => {
-    setCommentsToProcess(commentsToProcess.map(c => c.id === id ? { ...c, category } : c));
   };
   
   if (isLoadingSuivis) {

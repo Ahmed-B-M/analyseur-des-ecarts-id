@@ -1,9 +1,10 @@
+
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, deleteDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -13,17 +14,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Trash2, Save } from 'lucide-react';
 import { SuiviCommentaire } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useMemoFirebase } from '@/firebase/provider';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
+
 
 export type SuiviCommentaireWithId = SuiviCommentaire & { id: string };
 
 const ActionFollowUpView = () => {
     const firestore = useFirestore();
     const { toast } = useToast();
+    const [editableActions, setEditableActions] = useState<Record<string, string>>({});
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     const suiviCollectionRef = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -32,6 +39,17 @@ const ActionFollowUpView = () => {
 
 
     const { data: suivis, isLoading, error } = useCollection<SuiviCommentaireWithId>(suiviCollectionRef);
+
+     useEffect(() => {
+        if (suivis) {
+            const initialActions = suivis.reduce((acc, suivi) => {
+                acc[suivi.id] = suivi.actionCorrective;
+                return acc;
+            }, {} as Record<string, string>);
+            setEditableActions(initialActions);
+        }
+    }, [suivis]);
+
 
     const handleStatusChange = (id: string, newStatus: "À traiter" | "En cours" | "Résolu") => {
         if (!firestore) return;
@@ -46,14 +64,39 @@ const ActionFollowUpView = () => {
         });
     };
 
+    const handleActionChange = (id: string, value: string) => {
+        setEditableActions(prev => ({ ...prev, [id]: value }));
+    };
+
+    const handleSaveAction = (id: string) => {
+        if (!firestore) return;
+        const newAction = editableActions[id];
+        if (newAction === undefined) return;
+
+        const docRef = doc(firestore, 'suiviCommentaires', id);
+        updateDocumentNonBlocking(docRef, { actionCorrective: newAction });
+        setEditingId(null);
+        toast({
+            title: "Action corrective mise à jour.",
+        });
+    };
+
+    const handleDelete = (id: string) => {
+        if(!firestore) return;
+        const docRef = doc(firestore, 'suiviCommentaires', id);
+        deleteDocumentNonBlocking(docRef);
+        toast({
+            title: "Suivi supprimé",
+            description: "Le commentaire associé réapparaîtra dans la section 'Traitement Avis'.",
+        })
+    }
+
     const sortedSuivis = useMemo(() => {
         if (!suivis) return [];
         return [...suivis].sort((a, b) => {
-            // Prioritize "À traiter" and "En cours"
             const statusOrder = { "À traiter": 0, "En cours": 1, "Résolu": 2 };
             const statusDiff = statusOrder[a.statut] - statusOrder[b.statut];
             if (statusDiff !== 0) return statusDiff;
-            // Then sort by most recent date
             return new Date(b.traiteLe).getTime() - new Date(a.traiteLe).getTime();
         });
     }, [suivis]);
@@ -83,7 +126,7 @@ const ActionFollowUpView = () => {
             <CardHeader>
                 <CardTitle>Suivi des Actions Correctives</CardTitle>
                 <CardDescription>
-                    Liste des actions correctives enregistrées suite aux commentaires négatifs des clients.
+                    Liste des actions correctives enregistrées. Cliquez sur une action pour la modifier ou supprimez-la pour la renvoyer au traitement.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -98,12 +141,13 @@ const ActionFollowUpView = () => {
                                 <TableHead>Catégorie</TableHead>
                                 <TableHead>Action Corrective</TableHead>
                                 <TableHead>Statut</TableHead>
+                                <TableHead>Opérations</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {sortedSuivis.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                                         Aucune action corrective enregistrée pour le moment.
                                     </TableCell>
                                 </TableRow>
@@ -115,7 +159,21 @@ const ActionFollowUpView = () => {
                                         <TableCell>{suivi.livreur}</TableCell>
                                         <TableCell className="max-w-xs truncate">{suivi.commentaire}</TableCell>
                                         <TableCell>{suivi.categorie}</TableCell>
-                                        <TableCell className="max-w-xs truncate">{suivi.actionCorrective}</TableCell>
+                                        <TableCell onClick={() => setEditingId(suivi.id)} className="cursor-pointer">
+                                            {editingId === suivi.id ? (
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        value={editableActions[suivi.id] || ''}
+                                                        onChange={(e) => handleActionChange(suivi.id, e.target.value)}
+                                                        onKeyDown={(e) => e.key === 'Enter' && handleSaveAction(suivi.id)}
+                                                        autoFocus
+                                                        onBlur={() => handleSaveAction(suivi.id)}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <span className="max-w-xs truncate block">{editableActions[suivi.id]}</span>
+                                            )}
+                                        </TableCell>
                                         <TableCell>
                                             <Select 
                                                 value={suivi.statut} 
@@ -130,6 +188,27 @@ const ActionFollowUpView = () => {
                                                     <SelectItem value="Résolu">Résolu</SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                        </TableCell>
+                                        <TableCell>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <Trash2 className="w-4 h-4 text-destructive" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Renvoyer au traitement ?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Cette action supprimera le suivi actuel et fera réapparaître le commentaire dans l'onglet "Traitement Avis". Êtes-vous sûr ?
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDelete(suivi.id)}>Confirmer</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
                                         </TableCell>
                                     </TableRow>
                                 ))
