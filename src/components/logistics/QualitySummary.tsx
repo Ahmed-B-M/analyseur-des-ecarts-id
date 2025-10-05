@@ -34,6 +34,10 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     (d: MergedData) => d.notation
   ), [data]);
 
+  const allCommentsInData = useMemo(() => (data || []).filter(
+    (d: MergedData) => d.commentaire
+  ), [data]);
+
   const allCommentsForSummary = useMemo(() => {
     return [...savedCategorizedComments, ...uncategorizedCommentsForSummary];
   }, [savedCategorizedComments, uncategorizedCommentsForSummary]);
@@ -62,16 +66,12 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         return acc;
     }, {} as Record<string, { negativeRatingCount: number }>);
 
-    const commentsGrouped = allCommentsForSummary.reduce((acc, curr) => {
-      const originalItem = data.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === curr.id);
-      if (!originalItem) return acc;
-      const depot = getNomDepot(originalItem.tournee?.entrepot || 'Inconnu');
+    const commentsGrouped = allCommentsInData.reduce((acc, curr) => {
+      const depot = getNomDepot(curr.tournee?.entrepot || 'Inconnu');
       if (!acc[depot]) {
         acc[depot] = { commentCount: 0 };
       }
-      if (curr.comment) {
-        acc[depot].commentCount++;
-      }
+      acc[depot].commentCount++;
       return acc;
     }, {} as Record<string, { commentCount: number }>);
 
@@ -94,7 +94,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     return combined
       .filter(item => item.negativeRatingsCount > 0)
       .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-  }, [ratings, allCommentsForSummary, data, negativeRatingsData]);
+  }, [ratings, negativeRatingsData, allCommentsInData]);
 
   const summaryByCarrier = useMemo(() => {
     const allRatingsGrouped = ratings.reduce((acc, curr) => {
@@ -116,16 +116,12 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
       return acc;
     }, {} as Record<string, { depot: string; carrier: string; negativeRatingCount: number;}>);
 
-    const commentsGrouped = allCommentsForSummary.reduce((acc, curr) => {
-      const originalItem = data.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === curr.id);
-      if (!originalItem) return acc;
-      const key = `${getNomDepot(originalItem.tournee?.entrepot || 'Inconnu')} | ${getCarrierFromDriverName(originalItem.livreur || '') || 'Inconnu'}`;
+    const commentsGrouped = allCommentsInData.reduce((acc, curr) => {
+      const key = `${getNomDepot(curr.tournee?.entrepot || 'Inconnu')} | ${getCarrierFromDriverName(curr.livreur || '') || 'Inconnu'}`;
       if(!acc[key]) {
           acc[key] = { commentCount: 0 };
       }
-      if (curr.comment) {
-        acc[key].commentCount++;
-      }
+      acc[key].commentCount++;
       return acc;
     }, {} as Record<string, { commentCount: number }>);
     
@@ -149,7 +145,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     return combined
       .filter(item => item.negativeRatingsCount > 0)
       .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-  }, [ratings, allCommentsForSummary, data, negativeRatingsData]);
+  }, [ratings, negativeRatingsData, allCommentsInData]);
 
 
   const summaryByDriver = useMemo(() => {
