@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import type { DepotStats, PostalCodeStats, SuiviCommentaire } from '@/lib/types';
 import { commentCategories, CategorizedComment } from '@/lib/comment-categorization';
+import { Mail } from 'lucide-react';
 
 interface EmailGeneratorProps {
   depotStats: DepotStats[];
