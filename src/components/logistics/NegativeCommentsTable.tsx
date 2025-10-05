@@ -28,15 +28,18 @@ interface CommentToCategorize {
     category: CommentCategory;
 }
 
-function CommentsList({ commentsToCategorize, onSave }: { commentsToCategorize: CommentToCategorize[], onSave: (comments: CommentToCategorize[]) => void }) {
+function CommentsList({ commentsToCategorize: initialComments, onSave, savedCategorizedComments }: { commentsToCategorize: CommentToCategorize[], onSave: (comments: CommentToCategorize[]) => void, savedCategorizedComments: CategorizedComment[] }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortConfig, setSortConfig] = useState<{ key: keyof CommentToCategorize; direction: 'asc' | 'desc' } | null>({ key: 'note', direction: 'asc' });
-    const [categorizedComments, setCategorizedComments] = useState<CommentToCategorize[]>(commentsToCategorize);
+    const [categorizedComments, setCategorizedComments] = useState<CommentToCategorize[]>(initialComments);
     const { toast } = useToast();
 
     useEffect(() => {
-        setCategorizedComments(commentsToCategorize);
-    }, [commentsToCategorize]);
+        // This logic re-filters the initialComments when savedCategorizedComments changes.
+        const savedIds = new Set(savedCategorizedComments.map(c => c.id));
+        const filteredInitial = initialComments.filter(c => !savedIds.has(c.id));
+        setCategorizedComments(filteredInitial);
+    }, [initialComments, savedCategorizedComments]);
 
 
     const sortedData = useMemo(() => {
@@ -58,7 +61,8 @@ function CommentsList({ commentsToCategorize, onSave }: { commentsToCategorize: 
         const commentToSave = categorizedComments.find(c => c.id === commentId);
         if (commentToSave) {
             onSave([commentToSave]);
-            // The parent component will re-render and filter out the saved comment
+            // Optimistically remove from UI
+            setCategorizedComments(prev => prev.filter(c => c.id !== commentId));
             toast({ title: "Commentaire sauvegardé", description: "La catégorie a été enregistrée." });
         }
     };
@@ -211,7 +215,11 @@ export default function NegativeCommentsTable({ data, savedCategorizedComments }
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-               <CommentsList commentsToCategorize={commentsToCategorize} onSave={handleSave} />
+               <CommentsList 
+                commentsToCategorize={commentsToCategorize} 
+                onSave={handleSave} 
+                savedCategorizedComments={savedCategorizedComments}
+               />
             </CardContent>
         </Card>
     );
