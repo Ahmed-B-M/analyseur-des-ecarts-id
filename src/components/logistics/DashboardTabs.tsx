@@ -102,9 +102,9 @@ export default function DashboardTabs({
         const savedIds = new Set(savedCategorizedComments.map(c => sanitizeId(c.id)));
     
         return filteredData.filter(d => {
+            if (!(d.notation != null && d.notation <= 3 && d.commentaire)) return false;
             const commentId = `${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`;
-            const sanitizedCommentId = sanitizeId(commentId);
-            return d.notation != null && d.notation <= 3 && d.commentaire && !savedIds.has(sanitizedCommentId);
+            return !savedIds.has(sanitizeId(commentId));
         }).length;
     }, [filteredData, savedCategorizedComments, isLoadingCategories]);
 
@@ -118,9 +118,9 @@ export default function DashboardTabs({
                 return !savedIds.has(sanitizeId(commentId));
             })
             .map(item => ({
-                id: `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || d.ordre}`,
+                id: `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`,
                 comment: item.commentaire!,
-                category: categorizeComment(item.commentaire),
+                category: categorizeComment(item.commentaire!),
             }));
     }, [filteredData, savedCategorizedComments, isLoadingCategories]);
 
@@ -224,12 +224,14 @@ export default function DashboardTabs({
             <TabsContent value="calendar" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-1">
-                            <CalendarView 
+                        <CalendarView 
                             data={rawData}
                             onDateSelect={(date) => {
                                 setFilters({ ...filters, selectedDate: date, dateRange: undefined });
                             }}
-                            onWeekSelect={(week) => {}}
+                            onWeekSelect={(week) => {
+                                setFilters({ ...filters, dateRange: week, selectedDate: undefined });
+                            }}
                         />
                     </div>
                     <div className="md:col-span-2">
