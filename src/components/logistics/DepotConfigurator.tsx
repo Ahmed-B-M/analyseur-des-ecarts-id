@@ -1,14 +1,25 @@
-
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, PlusCircle, Trash2, Save, AlertCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Save, AlertCircle, AlertTriangle } from 'lucide-react';
 import { getDepotConfig, saveDepotConfig } from '@/actions/depotConfig';
 import { useToast } from '@/hooks/use-toast';
+import { clearDatabase } from '@/actions/clearDatabase';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 type DepotConfig = { [key: string]: string[] };
 
@@ -16,6 +27,7 @@ export default function DepotConfigurator() {
     const [config, setConfig] = useState<DepotConfig>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [newDepot, setNewDepot] = useState('');
     const [newPrefix, setNewPrefix] = useState('');
@@ -92,6 +104,24 @@ export default function DepotConfigurator() {
         setIsSaving(false);
     };
 
+    const handleClearDatabase = async () => {
+        setIsDeleting(true);
+        const result = await clearDatabase();
+        if (result.success) {
+            toast({
+                title: 'Succès',
+                description: "La base de données a été vidée. Veuillez rafraîchir l'application.",
+            });
+        } else {
+             toast({
+                variant: 'destructive',
+                title: 'Erreur',
+                description: result.error || "Impossible de vider la base de données.",
+            });
+        }
+        setIsDeleting(false);
+    }
+
     if (isLoading) {
         return (
             <Card>
@@ -120,85 +150,129 @@ export default function DepotConfigurator() {
     const hasNoRules = Object.keys(config).length === 0;
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Configuration des Dépôts</CardTitle>
-                <CardDescription>
-                    Définissez comment les entrepôts sont regroupés en dépôts en fonction de leurs préfixes.
-                    Les changements ne seront appliqués qu'après avoir rechargé les données (bouton "Réinitialiser").
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="border rounded-lg p-4 space-y-4">
-                    <h3 className="font-semibold">Ajouter une nouvelle règle</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                        <Input
-                            placeholder="Nom du Dépôt (ex: VLG)"
-                            value={newDepot}
-                            onChange={(e) => setNewDepot(e.target.value)}
-                        />
-                        <Input
-                            placeholder="Préfixe de l'entrepôt (ex: Villeneuve)"
-                            value={newPrefix}
-                            onChange={(e) => setNewPrefix(e.target.value)}
-                        />
-                        <Button onClick={handleAddRule} className="md:w-auto">
-                            <PlusCircle className="w-4 h-4 mr-2" />
-                            Ajouter la Règle
+        <div className="space-y-8">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Configuration des Dépôts</CardTitle>
+                    <CardDescription>
+                        Définissez comment les entrepôts sont regroupés en dépôts en fonction de leurs préfixes.
+                        Les changements ne seront appliqués qu'après avoir rechargé les données (bouton "Réinitialiser").
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="border rounded-lg p-4 space-y-4">
+                        <h3 className="font-semibold">Ajouter une nouvelle règle</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            <Input
+                                placeholder="Nom du Dépôt (ex: VLG)"
+                                value={newDepot}
+                                onChange={(e) => setNewDepot(e.target.value)}
+                            />
+                            <Input
+                                placeholder="Préfixe de l'entrepôt (ex: Villeneuve)"
+                                value={newPrefix}
+                                onChange={(e) => setNewPrefix(e.target.value)}
+                            />
+                            <Button onClick={handleAddRule} className="md:w-auto">
+                                <PlusCircle className="w-4 h-4 mr-2" />
+                                Ajouter la Règle
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 className="font-semibold mb-2">Règles Actuelles</h3>
+                        <div className="border rounded-lg max-h-[400px] overflow-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Nom du Dépôt</TableHead>
+                                        <TableHead>Préfixe de l'Entrepôt</TableHead>
+                                        <TableHead className="w-12"></TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {hasNoRules ? (
+                                        <TableRow>
+                                            <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                                                Aucune règle définie.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        Object.entries(config).flatMap(([depot, prefixes]) =>
+                                            prefixes.map((prefix, index) => (
+                                                <TableRow key={`${depot}-${prefix}`}>
+                                                    {index === 0 && (
+                                                        <TableCell rowSpan={prefixes.length} className="font-semibold align-top border-t">{depot}</TableCell>
+                                                    )}
+                                                    <TableCell className="border-t">{prefix}</TableCell>
+                                                    <TableCell className="border-t">
+                                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveRule(depot, prefix)}>
+                                                            <Trash2 className="w-4 h-4 text-destructive" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                    
+                    <div className="flex justify-end">
+                        <Button onClick={handleSaveChanges} disabled={isSaving}>
+                            {isSaving ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sauvegarde...</>
+                            ) : (
+                                <><Save className="w-4 h-4 mr-2" />Enregistrer les Changements</>
+                            )}
                         </Button>
                     </div>
-                </div>
+                </CardContent>
+            </Card>
 
-                <div>
-                    <h3 className="font-semibold mb-2">Règles Actuelles</h3>
-                    <div className="border rounded-lg max-h-[400px] overflow-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Nom du Dépôt</TableHead>
-                                    <TableHead>Préfixe de l'Entrepôt</TableHead>
-                                    <TableHead className="w-12"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {hasNoRules ? (
-                                    <TableRow>
-                                        <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
-                                            Aucune règle définie.
-                                        </TableCell>
-                                    </TableRow>
+            <Card className="border-destructive">
+                <CardHeader>
+                    <CardTitle className="text-destructive flex items-center gap-2">
+                        <AlertTriangle /> Zone Dangereuse
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <CardDescription>
+                        Cette action est irréversible. Elle supprimera toutes les données de tournées, de tâches
+                        et de suivis de commentaires de la base de données.
+                    </CardDescription>
+                </CardContent>
+                <CardFooter>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" disabled={isDeleting}>
+                                {isDeleting ? (
+                                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Suppression en cours...</>
                                 ) : (
-                                    Object.entries(config).flatMap(([depot, prefixes]) =>
-                                        prefixes.map((prefix, index) => (
-                                            <TableRow key={`${depot}-${prefix}`}>
-                                                {index === 0 && (
-                                                    <TableCell rowSpan={prefixes.length} className="font-semibold align-top border-t">{depot}</TableCell>
-                                                )}
-                                                <TableCell className="border-t">{prefix}</TableCell>
-                                                <TableCell className="border-t">
-                                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveRule(depot, prefix)}>
-                                                        <Trash2 className="w-4 h-4 text-destructive" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )
+                                    <>Vider la base de données</>
                                 )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </div>
-                
-                <div className="flex justify-end">
-                    <Button onClick={handleSaveChanges} disabled={isSaving}>
-                        {isSaving ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sauvegarde...</>
-                        ) : (
-                            <><Save className="w-4 h-4 mr-2" />Enregistrer les Changements</>
-                        )}
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Cette action ne peut pas être annulée. Cela supprimera définitivement
+                                    toutes les données de la base de données Firestore.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleClearDatabase}>
+                                    Oui, supprimer toutes les données
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </CardFooter>
+            </Card>
+        </div>
     );
 }
