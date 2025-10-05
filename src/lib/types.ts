@@ -63,6 +63,7 @@ export type Tache = {
   avancement: string;
   completedBy?: string;
   ordre: number;
+  carrier?: string | null;
 };
 
 export type MergedData = Tache & { tournee: Tournee | null };
@@ -290,6 +291,19 @@ export type SimulatedPromiseData = {
     urbantzPlan: number;
     realized: number;
     late: number;
+};
+
+export type SuiviCommentaire = {
+    date: string;
+    livreur: string;
+    entrepot: string;
+    nomTournee: string;
+    sequence: number | undefined;
+    commentaire: string;
+    categorie: string;
+    actionCorrective: string;
+    statut: "À traiter" | "En cours" | "Résolu";
+    traiteLe: string;
 };
 
 

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { DateRangePicker } from './DateRangePicker';
-import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck, MessageSquare } from 'lucide-react';
+import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck, MessageSquare, ClipboardCheck } from 'lucide-react';
 import AnalysisDashboard from './AnalysisDashboard';
 import DetailedDataView from './DetailedDataView';
 import CalendarView from './CalendarView';
@@ -22,6 +22,7 @@ import type { AnalysisData, MergedData } from '@/lib/types';
 import DepotConfigurator from './DepotConfigurator';
 import CommentProcessing from './CommentProcessing';
 import { Badge } from '@/components/ui/badge';
+import ActionFollowUpView from './ActionFollowUpView';
 
 // Define a type for the processed actions for clarity
 interface ProcessedAction {
@@ -81,21 +82,24 @@ export default function DashboardTabs({
                 <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
                 <TabsTrigger value="depotComparison"><LayoutDashboard className="w-4 h-4 mr-2" />Comparaison Dépôts</TabsTrigger>
                 <TabsTrigger value="negativeComments"><MessageCircleWarning className="w-4 h-4 mr-2" />Avis Négatifs</TabsTrigger>
+                <TabsTrigger value="commentProcessing">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Traitement Avis
+                    {unprocessedCommentsCount > 0 && <Badge className="ml-2">{unprocessedCommentsCount}</Badge>}
+                </TabsTrigger>
+                <TabsTrigger value="actionFollowUp"><ClipboardCheck className="w-4 h-4 mr-2" />Suivi Actions</TabsTrigger>
                 <TabsTrigger value="negativeRatings"><StarOff className="w-4 h-4 mr-2" />Notes Négatives</TabsTrigger>
                 <TabsTrigger value="quality"><ShieldCheck className="w-4 h-4 mr-2" />Synthèse Qualité</TabsTrigger>
                 <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Analyse par Période</TabsTrigger>
                 <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
                 <TabsTrigger value="rdp"><LayoutDashboard className="w-4 h-4 mr-2" />RDP</TabsTrigger>
-                <TabsTrigger value="reportRD"><FileSpreadsheet className="w-4 h-4 mr-2" />Rapport RD</TabsTrigger>
-                <TabsTrigger value="commentProcessing">
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    Traitement des commentaires
-                    {unprocessedCommentsCount > 0 && <Badge className="ml-2">{unprocessedCommentsCount}</Badge>}
-                </TabsTrigger>
                 <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-2" />Paramètres</TabsTrigger>
             </TabsList>
 
             {/* TabsContent remains the same, but props passed to children will be updated */}
+             <TabsContent value="actionFollowUp" className="mt-6">
+                <ActionFollowUpView />
+            </TabsContent>
             <TabsContent value="reportRD" className="mt-6 space-y-6">
                 <GlobalCommentView data={filteredData} processedActions={processedActions} /> 
                 <HotZonesChart data={chartData} />
