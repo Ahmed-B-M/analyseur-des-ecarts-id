@@ -11,13 +11,15 @@ interface DeliveryVolumeChartProps {
   data: MergedData[];
 }
 
-// Helper function to format seconds into HHh for slot labels
-const formatSlotTime = (seconds: number): string => {
-    if (isNaN(seconds) || seconds < 0) return 'N/A';
-    const date = new Date(seconds * 1000);
-    const hours = date.getUTCHours();
-    if (isNaN(hours)) return 'N/A';
-    return `${String(hours).padStart(2, '0')}h`;
+// Helper function to format seconds into a slot label like "08h-10h"
+const getSlotLabel = (startSeconds: number, endSeconds: number): string => {
+    if (isNaN(startSeconds) || isNaN(endSeconds)) return 'N/A';
+    const startDate = new Date(startSeconds * 1000);
+    const endDate = new Date(endSeconds * 1000);
+    const startHour = startDate.getUTCHours();
+    const endHour = endDate.getUTCHours();
+    if (isNaN(startHour) || isNaN(endHour)) return 'N/A';
+    return `${String(startHour).padStart(2, '0')}h-${String(endHour).padStart(2, '0')}h`;
 };
 
 
@@ -34,23 +36,41 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
     const allSlots = new Set<string>();
     let totalEarly = 0;
     let totalLate = 0;
+    
+    // First, find all unique hours present in closure times to build the X-axis
+    const allHours = new Set<string>();
+    data.forEach(item => {
+        if(item.heureCloture) {
+            const deliveryHour = new Date(item.heureCloture * 1000).getUTCHours();
+            if (!isNaN(deliveryHour)) {
+                allHours.add(`${String(deliveryHour).padStart(2, '0')}h`);
+            }
+        }
+    });
+    const sortedHours = Array.from(allHours).sort();
+
+    // Initialize the main data structure
+    sortedHours.forEach(hour => {
+        volumeByHourAndSlot[hour] = {};
+    });
 
     data.forEach(item => {
       if (item.heureDebutCreneau && item.heureFinCreneau && item.heureCloture) {
-        const slotStart = formatSlotTime(item.heureDebutCreneau);
-        const slotEnd = formatSlotTime(item.heureFinCreneau);
-        if (slotStart === 'N/A' || slotEnd === 'N/A') return;
         
-        const slotLabel = `${slotStart}-${slotEnd}`;
+        const slotLabel = getSlotLabel(item.heureDebutCreneau, item.heureFinCreneau);
+        if (slotLabel === 'N/A') return;
         allSlots.add(slotLabel);
 
         const deliveryHour = new Date(item.heureCloture * 1000).getUTCHours();
         if (isNaN(deliveryHour)) return;
         const deliveryHourLabel = `${String(deliveryHour).padStart(2, '0')}h`;
-
+        
+        // Ensure the hour exists in our structure
         if (!volumeByHourAndSlot[deliveryHourLabel]) {
-          volumeByHourAndSlot[deliveryHourLabel] = {};
+          return; // Skip if hour is outside our sorted range
         }
+
+        // Initialize slot if not present for this hour
         if (!volumeByHourAndSlot[deliveryHourLabel][slotLabel]) {
           volumeByHourAndSlot[deliveryHourLabel][slotLabel] = { onTime: 0, offTime: 0 };
         }
@@ -71,10 +91,8 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
 
     const sortedSlots = Array.from(allSlots).sort();
     
-    // Create a map for all hours present in the data to ensure they are all processed
-    const allHours = Object.keys(volumeByHourAndSlot);
-
-    const finalChartData = allHours.map(hour => {
+    // Convert the aggregated data into the format Recharts expects
+    const finalChartData = sortedHours.map(hour => {
         const hourData = volumeByHourAndSlot[hour];
         const chartEntry: { [key: string]: string | number } = { hour };
 
@@ -85,8 +103,7 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
         });
         
         return chartEntry;
-    }).sort((a,b) => String(a.hour).localeCompare(String(b.hour)));
-
+    });
 
     return { chartData: finalChartData, slots: sortedSlots, totalEarly, totalLate };
   }, [data]);
