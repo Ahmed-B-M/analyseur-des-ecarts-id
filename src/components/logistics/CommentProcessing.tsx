@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import type { MergedData } from '@/lib/types';
 import { commentCategories, categorizeComment, CommentCategory } from '@/lib/comment-categorization';
+import { useToast } from '@/hooks/use-toast';
+import { saveCommentAction } from '@/actions/comments';
 
 interface Comment {
   id: string;
@@ -27,6 +29,7 @@ interface CommentProcessingProps {
 
 const CommentProcessing: React.FC<CommentProcessingProps> = ({ data, onCommentProcessed, processedCommentIds }) => {
   const [comments, setComments] = useState<Comment[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     const unprocessedComments = data
@@ -49,17 +52,47 @@ const CommentProcessing: React.FC<CommentProcessingProps> = ({ data, onCommentPr
   }, [data, processedCommentIds]);
 
 
-  const handleProcessComment = (comment: Comment) => {
+  const handleProcessComment = async (comment: Comment) => {
     if (comment.action.trim() === '') {
-        // Optional: Add some user feedback, e.g., a toast notification
-        alert("Veuillez saisir une action corrective avant de traiter le commentaire.");
+        toast({
+            variant: "destructive",
+            title: "Action requise",
+            description: "Veuillez saisir une action corrective avant de traiter le commentaire.",
+        });
         return;
     }
-    onCommentProcessed({
-        id: comment.id,
-        category: comment.category,
-        action: comment.action,
-    });
+
+    try {
+        await saveCommentAction({
+            id: comment.id,
+            date: comment.date,
+            livreur: comment.livreur,
+            entrepot: comment.entrepot,
+            nomTournee: comment.nomTournee,
+            sequence: comment.sequence,
+            comment: comment.comment,
+            category: comment.category,
+            action: comment.action
+        });
+
+        toast({
+            title: "Succès",
+            description: "L'action corrective a été enregistrée dans la base de données.",
+        });
+
+        onCommentProcessed({
+            id: comment.id,
+            category: comment.category,
+            action: comment.action,
+        });
+
+    } catch (e: any) {
+         toast({
+            variant: "destructive",
+            title: "Erreur de sauvegarde",
+            description: e.message || "Impossible d'enregistrer l'action corrective.",
+        });
+    }
   };
 
   const handleActionChange = (id: string, action: string) => {
@@ -130,3 +163,5 @@ const CommentProcessing: React.FC<CommentProcessingProps> = ({ data, onCommentPr
 };
 
 export default CommentProcessing;
+
+    

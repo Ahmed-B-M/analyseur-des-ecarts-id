@@ -183,6 +183,67 @@
         "id",
         "nom"
       ]
+    },
+    "SuiviCommentaire": {
+      "title": "Suivi de Commentaire",
+      "description": "Represents the follow-up action for a negative customer comment.",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date",
+          "description": "Date of the original delivery."
+        },
+        "livreur": {
+          "type": "string",
+          "description": "Name of the driver."
+        },
+        "entrepot": {
+          "type": "string",
+          "description": "Warehouse of the delivery."
+        },
+        "nomTournee": {
+          "type": "string",
+          "description": "Name of the tour."
+        },
+        "sequence": {
+          "type": "number",
+          "description": "Sequence number of the task in the tour."
+        },
+        "commentaire": {
+          "type": "string",
+          "description": "The original customer comment."
+        },
+        "categorie": {
+          "type": "string",
+          "description": "The category assigned to the comment."
+        },
+        "actionCorrective": {
+          "type": "string",
+          "description": "The corrective action taken."
+        },
+        "statut": {
+          "type": "string",
+          "enum": [
+            "À traiter",
+            "En cours",
+            "Résolu"
+          ],
+          "description": "The status of the follow-up."
+        },
+        "traiteLe": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the action was saved."
+        }
+      },
+      "required": [
+        "date",
+        "commentaire",
+        "actionCorrective",
+        "statut",
+        "traiteLe"
+      ]
     }
   },
   "auth": {
@@ -284,8 +345,25 @@
             }
           ]
         }
+      },
+      {
+        "path": "/suiviCommentaires/{suiviId}",
+        "definition": {
+          "entityName": "SuiviCommentaire",
+          "schema": {
+            "$ref": "#/backend/entities/SuiviCommentaire"
+          },
+          "description": "Collection for tracking actions on negative comments.",
+          "params": [
+            {
+              "name": "suiviId",
+              "description": "The unique identifier for the comment follow-up."
+            }
+          ]
+        }
       }
     ],
     "reasoning": "The Firestore structure is designed to optimize for authorization independence, scalability, and the specific query patterns described in the application requirements.  The core structure is based around top-level collections for `Entrepot`, `Depot`, and `Livreur`. The `Tournee` and `Tache` collections are structured as subcollections under `Entrepot` to maintain a logical hierarchy and to denormalize the entrepot. Since the 'tourneeId' contains composited information, we can reliably recreate the parent reference from any tache document.\n\n**Authorization Independence:** Access to `Tournee` and `Tache` documents is implicitly controlled by the top-level `Entrepot` documents, since they are structured as subcollections. Denormalization is used to avoid `get()` calls in security rules and ensure atomic operations.  Since the business rules describe the 'tourneeId' field as containing composited data (nom de la tournée + date + entrepôt), there is no need to denormalize more fields for authorization.  The composited key is the key to the tournee parent document.\n\n**QAPs Support:**\n*   List all Tournees for a given Entrepot: This is directly supported by querying the `/entrepots/{entrepotId}/tournees` collection.\n*   List all Taches for a given Entrepot and Tournee: This is directly supported by querying the `/entrepots/{entrepotId}/tournees/{tourneeId}/taches` collection.\n*   List all Entrepot: Directly supported by querying the top-level `/entrepots` collection.\n*   List all Depot: Directly supported by querying the top-level `/depots` collection.\n*   List all Livreur: Directly supported by querying the top-level `/livreurs` collection."
   }
 }
+    
