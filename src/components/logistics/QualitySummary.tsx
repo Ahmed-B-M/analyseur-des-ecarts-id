@@ -18,6 +18,11 @@ import CommentCategorizationTable, { CategorizedComment } from './CommentCategor
 import { categorizeComment, CommentCategory } from '@/lib/comment-categorization';
 import EmailGenerator from './EmailGenerator';
 import GlobalCommentView from './GlobalCommentView';
+import { Button } from '../ui/button';
+import { Loader2, Save } from 'lucide-react';
+import { useFirestore } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { batchSaveCategorizedComments, updateCategorizedComment } from '@/firebase/firestore/actions';
 
 interface QualitySummaryProps {
     data: MergedData[];
@@ -25,6 +30,10 @@ interface QualitySummaryProps {
 }
 
 const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasBeenSaved, setHasBeenSaved] = useState(false);
 
   const ratings = useMemo(() => (data || []).filter(
     (d: MergedData) => d.notation
@@ -36,7 +45,7 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
   
   const initialCategorizedComments = useMemo(() => {
     return negativeRatings.map((d, index) => ({
-        id: index,
+        id: `${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`,
         date: d.date,
         livreur: d.livreur || 'Inconnu',
         ville: d.ville,
@@ -51,15 +60,42 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
   // Reset state if the underlying data changes
   useEffect(() => {
     setCategorizedComments(initialCategorizedComments);
+    setHasBeenSaved(false); // Reset save state when data changes
   }, [initialCategorizedComments]);
 
-  const handleCategoryChange = (id: number, newCategory: CommentCategory) => {
+  const handleCategoryChange = async (id: string, newCategory: CommentCategory) => {
     setCategorizedComments(prevComments =>
       prevComments.map(comment =>
         comment.id === id ? { ...comment, category: newCategory } : comment
       )
     );
+    // If it has been saved before, update automatically
+    if (hasBeenSaved && firestore) {
+      try {
+        await updateCategorizedComment(firestore, id, newCategory);
+        toast({ title: 'Catégorie mise à jour', description: 'La modification a été enregistrée.' });
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour la catégorie.' });
+      }
+    }
   };
+
+  const handleSaveAllCategories = async () => {
+    if (!firestore) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Connexion à la base de données non disponible.' });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await batchSaveCategorizedComments(firestore, categorizedComments);
+      setHasBeenSaved(true);
+      toast({ title: 'Sauvegarde réussie', description: 'Toutes les catégories de commentaires ont été enregistrées.' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erreur de sauvegarde', description: 'Impossible d\'enregistrer les catégories.' });
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   const summaryByDepot = useMemo(() => {
     const allRatingsGrouped = ratings.reduce((acc, curr) => {
@@ -164,9 +200,8 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
       return acc;
     }, {} as Record<string, { depot: string; carrier: string; driver: string; totalRating: number; ratingCount: number }>);
 
-    const negativeRatingsGrouped = categorizedComments.reduce((acc, curr, index) => {
-      // Find the original MergedData item to get depot and carrier info
-      const originalItem = negativeRatings[curr.id];
+    const negativeRatingsGrouped = categorizedComments.reduce((acc, curr) => {
+      const originalItem = negativeRatings.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === curr.id);
       if (!originalItem) return acc;
 
       const depot = getNomDepot(originalItem.tournee?.entrepot || 'Inconnu');
@@ -251,7 +286,11 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
 
   return (
     <div className='space-y-6'>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-4">
+        <Button onClick={handleSaveAllCategories} disabled={isSaving || hasBeenSaved}>
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          {hasBeenSaved ? 'Catégories Sauvegardées' : 'Sauvegarder les Catégories'}
+        </Button>
         <EmailGenerator 
             data={data} 
             summaryByDepot={summaryByDepot}

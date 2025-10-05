@@ -29,7 +29,7 @@ import { useMemo } from 'react';
 
 // Define the shape of the comment object with its category
 export interface CategorizedComment {
-    id: number;
+    id: string;
     date: string;
     livreur: string;
     ville: string;
@@ -40,7 +40,7 @@ export interface CategorizedComment {
 
 interface CommentCategorizationTableProps {
   categorizedComments: CategorizedComment[];
-  onCategoryChange: (id: number, newCategory: CommentCategory) => void;
+  onCategoryChange: (id: string, newCategory: CommentCategory) => void;
 }
 
 const CommentCategorizationTable = ({ categorizedComments, onCategoryChange }: CommentCategorizationTableProps) => {

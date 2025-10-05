@@ -1,7 +1,7 @@
 
 'use client';
 
-import { collection, addDoc, Firestore, DocumentReference, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, Firestore, DocumentReference, updateDoc, writeBatch, doc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 
@@ -63,4 +63,48 @@ export async function updateSuiviCommentaire(
     errorEmitter.emit('permission-error', permissionError);
     throw serverError;
   }
+}
+
+export async function batchSaveCategorizedComments(
+    firestore: Firestore,
+    comments: any[],
+) {
+    const batch = writeBatch(firestore);
+    const collectionRef = collection(firestore, 'commentCategories');
+
+    comments.forEach(comment => {
+        const docRef = doc(firestore, 'commentCategories', comment.id);
+        batch.set(docRef, comment);
+    });
+
+    try {
+        await batch.commit();
+    } catch(serverError) {
+        const permissionError = new FirestorePermissionError({
+          path: collectionRef.path,
+          operation: 'write',
+          requestResourceData: comments,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw serverError;
+    }
+}
+
+export async function updateCategorizedComment(
+    firestore: Firestore,
+    commentId: string,
+    category: string
+) {
+    const docRef = doc(firestore, 'commentCategories', commentId);
+    try {
+        await updateDoc(docRef, { category });
+    } catch (serverError) {
+        const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update',
+          requestResourceData: { category },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw serverError;
+    }
 }
