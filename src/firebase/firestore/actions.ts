@@ -72,10 +72,12 @@ export async function batchSaveCategorizedComments(
     const batch = writeBatch(firestore);
     
     comments.forEach(comment => {
-        // Ensure comment.id is a non-empty string before creating a doc ref
+        // Ensure comment.id is a non-empty string and sanitize it
         if (comment && typeof comment.id === 'string' && comment.id.trim() !== '') {
-            const docRef = doc(firestore, 'commentCategories', comment.id);
-            batch.set(docRef, comment);
+            // Firestore document IDs must not contain forward slashes (/)
+            const sanitizedId = comment.id.replace(/\//g, '_');
+            const docRef = doc(firestore, 'commentCategories', sanitizedId);
+            batch.set(docRef, { ...comment, id: sanitizedId });
         } else {
             console.warn("Skipping comment with invalid ID:", comment);
         }
@@ -104,7 +106,8 @@ export async function updateCategorizedComment(
     commentId: string,
     category: string
 ) {
-    const docRef = doc(firestore, 'commentCategories', commentId);
+    const sanitizedId = commentId.replace(/\//g, '_');
+    const docRef = doc(firestore, 'commentCategories', sanitizedId);
     try {
         await updateDoc(docRef, { category });
     } catch (serverError) {
@@ -117,5 +120,3 @@ export async function updateCategorizedComment(
         throw serverError;
     }
 }
-
-    
