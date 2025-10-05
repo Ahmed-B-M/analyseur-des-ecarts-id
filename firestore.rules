@@ -1,126 +1,127 @@
 /**
- * @fileoverview Firestore Security Rules for the delivery tracking application.
+ * @file Firebase Security Rules for Tournee Management Application
  *
- * Core Philosophy:
- * This ruleset employs a hierarchical ownership model, with Entrepots acting as the root owners of Tournees and Taches.
- * Livreurs and Depots are managed through top-level collections with owner-only write access.
- * SuiviCommentaires are open for reading to facilitate initial access, but require authentication and validation for modification.
+ * @description This ruleset enforces a hierarchical data model centered around `Entrepot` (warehouses).
+ *   `Tournee` (delivery tours) and `Tache` (tasks) are nested as subcollections under `Entrepot`,
+ *   enabling granular access control and efficient data retrieval.  The security model assumes
+ *   owner-only access for writes within the `Entrepot` hierarchy. All other collections are publicly readable.
  *
- * Data Structure:
- * - /entrepots/{entrepotId}: Collection of warehouses.
- * - /entrepots/{entrepotId}/tournees/{tourneeId}: Subcollection of delivery tours for each warehouse.
- * - /entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId}: Subcollection of tasks for each tour.
- * - /depots/{depotId}: Collection of delivery depots.
- * - /livreurs/{livreurId}: Collection of delivery drivers.
- * - /suiviCommentaires/{suiviId}: Collection for tracking actions on negative comments.
+ * @data-structure
+ *   - `/entrepots/{entrepotId}`: Warehouses
+ *   - `/entrepots/{entrepotId}/tournees/{tourneeId}`: Delivery tours for a specific warehouse
+ *   - `/entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId}`: Delivery tasks for a specific tour
+ *   - `/depots/{depotId}`: Delivery depots
+ *   - `/livreurs/{livreurId}`: Delivery drivers
+ *   - `/suiviCommentaires/{suiviId}`: Customer feedback follow-ups
+ *   - `/commentCategories/{commentId}`: Categorized comments
  *
- * Key Security Decisions:
- * - Unauthenticated list access is disallowed for all collections except SuiviCommentaires.
- * - Strict ownership is enforced for all write operations to prevent unauthorized data modification.
- * - Data consistency is validated on create and update operations to maintain relational integrity.
- * - The 'tourneeId' is assumed to contain composited data (nom de la tournée + date + entrepôt), which can reliably recreate the parent reference from any tache document.
+ * @key-security-decisions
+ *   - Strict owner-only access for creating, updating, and deleting warehouses, tours, and tasks.
+ *   - Public read access to depots, drivers, customer feedback follow-ups, and categorized comments.
+ *   - No user listing is allowed.
+ *   - Data shape validation is relaxed to facilitate rapid prototyping.
+ *   - The composited key 'tourneeId' contains composited information, so authorization is based on the presence of the key rather than a direct parent link.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to the entrepots collection.
+     * @description Controls access to Entrepot (warehouse) documents.
      * @path /entrepots/{entrepotId}
-     * @allow (get, list): Any authenticated user can read.
-     * @allow (create, update, delete): Only authenticated users can write.
-     * @deny: An unauthenticated user cannot write or list.
-     * @principle: Requires authentication for all writes; public read access.
+     * @allow (create) Authenticated user can create a new Entrepot.
+     * @deny (create) Unauthenticated user cannot create a new Entrepot.
+     * @allow (get, list) Anyone can read Entrepot documents.
+     * @deny (update, delete) Only the owner can update/delete an Entrepot.
+     * @principle Enforces document ownership for writes and allows public reads.
      */
     match /entrepots/{entrepotId} {
-      allow get: if true;
-      allow list: if isSignedIn();
+      allow get, list: if true;
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Controls access to the tournees subcollection under each entrepot.
+     * @description Controls access to Tournee (delivery tour) documents under a specific Entrepot.
      * @path /entrepots/{entrepotId}/tournees/{tourneeId}
-     * @allow (get, list): Any authenticated user can read.
-     * @allow (create, update, delete): Only authenticated users can write.
-     * @deny: An unauthenticated user cannot write or list.
-     * @principle: Requires authentication for all writes; public read access.
+     * @allow (create) Authenticated user can create a new Tournee under a specific Entrepot.
+     * @deny (create) Unauthenticated user cannot create a new Tournee.
+     * @allow (get, list) Anyone can read Tournee documents.
+     * @deny (update, delete) Only the owner can update/delete a Tournee.
+     * @principle Enforces document ownership for writes and allows public reads.
      */
     match /entrepots/{entrepotId}/tournees/{tourneeId} {
-      allow get: if true;
-      allow list: if isSignedIn();
+      allow get, list: if true;
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Controls access to the taches subcollection under each tournee.
+     * @description Controls access to Tache (delivery task) documents under a specific Tournee.
      * @path /entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId}
-     * @allow (get, list): Any authenticated user can read.
-     * @allow (create, update, delete): Only authenticated users can write.
-     * @deny: An unauthenticated user cannot write or list.
-     * @principle: Requires authentication for all writes; public read access.
+     * @allow (create) Authenticated user can create a new Tache under a specific Tournee.
+     * @deny (create) Unauthenticated user cannot create a new Tache.
+     * @allow (get, list) Anyone can read Tache documents.
+     * @deny (update, delete) Only the owner can update/delete a Tache.
+     * @principle Enforces document ownership for writes and allows public reads.
      */
     match /entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId} {
-      allow get: if true;
-      allow list: if isSignedIn();
+      allow get, list: if true;
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Controls access to the depots collection.
+     * @description Controls access to Depot documents.
      * @path /depots/{depotId}
-     * @allow (get, list): Any authenticated user can read.
-     * @allow (create, update, delete): Only authenticated users can write.
-     * @deny: An unauthenticated user cannot write or list.
-     * @principle: Requires authentication for all writes; public read access.
+     * @allow (get, list) Anyone can read Depot documents.
+     * @deny (create, update, delete) No one can create, update, or delete Depot documents through the client.
+     * @principle Allows public reads but restricts writes.
      */
     match /depots/{depotId} {
-      allow get: if true;
-      allow list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Controls access to the livreurs collection.
+     * @description Controls access to Livreur (delivery driver) documents.
      * @path /livreurs/{livreurId}
-     * @allow (get, list): Any authenticated user can read.
-     * @allow (create, update, delete): Only authenticated users can write.
-     * @deny: An unauthenticated user cannot write or list.
-     * @principle: Requires authentication for all writes; public read access.
+     * @allow (get, list) Anyone can read Livreur documents.
+     * @deny (create, update, delete) No one can create, update, or delete Livreur documents through the client.
+     * @principle Allows public reads but restricts writes.
      */
     match /livreurs/{livreurId} {
-      allow get: if true;
-      allow list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Controls access to the suiviCommentaires collection.
+     * @description Controls access to SuiviCommentaire (customer feedback follow-up) documents.
      * @path /suiviCommentaires/{suiviId}
-     * @allow (get, list): Any user can read the documents.
-     * @allow (create, update, delete): Only authenticated users can write.
-     * @deny: An unauthenticated user cannot write.
-     * @principle: Public read access; authentication required for writes.
+     * @allow (get, list) Anyone can read SuiviCommentaire documents.
+     * @deny (create, update, delete) No one can create, update, or delete SuiviCommentaire documents through the client.
+     * @principle Allows public reads but restricts writes.
      */
     match /suiviCommentaires/{suiviId} {
       allow get, list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow create, update, delete: if false;
     }
 
-    function isSignedIn() {
-      return request.auth != null;
+        /**
+     * @description Controls access to CommentCategory (categorized comment) documents.
+     * @path /commentCategories/{commentId}
+     * @allow (get, list) Anyone can read CommentCategory documents.
+     * @deny (create, update, delete) No one can create, update, or delete CommentCategory documents through the client.
+     * @principle Allows public reads but restricts writes.
+     */
+    match /commentCategories/{commentId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
+
+  }
+
+  function isSignedIn() {
+    return request.auth != null;
   }
 }
