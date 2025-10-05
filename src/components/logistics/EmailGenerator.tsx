@@ -103,20 +103,36 @@ const generateEmailBody = (
             <thead>
               <tr>
                 <th>Entrepôt</th>
+                <th>Ponctualité Prév.</th>
                 <th>Ponctualité Réalisée</th>
+                <th>% Tournées Départ à l'heure / Arrivée en retard</th>
+                <th>% Tournées Départ OK / Retard Liv. &gt; 15min</th>
                 <th>Note Moyenne</th>
                 <th>% Dépassement Poids</th>
+                <th>Créneau le plus choisi</th>
                 <th>Créneau le plus en retard</th>
+                <th>Intensité Travail Planifié</th>
+                <th>Intensité Travail Réalisé</th>
+                <th>Créneau le plus intense</th>
+                <th>Créneau le moins intense</th>
               </tr>
             </thead>
             <tbody>
               ${depotStats.map(stat => `
                 <tr>
                   <td>${stat.entrepot}</td>
+                  <td>${stat.ponctualitePrev}</td>
                   <td>${stat.ponctualiteRealisee}</td>
+                  <td>${stat.tourneesPartiesHeureRetard}</td>
+                  <td>${stat.tourneesRetardAccumule}</td>
                   <td>${stat.noteMoyenne}</td>
                   <td>${stat.depassementPoids}</td>
+                  <td>${stat.creneauLePlusChoisi}</td>
                   <td>${stat.creneauLePlusEnRetard}</td>
+                  <td>${stat.intensiteTravailPlanifie}</td>
+                  <td>${stat.intensiteTravailRealise}</td>
+                  <td>${stat.creneauPlusIntense}</td>
+                  <td>${stat.creneauMoinsIntense}</td>
                 </tr>
               `).join('')}
             </tbody>
