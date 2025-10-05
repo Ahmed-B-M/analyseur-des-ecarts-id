@@ -34,12 +34,13 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
     const allSlots = new Set<string>();
     let totalEarly = 0;
     let totalLate = 0;
-    
+
     data.forEach(item => {
       if (item.heureDebutCreneau && item.heureFinCreneau && item.heureCloture) {
         const slotStart = formatSlotTime(item.heureDebutCreneau);
         const slotEnd = formatSlotTime(item.heureFinCreneau);
         if (slotStart === 'N/A' || slotEnd === 'N/A') return;
+        
         const slotLabel = `${slotStart}-${slotEnd}`;
         allSlots.add(slotLabel);
 
@@ -68,18 +69,24 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
       }
     });
 
-    const sortedHours = Object.keys(volumeByHourAndSlot).sort();
     const sortedSlots = Array.from(allSlots).sort();
+    
+    // Create a map for all hours present in the data to ensure they are all processed
+    const allHours = Object.keys(volumeByHourAndSlot);
 
-    const finalChartData = sortedHours.map(hour => {
-      const entry: { [key: string]: string | number } = { hour };
-      sortedSlots.forEach(slot => {
-        const slotData = volumeByHourAndSlot[hour]?.[slot] || { onTime: 0, offTime: 0 };
-        entry[`${slot}-onTime`] = slotData.onTime;
-        entry[`${slot}-offTime`] = slotData.offTime;
-      });
-      return entry;
-    });
+    const finalChartData = allHours.map(hour => {
+        const hourData = volumeByHourAndSlot[hour];
+        const chartEntry: { [key: string]: string | number } = { hour };
+
+        sortedSlots.forEach(slot => {
+            const slotData = hourData[slot] || { onTime: 0, offTime: 0 };
+            chartEntry[`${slot}-onTime`] = slotData.onTime;
+            chartEntry[`${slot}-offTime`] = slotData.offTime;
+        });
+        
+        return chartEntry;
+    }).sort((a,b) => String(a.hour).localeCompare(String(b.hour)));
+
 
     return { chartData: finalChartData, slots: sortedSlots, totalEarly, totalLate };
   }, [data]);
