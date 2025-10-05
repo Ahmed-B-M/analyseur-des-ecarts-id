@@ -223,11 +223,10 @@ export default function DashboardTabs({
                 <DetailedDataView data={filteredData} />
             </TabsContent>
             <TabsContent value="rdp" className="mt-6 space-y-6">
+                <DeliveryVolumeChart data={filteredData} />
                 <HotZonesChart data={chartData} />
                 <DepotAnalysisTable data={analysisData.depotStats} />
                 <PostalCodeTable data={analysisData.postalCodeStats} />
-                <SlotAnalysisChart data={filteredData} />
-                <DeliveryVolumeChart data={filteredData} />
             </TabsContent>
             <TabsContent value="settings" className="mt-6">
                 <DepotConfigurator />
