@@ -210,6 +210,8 @@ export default function DashboardTabs({
                     processedActions={existingSuivis || []} 
                     savedCategorizedComments={savedCategorizedComments || []} 
                     uncategorizedCommentsForSummary={uncategorizedCommentsForSummary}
+                    warehouseStats={analysisData.warehouseStats}
+                    postalCodeStats={analysisData.postalCodeStats}
                 />
             </TabsContent>
             <TabsContent value="data" className="mt-6">

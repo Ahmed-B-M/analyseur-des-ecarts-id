@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MergedData, SuiviCommentaire } from '@/lib/types';
+import { MergedData, SuiviCommentaire, DepotStats, PostalCodeStats } from '@/lib/types';
 import { useMemo } from 'react';
 import { getCarrierFromDriverName, getNomDepot } from '@/lib/utils';
 import { CommentCategory } from '@/lib/comment-categorization';
@@ -24,9 +24,11 @@ interface QualitySummaryProps {
     processedActions: SuiviCommentaire[];
     savedCategorizedComments: CategorizedComment[];
     uncategorizedCommentsForSummary: any[];
+    warehouseStats: DepotStats[];
+    postalCodeStats: PostalCodeStats[];
 }
 
-const QualitySummary = ({ data, processedActions, savedCategorizedComments, uncategorizedCommentsForSummary }: QualitySummaryProps) => {
+const QualitySummary = ({ data, processedActions, savedCategorizedComments, uncategorizedCommentsForSummary, warehouseStats, postalCodeStats }: QualitySummaryProps) => {
 
   const ratings = useMemo(() => (data || []).filter(
     (d: MergedData) => d.notation
@@ -229,7 +231,17 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
   return (
     <div className='space-y-6'>
-      
+      <div className="flex justify-end">
+        <EmailGenerator 
+          warehouseStats={warehouseStats}
+          postalCodeStats={postalCodeStats}
+          globalCommentData={{
+              processedActions: processedActions || [],
+              categorizedComments: allCommentsForSummary || []
+          }}
+        />
+      </div>
+
       <GlobalCommentView 
         data={data}
         processedActions={processedActions}
