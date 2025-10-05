@@ -23,13 +23,18 @@ interface QualitySummaryProps {
     data: MergedData[];
     processedActions: SuiviCommentaire[];
     categorizedComments: CategorizedComment[];
+    uncategorizedComments: any[];
 }
 
-const QualitySummary = ({ data, processedActions, categorizedComments }: QualitySummaryProps) => {
+const QualitySummary = ({ data, processedActions, categorizedComments, uncategorizedComments }: QualitySummaryProps) => {
 
   const ratings = useMemo(() => (data || []).filter(
     (d: MergedData) => d.notation
   ), [data]);
+
+  const allCommentsForSummary = useMemo(() => {
+    return [...categorizedComments, ...uncategorizedComments];
+  }, [categorizedComments, uncategorizedComments]);
   
   const summaryByDepot = useMemo(() => {
     const allRatingsGrouped = ratings.reduce((acc, curr) => {
@@ -42,7 +47,7 @@ const QualitySummary = ({ data, processedActions, categorizedComments }: Quality
       return acc;
     }, {} as Record<string, { totalRating: number; ratingCount: number }>);
 
-    const negativeRatingsGrouped = categorizedComments.reduce((acc, curr) => {
+    const negativeRatingsGrouped = allCommentsForSummary.reduce((acc, curr) => {
       const originalItem = data.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === curr.id);
       if (!originalItem) return acc;
       const depot = getNomDepot(originalItem.tournee?.entrepot || 'Inconnu');
@@ -74,7 +79,7 @@ const QualitySummary = ({ data, processedActions, categorizedComments }: Quality
     return combined
       .filter(item => item.negativeRatingsCount > 0)
       .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-  }, [ratings, categorizedComments, data]);
+  }, [ratings, allCommentsForSummary, data]);
 
   const summaryByCarrier = useMemo(() => {
     const allRatingsGrouped = ratings.reduce((acc, curr) => {
@@ -87,7 +92,7 @@ const QualitySummary = ({ data, processedActions, categorizedComments }: Quality
       return acc;
     }, {} as Record<string, { depot: string; carrier: string; totalRating: number; ratingCount: number }>);
 
-    const negativeRatingsGrouped = categorizedComments.reduce((acc, curr) => {
+    const negativeRatingsGrouped = allCommentsForSummary.reduce((acc, curr) => {
        const originalItem = data.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === curr.id);
       if (!originalItem) return acc;
       const key = `${getNomDepot(originalItem.tournee?.entrepot || 'Inconnu')} | ${getCarrierFromDriverName(originalItem.livreur || '') || 'Inconnu'}`;
@@ -120,7 +125,7 @@ const QualitySummary = ({ data, processedActions, categorizedComments }: Quality
     return combined
       .filter(item => item.negativeRatingsCount > 0)
       .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-  }, [ratings, categorizedComments, data]);
+  }, [ratings, allCommentsForSummary, data]);
 
 
   const summaryByDriver = useMemo(() => {
@@ -138,7 +143,7 @@ const QualitySummary = ({ data, processedActions, categorizedComments }: Quality
       return acc;
     }, {} as Record<string, { depot: string; carrier: string; driver: string; totalRating: number; ratingCount: number }>);
 
-    const negativeRatingsGrouped = categorizedComments.reduce((acc, curr) => {
+    const negativeRatingsGrouped = allCommentsForSummary.reduce((acc, curr) => {
       const originalItem = data.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === curr.id);
       if (!originalItem) return acc;
 
@@ -188,7 +193,7 @@ const QualitySummary = ({ data, processedActions, categorizedComments }: Quality
         if (a.driver > b.driver) return 1;
         return 0;
     });
-  }, [ratings, categorizedComments, data]);
+  }, [ratings, allCommentsForSummary, data]);
   
   const unassignedDrivers = useMemo(() => {
     const drivers = data.reduce((acc, curr) => {
@@ -209,14 +214,14 @@ const QualitySummary = ({ data, processedActions, categorizedComments }: Quality
     }));
   }, [data]);
 
-  if (categorizedComments.length === 0) {
+  if (allCommentsForSummary.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Analyse de la Qualité</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">Aucun commentaire catégorisé à afficher pour la sélection actuelle. Allez dans l'onglet "Catégoriser Avis" pour commencer.</p>
+          <p className="text-muted-foreground">Aucun commentaire négatif à afficher pour la sélection actuelle. Allez dans l'onglet "Catégoriser Avis" pour commencer.</p>
         </CardContent>
       </Card>
     );
@@ -237,7 +242,7 @@ const QualitySummary = ({ data, processedActions, categorizedComments }: Quality
       <GlobalCommentView 
         data={data}
         processedActions={processedActions}
-        categorizedComments={categorizedComments}
+        categorizedComments={allCommentsForSummary}
       />
 
       <Card>

@@ -30,6 +30,7 @@ import { collection } from 'firebase/firestore';
 import type { SuiviCommentaireWithId } from './ActionFollowUpView';
 import { CategorizedComment } from './CommentCategorizationTable';
 import CommentCategorizationView from './CommentCategorizationView';
+import { categorizeComment } from '@/lib/comment-categorization';
 
 
 interface DashboardTabsProps {
@@ -90,12 +91,25 @@ export default function DashboardTabs({
     }, [filteredData, processedCommentIds, isLoadingSuivis]);
     
     const uncategorizedCommentsCount = useMemo(() => {
-        if (isLoadingCategories) return 0;
-        const savedIds = new Set(savedCategorizedComments?.map(c => c.id) || []);
+        if (isLoadingCategories || !savedCategorizedComments) return filteredData.filter(d => d.notation != null && d.notation <= 3 && d.commentaire).length;
+        const savedIds = new Set(savedCategorizedComments.map(c => c.id));
         return filteredData.filter(d => 
             d.notation != null && d.notation <= 3 && d.commentaire && !savedIds.has(`${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`)
         ).length;
     }, [filteredData, savedCategorizedComments, isLoadingCategories]);
+
+    const uncategorizedCommentsForSummary = useMemo(() => {
+        if (isLoadingCategories) return [];
+        const savedIds = new Set(savedCategorizedComments?.map(c => c.id) || []);
+        return filteredData
+            .filter(d => d.notation != null && d.notation <= 3 && d.commentaire && !savedIds.has(`${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`))
+            .map(item => ({
+                id: `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`,
+                comment: item.commentaire!,
+                category: categorizeComment(item.commentaire),
+            }));
+    }, [filteredData, savedCategorizedComments, isLoadingCategories]);
+
 
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -132,7 +146,11 @@ export default function DashboardTabs({
                 <ActionFollowUpView />
             </TabsContent>
             <TabsContent value="reportRD" className="mt-6 space-y-6">
-                <GlobalCommentView data={filteredData} processedActions={existingSuivis || []} categorizedComments={savedCategorizedComments || []} />
+                <GlobalCommentView 
+                    data={filteredData} 
+                    processedActions={existingSuivis || []} 
+                    categorizedComments={[...(savedCategorizedComments || []), ...uncategorizedCommentsForSummary]} 
+                />
                 <HotZonesChart data={chartData} />
                 <DepotAnalysisTable data={analysisData.warehouseStats} />
                 <PostalCodeTable data={analysisData.postalCodeStats} />
@@ -172,7 +190,12 @@ export default function DashboardTabs({
                 <NegativeRatingsSummary data={filteredData} />
             </TabsContent>
             <TabsContent value="quality" className="mt-6">
-                <QualitySummary data={filteredData} processedActions={existingSuivis || []} categorizedComments={savedCategorizedComments || []} />
+                <QualitySummary 
+                    data={filteredData} 
+                    processedActions={existingSuivis || []} 
+                    categorizedComments={savedCategorizedComments || []} 
+                    uncategorizedComments={uncategorizedCommentsForSummary}
+                />
             </TabsContent>
             <TabsContent value="calendar" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

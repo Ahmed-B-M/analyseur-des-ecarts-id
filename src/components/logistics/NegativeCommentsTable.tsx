@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { ArrowUpDown, ChevronLeft, ChevronRight, MessageCircleWarning, Info, Save } from 'lucide-react';
@@ -34,6 +34,11 @@ function CommentsList({ commentsToCategorize, onSave }: { commentsToCategorize: 
     const [categorizedComments, setCategorizedComments] = useState<CommentToCategorize[]>(commentsToCategorize);
     const { toast } = useToast();
 
+    useEffect(() => {
+        setCategorizedComments(commentsToCategorize);
+    }, [commentsToCategorize]);
+
+
     const sortedData = useMemo(() => {
         if (!sortConfig) return categorizedComments;
         return [...categorizedComments].sort((a, b) => {
@@ -53,7 +58,7 @@ function CommentsList({ commentsToCategorize, onSave }: { commentsToCategorize: 
         const commentToSave = categorizedComments.find(c => c.id === commentId);
         if (commentToSave) {
             onSave([commentToSave]);
-            setCategorizedComments(prev => prev.filter(c => c.id !== commentId));
+            // The parent component will re-render and filter out the saved comment
             toast({ title: "Commentaire sauvegardé", description: "La catégorie a été enregistrée." });
         }
     };
