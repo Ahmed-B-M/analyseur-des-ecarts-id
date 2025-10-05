@@ -11,9 +11,8 @@ interface DeliveryVolumeChartProps {
   data: MergedData[];
 }
 
-// Helper function to format seconds into a slot label like "08h-10h"
 const getSlotLabel = (startSeconds: number, endSeconds: number): string => {
-    if (isNaN(startSeconds) || isNaN(endSeconds)) return 'N/A';
+    if (isNaN(startSeconds) || isNaN(endSeconds) || startSeconds < 0 || endSeconds < 0) return 'N/A';
     const startDate = new Date(startSeconds * 1000);
     const endDate = new Date(endSeconds * 1000);
     const startHour = startDate.getUTCHours();
@@ -21,7 +20,6 @@ const getSlotLabel = (startSeconds: number, endSeconds: number): string => {
     if (isNaN(startHour) || isNaN(endHour)) return 'N/A';
     return `${String(startHour).padStart(2, '0')}h-${String(endHour).padStart(2, '0')}h`;
 };
-
 
 // Generate a color palette for the chart
 const COLORS = [
@@ -32,84 +30,91 @@ const COLORS = [
 export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) {
 
   const { chartData, slots, totalEarly, totalLate } = useMemo(() => {
-    const volumeByHourAndSlot: Record<string, Record<string, { onTime: number; offTime: number }>> = {};
-    const allSlots = new Set<string>();
+    if (!data || data.length === 0) {
+      return { chartData: [], slots: [], totalEarly: 0, totalLate: 0 };
+    }
+
     let totalEarly = 0;
     let totalLate = 0;
-    
-    // First, find all unique hours present in closure times to build the X-axis
-    const allHours = new Set<string>();
-    data.forEach(item => {
-        if(item.heureCloture) {
-            const deliveryHour = new Date(item.heureCloture * 1000).getUTCHours();
-            if (!isNaN(deliveryHour)) {
-                allHours.add(`${String(deliveryHour).padStart(2, '0')}h`);
-            }
-        }
-    });
-    const sortedHours = Array.from(allHours).sort();
 
-    // Initialize the main data structure
-    sortedHours.forEach(hour => {
-        volumeByHourAndSlot[hour] = {};
-    });
-
+    // 1. Find all unique slots and create a sorted list
+    const slotSet = new Set<string>();
     data.forEach(item => {
-      if (item.heureDebutCreneau && item.heureFinCreneau && item.heureCloture) {
-        
+      if (item.heureDebutCreneau && item.heureFinCreneau) {
         const slotLabel = getSlotLabel(item.heureDebutCreneau, item.heureFinCreneau);
-        if (slotLabel === 'N/A') return;
-        allSlots.add(slotLabel);
-
-        const deliveryHour = new Date(item.heureCloture * 1000).getUTCHours();
-        if (isNaN(deliveryHour)) return;
-        const deliveryHourLabel = `${String(deliveryHour).padStart(2, '0')}h`;
-        
-        // Ensure the hour exists in our structure
-        if (!volumeByHourAndSlot[deliveryHourLabel]) {
-          return; // Skip if hour is outside our sorted range
-        }
-
-        // Initialize slot if not present for this hour
-        if (!volumeByHourAndSlot[deliveryHourLabel][slotLabel]) {
-          volumeByHourAndSlot[deliveryHourLabel][slotLabel] = { onTime: 0, offTime: 0 };
-        }
-
-        const isLate = item.retardStatus === 'late';
-        const isEarly = item.retardStatus === 'early';
-
-        if (isLate) totalLate++;
-        if (isEarly) totalEarly++;
-
-        if (isLate || isEarly) {
-          volumeByHourAndSlot[deliveryHourLabel][slotLabel].offTime++;
-        } else {
-          volumeByHourAndSlot[deliveryHourLabel][slotLabel].onTime++;
+        if (slotLabel !== 'N/A') {
+          slotSet.add(slotLabel);
         }
       }
     });
-
-    const sortedSlots = Array.from(allSlots).sort();
+    const sortedSlots = Array.from(slotSet).sort();
     
-    // Convert the aggregated data into the format Recharts expects
-    const finalChartData = sortedHours.map(hour => {
-        const hourData = volumeByHourAndSlot[hour];
-        const chartEntry: { [key: string]: string | number } = { hour };
-
+    // 2. Initialize hourly buckets from 6am to 10pm
+    const hourlyBuckets: Record<string, any> = {};
+    for (let i = 6; i < 23; i++) {
+        const hourLabel = `${String(i).padStart(2, '0')}h`;
+        hourlyBuckets[hourLabel] = { hour: hourLabel };
         sortedSlots.forEach(slot => {
-            const slotData = hourData[slot] || { onTime: 0, offTime: 0 };
-            chartEntry[`${slot}-onTime`] = slotData.onTime;
-            chartEntry[`${slot}-offTime`] = slotData.offTime;
+            hourlyBuckets[hourLabel][`${slot}-onTime`] = 0;
+            hourlyBuckets[hourLabel][`${slot}-offTime`] = 0;
         });
-        
-        return chartEntry;
+    }
+
+    // 3. Populate the buckets
+    data.forEach(item => {
+        if (!item.heureCloture || !item.heureDebutCreneau || !item.heureFinCreneau) {
+            return;
+        }
+
+        const slotLabel = getSlotLabel(item.heureDebutCreneau, item.heureFinCreneau);
+        if (slotLabel === 'N/A' || !sortedSlots.includes(slotLabel)) {
+            return;
+        }
+
+        const closureDate = new Date(item.heureCloture * 1000);
+        const closureHour = closureDate.getUTCHours();
+        const closureHourLabel = `${String(closureHour).padStart(2, '0')}h`;
+
+        // Find the correct bucket
+        const bucket = hourlyBuckets[closureHourLabel];
+        if (bucket) {
+            const isLate = item.retardStatus === 'late';
+            const isEarly = item.retardStatus === 'early';
+            
+            if (isLate) totalLate++;
+            if (isEarly) totalEarly++;
+
+            if (isLate || isEarly) {
+                bucket[`${slotLabel}-offTime`]++;
+            } else {
+                bucket[`${slotLabel}-onTime`]++;
+            }
+        }
+    });
+    
+    // 4. Convert to array and filter out empty hours
+    const finalChartData = Object.values(hourlyBuckets).filter(bucket => {
+        // Check if this hour has any data at all
+        return sortedSlots.some(slot => bucket[`${slot}-onTime`] > 0 || bucket[`${slot}-offTime`] > 0);
     });
 
     return { chartData: finalChartData, slots: sortedSlots, totalEarly, totalLate };
   }, [data]);
 
   if (!chartData.length) {
-    return null;
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Volume de Clôtures par Heure et Créneau</CardTitle>
+                 <CardDescription>
+                    Aucune donnée de clôture disponible pour la sélection actuelle.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center text-muted-foreground p-8">
+                <p>Veuillez ajuster les filtres ou vérifier les données importées.</p>
+            </CardContent>
+        </Card>
+    );
   }
 
   return (
