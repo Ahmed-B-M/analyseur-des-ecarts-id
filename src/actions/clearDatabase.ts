@@ -1,6 +1,6 @@
 'use server';
 
-import { initializeApp, getApps, App, cert, applicationDefault } from 'firebase-admin/app';
+import { initializeApp, getApps, App, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 // Initialize Firebase Admin SDK
