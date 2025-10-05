@@ -13,11 +13,21 @@ import DashboardTabs from './DashboardTabs';
 
 export default function Dashboard() {
   const { state, dispatch } = useLogistics();
-  const { analysisData, rawData, filteredData } = state;
+  const { analysisData, rawData, filteredData, tourneesFiles, tachesFiles } = state;
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  const handleSetFile = (fileType: 'tournees' | 'taches', file: File | null) => {
-    dispatch({ type: 'SET_FILE', fileType, file });
+  const handleSetFiles = (fileType: 'tournees' | 'taches', files: File[]) => {
+    dispatch({ type: 'ADD_FILES', fileType, files });
+  };
+  
+  const handleRemoveFile = (fileType: 'tournees' | 'taches', fileName: string) => {
+    dispatch({ type: 'REMOVE_FILE', fileType, fileName });
+  };
+
+  const handleAnalyse = () => {
+    if (tourneesFiles.length > 0 && tachesFiles.length > 0) {
+      dispatch({ type: 'START_PROCESSING' });
+    }
   };
   
   const setFilters = useCallback((newFilters: Record<string, any>) => {
@@ -61,25 +71,33 @@ export default function Dashboard() {
       <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
         {!rawData && (
           <div className="max-w-4xl mx-auto space-y-8">
-            <div className="grid md:grid-cols-2 gap-8">
+            <div className="grid md:grid-cols-2 gap-8 h-64">
                 <FileUpload
-                title="1. Fichier Tournées"
-                onFileSelect={(file) => handleSetFile('tournees', file)}
-                file={state.tourneesFile}
+                title="1. Fichiers Tournées"
+                onFilesSelect={(files) => handleSetFiles('tournees', files)}
+                onFileRemove={(fileName) => handleRemoveFile('tournees', fileName)}
+                files={state.tourneesFiles}
                 />
                 <FileUpload
-                title="2. Fichier Tâches"
-                onFileSelect={(file) => handleSetFile('taches', file)}
-                file={state.tachesFile}
+                title="2. Fichiers Tâches"
+                onFilesSelect={(files) => handleSetFiles('taches', files)}
+                onFileRemove={(fileName) => handleRemoveFile('taches', fileName)}
+                files={state.tachesFiles}
                 />
             </div>
              <div className="flex flex-col items-center gap-4">
-                {state.isLoading && (
-                    <div className="flex items-center gap-2 text-primary">
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Traitement des données en cours...
-                    </div>
-                )}
+                <Button 
+                    onClick={handleAnalyse} 
+                    disabled={state.isLoading || state.tourneesFiles.length === 0 || state.tachesFiles.length === 0}
+                    size="lg"
+                >
+                    {state.isLoading ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Analyse en cours...
+                        </>
+                    ) : 'Lancer l\'Analyse'}
+                </Button>
                 {state.error && (
                 <div className="md:col-span-2 flex items-center gap-2 text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                     <AlertCircle className="h-5 w-5" />

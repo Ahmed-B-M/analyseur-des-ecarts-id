@@ -7,13 +7,12 @@ import { analyzeData } from '@/lib/dataAnalyzer';
 import { DateRange } from 'react-day-picker';
 import { getNomDepot } from '@/lib/config-depots';
 import { getCarrierFromDriverName } from '@/lib/utils';
-// import { saveUploadedData } from '@/actions/saveData'; // No longer needed
 import { toast } from '@/hooks/use-toast';
 
 // 1. State & Action Types
 type State = {
-  tourneesFile: File | null;
-  tachesFile: File | null;
+  tourneesFiles: File[];
+  tachesFiles: File[];
   isLoading: boolean;
   isSaving: boolean;
   error: string | null;
@@ -24,20 +23,18 @@ type State = {
 };
 
 type Action =
-  | { type: 'SET_FILE'; fileType: 'tournees' | 'taches'; file: File | null }
+  | { type: 'ADD_FILES'; fileType: 'tournees' | 'taches'; files: File[] }
+  | { type: 'REMOVE_FILE'; fileType: 'tournees' | 'taches'; fileName: string }
   | { type: 'START_PROCESSING' }
   | { type: 'PROCESSING_SUCCESS'; data: { tournees: any[], taches: any[] } }
   | { type: 'PROCESSING_ERROR'; error: string }
   | { type: 'SET_FILTERS'; filters: Record<string, any> }
-  | { type: 'RESET' }
-  | { type: 'START_SAVING' }
-  | { type: 'SAVING_SUCCESS' }
-  | { type: 'SAVING_ERROR', error: string };
+  | { type: 'RESET' };
 
 // 2. Initial State
 const initialState: State = {
-  tourneesFile: null,
-  tachesFile: null,
+  tourneesFiles: [],
+  tachesFiles: [],
   isLoading: false,
   isSaving: false,
   error: null,
@@ -56,8 +53,14 @@ const initialState: State = {
 // 3. Reducer
 function logisticsReducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'SET_FILE':
-      return { ...state, [`${action.fileType}File`]: action.file, error: null };
+    case 'ADD_FILES':
+      const fileKey = action.fileType === 'tournees' ? 'tourneesFiles' : 'tachesFiles';
+      const existingFiles = new Set(state[fileKey].map(f => f.name));
+      const newFiles = action.files.filter(f => !existingFiles.has(f.name));
+      return { ...state, [fileKey]: [...state[fileKey], ...newFiles] };
+    case 'REMOVE_FILE':
+      const filesKey = action.fileType === 'tournees' ? 'tourneesFiles' : 'tachesFiles';
+      return { ...state, [filesKey]: state[filesKey].filter(f => f.name !== action.fileName) };
     case 'START_PROCESSING':
       return { ...state, isLoading: true, error: null };
     case 'PROCESSING_SUCCESS':
@@ -92,13 +95,6 @@ function logisticsReducer(state: State, action: Action): State {
       return { ...state, filters: action.filters };
     case 'RESET':
       return { ...initialState };
-    // Saving actions are kept for potential future use or other save operations, but are not dispatched from the context anymore
-    case 'START_SAVING':
-        return { ...state, isSaving: true, error: null };
-    case 'SAVING_SUCCESS':
-        return { ...state, isSaving: false };
-    case 'SAVING_ERROR':
-        return { ...state, isSaving: false, error: action.error };
     default:
       return state;
   }
@@ -125,7 +121,6 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
       const { type, data, error } = event.data;
       if (type === 'success') {
         dispatch({ type: 'PROCESSING_SUCCESS', data });
-        // The automatic saving logic has been removed from here.
         toast({ title: "Analyse terminée", description: "Les données des fichiers ont été chargées avec succès." });
 
       } else {
@@ -140,15 +135,15 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
     return () => newWorker.terminate();
   }, []);
   
+  // This effect is now just for listening to the processing start
   useEffect(() => {
-    if (internalState.tourneesFile && internalState.tachesFile && worker && !internalState.rawData && !internalState.isLoading) {
-      dispatch({ type: 'START_PROCESSING' });
+    if (internalState.isLoading && worker && internalState.tourneesFiles.length > 0 && internalState.tachesFiles.length > 0) {
       worker.postMessage({
-        tourneesFile: internalState.tourneesFile,
-        tachesFile: internalState.tachesFile
+        tourneesFiles: internalState.tourneesFiles,
+        tachesFiles: internalState.tachesFiles
       });
     }
-  }, [internalState.tourneesFile, internalState.tachesFile, internalState.rawData, internalState.isLoading, worker]);
+  }, [internalState.isLoading, internalState.tourneesFiles, internalState.tachesFiles, worker]);
 
   const state = useMemo(() => {
       if (!internalState.rawData) {

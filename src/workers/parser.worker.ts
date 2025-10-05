@@ -143,7 +143,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
         const aliases = headerAliases[fileType][h];
         return aliases && aliases.length > 0 ? `'${aliases[0]}'` : h;
       }).join('; ');
-      throw new Error(`En-têtes obligatoires manquants dans le fichier ${fileType}: ${missingMandatoryHeaders.join(', ')}. Exemples attendus: ${aliasExamples}.`);
+      throw new Error(`En-têtes obligatoires manquants dans un fichier ${fileType}: ${missingMandatoryHeaders.join(', ')}. Exemples attendus: ${aliasExamples}.`);
   }
 
   const numericKeys = [
@@ -241,30 +241,23 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
 
 self.addEventListener('message', async (event: MessageEvent) => {
   try {
-    const { tourneesFile, tachesFile } = event.data;
+    const { tourneesFiles, tachesFiles } = event.data;
 
-    const [tourneesBuffer, tachesBuffer] = await Promise.all([
-      tourneesFile.arrayBuffer(),
-      tachesFile.arrayBuffer()
-    ]);
-    
-    const tourneesWb = XLSX.read(tourneesBuffer, { type: 'buffer' });
-    const tachesWb = XLSX.read(tachesBuffer, { type: 'buffer' });
+    const allTournees: any[] = [];
+    for (const file of tourneesFiles) {
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'buffer' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+        allTournees.push(...normalizeData(json, 'tournees'));
+    }
 
-    const tourneesSheet = tourneesWb.Sheets[tourneesWb.SheetNames[0]];
-    const tachesSheet = tachesWb.Sheets[tachesWb.SheetNames[0]];
-
-    const tourneesJson = XLSX.utils.sheet_to_json(tourneesSheet, { header: 1, defval: null });
-    const tachesJson = XLSX.utils.sheet_to_json(tachesSheet, { header: 1, defval: null });
-
-    const rawTournees = normalizeData(tourneesJson, 'tournees');
-    
-    if (rawTournees.length === 0) {
-        throw new Error("Aucune donnée de tournée n'a pu être lue. Vérifiez le fichier des tournées et ses en-têtes.");
+    if (allTournees.length === 0) {
+        throw new Error("Aucune donnée de tournée valide n'a pu être lue dans les fichiers fournis.");
     }
     
     const tourneeStartTimes = new Map<string, number>();
-    const tournees: Tournee[] = rawTournees.map((t: any) => {
+    const tournees: Tournee[] = allTournees.map((t: any) => {
       const uniqueId = `${t.nom}|${t.date}|${t.entrepot}`;
       const startTime = t.heureDepartReelle || t.demarre || t.heureDepartPrevue;
       tourneeStartTimes.set(uniqueId, startTime);
@@ -274,14 +267,22 @@ self.addEventListener('message', async (event: MessageEvent) => {
         heureDepartReelle: startTime
       };
     });
+    
+    const allTaches: any[] = [];
+    for (const file of tachesFiles) {
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'buffer' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+        allTaches.push(...normalizeData(json, 'taches', tourneeStartTimes));
+    }
 
-    const rawTaches = normalizeData(tachesJson, 'taches', tourneeStartTimes);
 
-    if (rawTaches.length === 0) {
-        throw new Error("Aucune donnée de tâche n'a pu être lue. Vérifiez le fichier des tâches et ses en-têtes.");
+    if (allTaches.length === 0) {
+        throw new Error("Aucune donnée de tâche valide n'a pu être lue dans les fichiers fournis.");
     }
     
-    const taches: Tache[] = rawTaches.map((t: any) => ({
+    const taches: Tache[] = allTaches.map((t: any) => ({
       ...t,
       tourneeUniqueId: `${t.nomTournee}|${t.date}|${t.entrepot}`
     }));
