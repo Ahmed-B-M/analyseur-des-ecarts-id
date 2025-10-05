@@ -24,9 +24,13 @@ import { Button } from '../ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
 import { getNomDepot } from '@/lib/utils';
 import { commentCategories, type CommentCategory } from '@/lib/comment-categorization';
-
+import { CategorizedComment } from './CommentCategorizationTable';
 
 export type SuiviCommentaireWithId = SuiviCommentaire & { id: string };
+
+// Sanitize an ID the same way as when saving
+const sanitizeId = (id: string) => id.replace(/[^a-zA-Z0-9-]/g, '_');
+
 
 const ActionFollowUpView = () => {
     const firestore = useFirestore();
@@ -39,8 +43,19 @@ const ActionFollowUpView = () => {
         return collection(firestore, 'suiviCommentaires');
     }, [firestore]);
 
+    const categorizedCommentsCollectionRef = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, 'commentCategories');
+    }, [firestore]);
 
-    const { data: suivis, isLoading, error } = useCollection<SuiviCommentaireWithId>(suiviCollectionRef);
+
+    const { data: suivis, isLoading: isLoadingSuivis, error: errorSuivis } = useCollection<SuiviCommentaireWithId>(suiviCollectionRef);
+    const { data: savedCategorizedComments, isLoading: isLoadingCategories, error: errorCategories } = useCollection<CategorizedComment>(categorizedCommentsCollectionRef);
+
+    const categorizedCommentsMap = useMemo(() => {
+        if (!savedCategorizedComments) return new Map();
+        return new Map(savedCategorizedComments.map(c => [sanitizeId(c.id), c.category]));
+    }, [savedCategorizedComments]);
 
      useEffect(() => {
         if (suivis) {
@@ -117,7 +132,7 @@ const ActionFollowUpView = () => {
     }, [suivis]);
 
 
-    if (isLoading) {
+    if (isLoadingSuivis || isLoadingCategories) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
                 <Loader2 className="w-12 h-12 animate-spin text-primary"/>
@@ -126,12 +141,12 @@ const ActionFollowUpView = () => {
         );
     }
 
-    if (error) {
+    if (errorSuivis || errorCategories) {
         return (
              <div className="flex flex-col items-center justify-center min-h-[400px] text-destructive">
                 <AlertCircle className="w-12 h-12 mb-4" />
                 <h3 className="text-xl font-bold">Erreur de chargement</h3>
-                <p className="text-center">Impossible de charger les données depuis Firestore.<br/> Assurez-vous que les règles de sécurité autorisent la lecture de la collection 'suiviCommentaires'.</p>
+                <p className="text-center">Impossible de charger les données depuis Firestore.<br/> Assurez-vous que les règles de sécurité autorisent la lecture des collections 'suiviCommentaires' et 'commentCategories'.</p>
             </div>
         )
     }
@@ -168,7 +183,12 @@ const ActionFollowUpView = () => {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                sortedSuivis.map((suivi) => (
+                                sortedSuivis.map((suivi) => {
+                                    const commentId = `${suivi.nomTournee}|${suivi.date}|${suivi.entrepot}-${suivi.sequence}`;
+                                    const sanitizedCommentId = sanitizeId(commentId);
+                                    const finalCategory = categorizedCommentsMap.get(sanitizedCommentId) || suivi.categorie;
+
+                                    return (
                                     <TableRow key={suivi.id}>
                                         <TableCell>{new Date(suivi.traiteLe).toLocaleDateString('fr-FR')}</TableCell>
                                         <TableCell>{suivi.date}</TableCell>
@@ -177,7 +197,7 @@ const ActionFollowUpView = () => {
                                         <TableCell className="max-w-xs truncate">{suivi.commentaire}</TableCell>
                                         <TableCell>
                                              <Select 
-                                                value={suivi.categorie} 
+                                                value={finalCategory} 
                                                 onValueChange={(newCategory: CommentCategory) => handleCategoryChange(suivi.id, newCategory)}
                                             >
                                                 <SelectTrigger className="w-48">
@@ -242,7 +262,7 @@ const ActionFollowUpView = () => {
                                             </AlertDialog>
                                         </TableCell>
                                     </TableRow>
-                                ))
+                                )})
                             )}
                         </TableBody>
                     </Table>

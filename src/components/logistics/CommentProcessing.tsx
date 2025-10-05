@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,6 +14,7 @@ import { collection, doc } from 'firebase/firestore';
 import { useMemoFirebase } from '@/firebase/provider';
 import type { SuiviCommentaireWithId } from './ActionFollowUpView';
 import { Loader2 } from 'lucide-react';
+import type { CategorizedComment } from './CommentCategorizationTable';
 
 interface Comment {
   id: string;
@@ -31,7 +32,11 @@ interface CommentProcessingProps {
     data: MergedData[];
 }
 
-const CommentProcessing: React.FC<CommentProcessingProps> = ({ data }) => {
+// Sanitize an ID the same way as when saving
+const sanitizeId = (id: string) => id.replace(/[^a-zA-Z0-9-]/g, '_');
+
+
+const CommentProcessing = ({ data }: CommentProcessingProps) => {
   const [commentsToProcess, setCommentsToProcess] = useState<Comment[]>([]);
   const { toast } = useToast();
   const firestore = useFirestore();
@@ -41,35 +46,54 @@ const CommentProcessing: React.FC<CommentProcessingProps> = ({ data }) => {
     return collection(firestore, 'suiviCommentaires');
   }, [firestore]);
 
+  const categorizedCommentsCollectionRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'commentCategories');
+  }, [firestore]);
+
+
   const { data: existingSuivis, isLoading: isLoadingSuivis } = useCollection<SuiviCommentaireWithId>(suiviCollectionRef);
+  const { data: savedCategorizedComments, isLoading: isLoadingCategories } = useCollection<CategorizedComment>(categorizedCommentsCollectionRef);
+
 
   const processedCommentIds = useMemo(() => {
       if (!existingSuivis) return new Set();
       return new Set(existingSuivis.map(s => `${s.nomTournee}|${s.date}|${s.entrepot}-${s.sequence}`));
   }, [existingSuivis]);
 
+  const categorizedCommentsMap = useMemo(() => {
+    if (!savedCategorizedComments) return new Map();
+    return new Map(savedCategorizedComments.map(c => [sanitizeId(c.id), c.category]));
+  }, [savedCategorizedComments]);
+
 
   useEffect(() => {
-      if (isLoadingSuivis) return;
+      if (isLoadingSuivis || isLoadingCategories) return;
 
       const unprocessedComments = data
           .filter(item => {
               const uniqueCommentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
               return item.commentaire && item.notation != null && item.notation <= 3 && !processedCommentIds.has(uniqueCommentId);
           })
-          .map((item) => ({
-              id: `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`,
-              comment: item.commentaire || '',
-              category: categorizeComment(item.commentaire),
-              action: '',
-              date: item.date,
-              livreur: item.livreur || 'N/A',
-              entrepot: item.entrepot,
-              nomTournee: item.nomTournee,
-              sequence: item.sequence || item.ordre,
-          }));
+          .map((item) => {
+              const id = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
+              const sanitizedCommentId = sanitizeId(id);
+              const savedCategory = categorizedCommentsMap.get(sanitizedCommentId);
+
+              return {
+                id,
+                comment: item.commentaire || '',
+                category: savedCategory || categorizeComment(item.commentaire),
+                action: '',
+                date: item.date,
+                livreur: item.livreur || 'N/A',
+                entrepot: item.entrepot,
+                nomTournee: item.nomTournee,
+                sequence: item.sequence || item.ordre,
+              }
+          });
       setCommentsToProcess(unprocessedComments);
-  }, [data, processedCommentIds, isLoadingSuivis]);
+  }, [data, processedCommentIds, isLoadingSuivis, isLoadingCategories, categorizedCommentsMap]);
 
   const handleProcessComment = async (comment: Comment) => {
       if (!firestore) {
@@ -116,11 +140,11 @@ const CommentProcessing: React.FC<CommentProcessingProps> = ({ data }) => {
     setCommentsToProcess(commentsToProcess.map(c => c.id === id ? { ...c, action } : c));
   };
   
-  if (isLoadingSuivis) {
+  if (isLoadingSuivis || isLoadingCategories) {
       return (
           <div className="flex items-center justify-center p-8">
               <Loader2 className="w-8 h-8 animate-spin text-primary mr-3" />
-              <span className="text-muted-foreground">Chargement des commentaires traités...</span>
+              <span className="text-muted-foreground">Chargement des données de traitement...</span>
           </div>
       )
   }
