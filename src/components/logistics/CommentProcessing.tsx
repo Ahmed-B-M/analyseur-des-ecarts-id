@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import type { MergedData } from '@/lib/types';
 import { commentCategories, categorizeComment, CommentCategory } from '@/lib/comment-categorization';
 import { useToast } from '@/hooks/use-toast';
-import { saveCommentAction } from '@/actions/comments';
+import { saveSuiviCommentaire } from '@/firebase/firestore/actions';
+import { useFirestore } from '@/firebase';
 
 interface Comment {
   id: string;
@@ -30,6 +31,7 @@ interface CommentProcessingProps {
 const CommentProcessing: React.FC<CommentProcessingProps> = ({ data, onCommentProcessed, processedCommentIds }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const { toast } = useToast();
+  const firestore = useFirestore();
 
   useEffect(() => {
     const unprocessedComments = data
@@ -53,6 +55,14 @@ const CommentProcessing: React.FC<CommentProcessingProps> = ({ data, onCommentPr
 
 
   const handleProcessComment = async (comment: Comment) => {
+    if (!firestore) {
+        toast({
+            variant: "destructive",
+            title: "Erreur de base de données",
+            description: "La connexion à Firestore n'est pas disponible.",
+        });
+        return;
+    }
     if (comment.action.trim() === '') {
         toast({
             variant: "destructive",
@@ -63,7 +73,7 @@ const CommentProcessing: React.FC<CommentProcessingProps> = ({ data, onCommentPr
     }
 
     try {
-        await saveCommentAction({
+        await saveSuiviCommentaire(firestore, {
             id: comment.id,
             date: comment.date,
             livreur: comment.livreur,
@@ -163,5 +173,3 @@ const CommentProcessing: React.FC<CommentProcessingProps> = ({ data, onCommentPr
 };
 
 export default CommentProcessing;
-
-    

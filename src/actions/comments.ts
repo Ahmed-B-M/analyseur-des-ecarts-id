@@ -2,10 +2,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { collection, addDoc } from 'firebase/firestore';
-import { getSdks } from '@/firebase';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
 
 const CategorizeCommentInputSchema = z.object({
   comment: z.string().describe('The customer comment to categorize.'),
@@ -71,43 +67,3 @@ export async function analyzeNegativeComments(
 
   return results;
 }
-
-
-export async function saveCommentAction(commentData: {
-  id: string;
-  date: string;
-  livreur: string;
-  entrepot: string;
-  nomTournee: string;
-  sequence: number | undefined;
-  comment: string;
-  category: string;
-  action: string;
-}) {
-  const { firestore } = getSdks();
-  const collectionRef = collection(firestore, 'suiviCommentaires');
-
-  const dataToSave = {
-    date: commentData.date,
-    livreur: commentData.livreur,
-    entrepot: commentData.entrepot,
-    nomTournee: commentData.nomTournee,
-    sequence: commentData.sequence,
-    commentaire: commentData.comment,
-    categorie: commentData.category,
-    actionCorrective: commentData.action,
-    statut: 'À traiter',
-    traiteLe: new Date().toISOString(),
-  };
-
-  addDoc(collectionRef, dataToSave).catch(async (serverError) => {
-    const permissionError = new FirestorePermissionError({
-      path: collectionRef.path,
-      operation: 'create',
-      requestResourceData: dataToSave,
-    });
-    errorEmitter.emit('permission-error', permissionError);
-    // The error will be caught by the global FirebaseErrorListener
-  });
-}
-    
