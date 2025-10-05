@@ -91,16 +91,25 @@ export default function DashboardTabs({
     }, [filteredData, processedCommentIds, isLoadingSuivis]);
     
     const uncategorizedCommentsCount = useMemo(() => {
-        if (isLoadingCategories || !savedCategorizedComments) return filteredData.filter(d => d.notation != null && d.notation <= 3 && d.commentaire).length;
-        const savedIds = new Set(savedCategorizedComments.map(c => c.id));
-        return filteredData.filter(d => 
-            d.notation != null && d.notation <= 3 && d.commentaire && !savedIds.has(`${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`)
-        ).length;
+        if (isLoadingCategories || !savedCategorizedComments) {
+            return filteredData.filter(d => d.notation != null && d.notation <= 3 && d.commentaire).length;
+        }
+        
+        // Sanitize an ID the same way as when saving
+        const sanitizeId = (id: string) => id.replace(/[^a-zA-Z0-9-]/g, '_');
+    
+        const savedIds = new Set(savedCategorizedComments.map(c => sanitizeId(c.id)));
+    
+        return filteredData.filter(d => {
+            const commentId = `${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`;
+            const sanitizedCommentId = sanitizeId(commentId);
+            return d.notation != null && d.notation <= 3 && d.commentaire && !savedIds.has(sanitizedCommentId);
+        }).length;
     }, [filteredData, savedCategorizedComments, isLoadingCategories]);
 
     const uncategorizedCommentsForSummary = useMemo(() => {
-        if (isLoadingCategories) return [];
-        const savedIds = new Set(savedCategorizedComments?.map(c => c.id) || []);
+        if (isLoadingCategories || !savedCategorizedComments) return [];
+        const savedIds = new Set(savedCategorizedComments.map(c => c.id));
         return filteredData
             .filter(d => d.notation != null && d.notation <= 3 && d.commentaire && !savedIds.has(`${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`))
             .map(item => ({
