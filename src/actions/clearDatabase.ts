@@ -1,3 +1,4 @@
+
 'use server';
 
 import { initializeApp, getApps, App, applicationDefault } from 'firebase-admin/app';
@@ -42,22 +43,8 @@ async function deleteQueryBatch(db: FirebaseFirestore.Firestore, query: Firebase
 
 
 export async function clearDatabase() {
-    try {
-        const adminApp = getAdminApp();
-        const db = getFirestore(adminApp);
-
-        // Delete all documents in the 'suiviCommentaires' collection
-        await deleteCollection(db, 'suiviCommentaires', 50);
-
-        // Recursively delete all documents and subcollections in 'entrepots'
-        const entrepots = await db.collection('entrepots').get();
-        for (const entrepot of entrepots.docs) {
-             await db.recursiveDelete(entrepot.ref);
-        }
-
-        return { success: true };
-    } catch (error: any) {
-        console.error("Error clearing database:", error);
-        return { success: false, error: "Erreur lors de la suppression des données : " + error.message };
-    }
+    // This functionality is disabled as per user request.
+    // The function is kept to avoid breaking imports, but it does nothing.
+    console.log("Database clearing is disabled.");
+    return { success: true, message: "La suppression de la base de données est désactivée." };
 }

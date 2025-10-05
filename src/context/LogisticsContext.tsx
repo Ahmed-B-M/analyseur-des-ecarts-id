@@ -7,7 +7,7 @@ import { analyzeData } from '@/lib/dataAnalyzer';
 import { DateRange } from 'react-day-picker';
 import { getNomDepot } from '@/lib/config-depots';
 import { getCarrierFromDriverName } from '@/lib/utils';
-import { saveUploadedData } from '@/actions/saveData';
+// import { saveUploadedData } from '@/actions/saveData'; // No longer needed
 import { toast } from '@/hooks/use-toast';
 
 // 1. State & Action Types
@@ -92,6 +92,7 @@ function logisticsReducer(state: State, action: Action): State {
       return { ...state, filters: action.filters };
     case 'RESET':
       return { ...initialState };
+    // Saving actions are kept for potential future use or other save operations, but are not dispatched from the context anymore
     case 'START_SAVING':
         return { ...state, isSaving: true, error: null };
     case 'SAVING_SUCCESS':
@@ -124,25 +125,8 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
       const { type, data, error } = event.data;
       if (type === 'success') {
         dispatch({ type: 'PROCESSING_SUCCESS', data });
-
-        // Trigger saving to Firestore after successful processing
-        toast({ title: "Sauvegarde des données...", description: "Les données des fichiers sont en cours de sauvegarde dans la base de données." });
-        dispatch({ type: 'START_SAVING' });
-        
-        saveUploadedData(data.tournees, data.taches)
-            .then(result => {
-                if (result.success) {
-                    dispatch({ type: 'SAVING_SUCCESS' });
-                    toast({ title: "Sauvegarde réussie", description: `${result.tournees} tournées et ${result.taches} tâches ont été sauvegardées.` });
-                } else {
-                    throw new Error(result.error);
-                }
-            })
-            .catch(err => {
-                console.error("Saving error:", err);
-                dispatch({ type: 'SAVING_ERROR', error: err.message || "Une erreur est survenue lors de la sauvegarde." });
-                toast({ variant: "destructive", title: "Erreur de sauvegarde", description: err.message });
-            });
+        // The automatic saving logic has been removed from here.
+        toast({ title: "Analyse terminée", description: "Les données des fichiers ont été chargées avec succès." });
 
       } else {
         dispatch({ type: 'PROCESSING_ERROR', error });

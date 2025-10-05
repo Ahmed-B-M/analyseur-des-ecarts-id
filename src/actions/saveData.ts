@@ -17,51 +17,8 @@ function getAdminApp(): App {
 }
 
 export async function saveUploadedData(tournees: Tournee[], taches: Tache[]) {
-  try {
-    const adminApp = getAdminApp();
-    const db = getFirestore(adminApp);
-    let batch: WriteBatch = db.batch();
-    let commitCount = 0;
-    const MAX_OPERATIONS_PER_BATCH = 499; // Firestore limit is 500
-
-    // Save Tournees
-    for (const tournee of tournees) {
-      if (!tournee.entrepot || !tournee.uniqueId) continue;
-      const tourneeRef = db.collection('entrepots').doc(tournee.entrepot).collection('tournees').doc(tournee.uniqueId);
-      batch.set(tourneeRef, { ...tournee, id: tournee.uniqueId }); // Use spread to avoid circular refs if any
-      commitCount++;
-
-      if (commitCount >= MAX_OPERATIONS_PER_BATCH) {
-        await batch.commit();
-        batch = db.batch();
-        commitCount = 0;
-      }
-    }
-    
-    // Save Taches
-    for (const tache of taches) {
-        if (!tache.entrepot || !tache.tourneeUniqueId || !tache.sequence) continue;
-        const tacheRef = db.collection('entrepots').doc(tache.entrepot)
-                            .collection('tournees').doc(tache.tourneeUniqueId)
-                            .collection('taches').doc(String(tache.sequence));
-        batch.set(tacheRef, { ...tache });
-        commitCount++;
-
-        if (commitCount >= MAX_OPERATIONS_PER_BATCH) {
-            await batch.commit();
-            batch = db.batch();
-            commitCount = 0;
-        }
-    }
-
-    // Commit any remaining operations
-    if (commitCount > 0) {
-      await batch.commit();
-    }
-    
-    return { success: true, tournees: tournees.length, taches: taches.length };
-  } catch (error: any) {
-    console.error("Error saving data to Firestore:", error);
-    return { success: false, error: "Erreur lors de la sauvegarde des données: " + error.message };
-  }
+  // This functionality is disabled as per user request.
+  // The function is kept to avoid breaking imports, but it does nothing.
+  console.log("Data saving to Firestore is disabled.");
+  return { success: true, tournees: 0, taches: 0, message: "Sauvegarde désactivée." };
 }

@@ -5,21 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, PlusCircle, Trash2, Save, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Save, AlertCircle } from 'lucide-react';
 import { getDepotConfig, saveDepotConfig } from '@/actions/depotConfig';
 import { useToast } from '@/hooks/use-toast';
-import { clearDatabase } from '@/actions/clearDatabase';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 
 type DepotConfig = { [key: string]: string[] };
 
@@ -27,7 +15,6 @@ export default function DepotConfigurator() {
     const [config, setConfig] = useState<DepotConfig>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [newDepot, setNewDepot] = useState('');
     const [newPrefix, setNewPrefix] = useState('');
@@ -103,24 +90,6 @@ export default function DepotConfigurator() {
         }
         setIsSaving(false);
     };
-
-    const handleClearDatabase = async () => {
-        setIsDeleting(true);
-        const result = await clearDatabase();
-        if (result.success) {
-            toast({
-                title: 'Succès',
-                description: "La base de données a été vidée. Veuillez rafraîchir l'application.",
-            });
-        } else {
-             toast({
-                variant: 'destructive',
-                title: 'Erreur',
-                description: result.error || "Impossible de vider la base de données.",
-            });
-        }
-        setIsDeleting(false);
-    }
 
     if (isLoading) {
         return (
@@ -219,58 +188,15 @@ export default function DepotConfigurator() {
                             </Table>
                         </div>
                     </div>
-                    
-                    <div className="flex justify-end">
-                        <Button onClick={handleSaveChanges} disabled={isSaving}>
-                            {isSaving ? (
-                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sauvegarde...</>
-                            ) : (
-                                <><Save className="w-4 h-4 mr-2" />Enregistrer les Changements</>
-                            )}
-                        </Button>
-                    </div>
                 </CardContent>
-            </Card>
-
-            <Card className="border-destructive">
-                <CardHeader>
-                    <CardTitle className="text-destructive flex items-center gap-2">
-                        <AlertTriangle /> Zone Dangereuse
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <CardDescription>
-                        Cette action est irréversible. Elle supprimera toutes les données de tournées, de tâches
-                        et de suivis de commentaires de la base de données.
-                    </CardDescription>
-                </CardContent>
-                <CardFooter>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" disabled={isDeleting}>
-                                {isDeleting ? (
-                                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Suppression en cours...</>
-                                ) : (
-                                    <>Vider la base de données</>
-                                )}
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Cette action ne peut pas être annulée. Cela supprimera définitivement
-                                    toutes les données de la base de données Firestore.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleClearDatabase}>
-                                    Oui, supprimer toutes les données
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                <CardFooter className="flex justify-end">
+                    <Button onClick={handleSaveChanges} disabled={isSaving}>
+                        {isSaving ? (
+                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sauvegarde...</>
+                        ) : (
+                            <><Save className="w-4 h-4 mr-2" />Enregistrer les Changements</>
+                        )}
+                    </Button>
                 </CardFooter>
             </Card>
         </div>
