@@ -5,7 +5,7 @@ import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { DateRangePicker } from './DateRangePicker';
-import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck, MessageSquare, ClipboardCheck, FileText, Tags } from 'lucide-react';
+import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck, MessageSquare, ClipboardCheck, FileText, Tags, Mail } from 'lucide-react';
 import AnalysisDashboard from './AnalysisDashboard';
 import DetailedDataView from './DetailedDataView';
 import CalendarView from './CalendarView';
@@ -31,6 +31,7 @@ import type { SuiviCommentaireWithId } from './ActionFollowUpView';
 import { CategorizedComment } from './CommentCategorizationTable';
 import CommentCategorizationView from './CommentCategorizationView';
 import { categorizeComment } from '@/lib/comment-categorization';
+import EmailGenerator from './EmailGenerator';
 
 
 interface DashboardTabsProps {
@@ -82,6 +83,9 @@ export default function DashboardTabs({
         retardPercent: parseFloat(item.livraisonsRetard.slice(0, -1)),
     })) : [];
 
+    // Sanitize an ID the same way as when saving
+    const sanitizeId = (id: string) => id.replace(/[^a-zA-Z0-9-]/g, '_');
+
     const unprocessedCommentsCount = useMemo(() => {
         if (isLoadingSuivis) return 0; // Don't count until we know what's processed
         return filteredData.filter(d => {
@@ -94,10 +98,7 @@ export default function DashboardTabs({
         if (isLoadingCategories || !savedCategorizedComments) {
             return filteredData.filter(d => d.notation != null && d.notation <= 3 && d.commentaire).length;
         }
-        
-        // Sanitize an ID the same way as when saving
-        const sanitizeId = (id: string) => id.replace(/[^a-zA-Z0-9-]/g, '_');
-    
+
         const savedIds = new Set(savedCategorizedComments.map(c => sanitizeId(c.id)));
     
         return filteredData.filter(d => {
@@ -109,11 +110,15 @@ export default function DashboardTabs({
 
     const uncategorizedCommentsForSummary = useMemo(() => {
         if (isLoadingCategories || !savedCategorizedComments) return [];
-        const savedIds = new Set(savedCategorizedComments.map(c => c.id));
+        const savedIds = new Set(savedCategorizedComments.map(c => sanitizeId(c.id)));
         return filteredData
-            .filter(d => d.notation != null && d.notation <= 3 && d.commentaire && !savedIds.has(`${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`))
+            .filter(d => {
+                if (!(d.notation != null && d.notation <= 3 && d.commentaire)) return false;
+                const commentId = `${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`;
+                return !savedIds.has(sanitizeId(commentId));
+            })
             .map(item => ({
-                id: `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`,
+                id: `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || d.ordre}`,
                 comment: item.commentaire!,
                 category: categorizeComment(item.commentaire),
             }));
@@ -155,6 +160,16 @@ export default function DashboardTabs({
                 <ActionFollowUpView />
             </TabsContent>
             <TabsContent value="reportRD" className="mt-6 space-y-6">
+                <div className="flex justify-end">
+                    <EmailGenerator 
+                        depotStats={analysisData.depotStats}
+                        postalCodeStats={analysisData.postalCodeStats}
+                        globalCommentData={{
+                            processedActions: existingSuivis || [],
+                            categorizedComments: [...(savedCategorizedComments || []), ...uncategorizedCommentsForSummary]
+                        }}
+                    />
+                </div>
                 <GlobalCommentView 
                     data={filteredData} 
                     processedActions={existingSuivis || []} 
@@ -202,8 +217,8 @@ export default function DashboardTabs({
                 <QualitySummary 
                     data={filteredData} 
                     processedActions={existingSuivis || []} 
-                    categorizedComments={savedCategorizedComments || []} 
-                    uncategorizedComments={uncategorizedCommentsForSummary}
+                    savedCategorizedComments={savedCategorizedComments || []} 
+                    uncategorizedCommentsForSummary={uncategorizedCommentsForSummary}
                 />
             </TabsContent>
             <TabsContent value="calendar" className="mt-6">

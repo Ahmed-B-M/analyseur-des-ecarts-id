@@ -22,19 +22,19 @@ import { CategorizedComment } from './CommentCategorizationTable';
 interface QualitySummaryProps {
     data: MergedData[];
     processedActions: SuiviCommentaire[];
-    categorizedComments: CategorizedComment[];
-    uncategorizedComments: any[];
+    savedCategorizedComments: CategorizedComment[];
+    uncategorizedCommentsForSummary: any[];
 }
 
-const QualitySummary = ({ data, processedActions, categorizedComments, uncategorizedComments }: QualitySummaryProps) => {
+const QualitySummary = ({ data, processedActions, savedCategorizedComments, uncategorizedCommentsForSummary }: QualitySummaryProps) => {
 
   const ratings = useMemo(() => (data || []).filter(
     (d: MergedData) => d.notation
   ), [data]);
 
   const allCommentsForSummary = useMemo(() => {
-    return [...categorizedComments, ...uncategorizedComments];
-  }, [categorizedComments, uncategorizedComments]);
+    return [...savedCategorizedComments, ...uncategorizedCommentsForSummary];
+  }, [savedCategorizedComments, uncategorizedCommentsForSummary]);
   
   const summaryByDepot = useMemo(() => {
     const allRatingsGrouped = ratings.reduce((acc, curr) => {
@@ -229,16 +229,7 @@ const QualitySummary = ({ data, processedActions, categorizedComments, uncategor
 
   return (
     <div className='space-y-6'>
-      <div className="flex justify-end gap-4">
-        <EmailGenerator 
-            data={data} 
-            summaryByDepot={summaryByDepot}
-            summaryByCarrier={summaryByCarrier}
-            summaryByDriver={summaryByDriver}
-            unassignedDrivers={unassignedDrivers}
-        />
-      </div>
-
+      
       <GlobalCommentView 
         data={data}
         processedActions={processedActions}
