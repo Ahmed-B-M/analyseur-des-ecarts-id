@@ -31,11 +31,12 @@ interface CommentToCategorize {
 function CommentsList({ commentsToCategorize, onSave }: { commentsToCategorize: CommentToCategorize[], onSave: (comments: CommentToCategorize[]) => void }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortConfig, setSortConfig] = useState<{ key: keyof CommentToCategorize; direction: 'asc' | 'desc' } | null>({ key: 'note', direction: 'asc' });
-    const [localComments, setLocalComments] = useState<CommentToCategorize[]>(commentsToCategorize);
+    const [localComments, setLocalComments] = useState<CommentToCategorize[]>([]);
     const { toast } = useToast();
 
-    useEffect(() => {
+     useEffect(() => {
         setLocalComments(commentsToCategorize);
+        setCurrentPage(1); // Reset page when data changes
     }, [commentsToCategorize]);
 
 
@@ -146,16 +147,24 @@ function CommentsList({ commentsToCategorize, onSave }: { commentsToCategorize: 
 export default function NegativeCommentsTable({ data, savedCategorizedComments }: { data: MergedData[], savedCategorizedComments: CategorizedComment[] }) {
     const firestore = useFirestore();
     const { toast } = useToast();
+    
+    // Sanitize an ID the same way the backend does
+    const sanitizeId = (id: string) => id.replace(/[^a-zA-Z0-9-]/g, '_');
 
     const commentsToCategorize = useMemo(() => {
-        const savedIds = new Set(savedCategorizedComments.map(c => c.id));
+        const savedIds = new Set(savedCategorizedComments.map(c => sanitizeId(c.id)));
+        
         return data
-            .filter(item => 
-                item.notation != null && 
-                item.notation <= 3 && 
-                item.commentaire &&
-                !savedIds.has(`${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`)
-            )
+            .filter(item => {
+                const itemId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
+                const sanitizedItemId = sanitizeId(itemId);
+                return (
+                    item.notation != null &&
+                    item.notation <= 3 &&
+                    item.commentaire &&
+                    !savedIds.has(sanitizedItemId)
+                );
+            })
             .map(item => ({
                 id: `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`,
                 date: item.date,
