@@ -3,13 +3,22 @@
 
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
 import { MergedData } from '@/lib/types';
+import * as Recharts from 'recharts';
 
-interface DeliveryVolumeChartProps {
-  data: MergedData[];
-}
+const { Defs, Pattern } = Recharts;
 
+
+// Returns "HH:mm"
+const formatMinute = (totalMinutes: number): string => {
+    const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
+    const minutes = (totalMinutes % 60).toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+};
+
+
+// Returns "HHh" or "HHhMM"
 const getSlotLabel = (startSeconds: number, endSeconds: number): string => {
     if (isNaN(startSeconds) || isNaN(endSeconds) || startSeconds < 0 || endSeconds < 0) return 'N/A';
     const startDate = new Date(startSeconds * 1000);
@@ -25,14 +34,13 @@ const COLORS = [
   '#FFBB28', '#FF8042', '#AF19FF', '#FF4560', '#775DD0', '#546E7A'
 ];
 
-export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) {
+export default function DeliveryVolumeChart({ data }: { data: MergedData[] }) {
 
   const { chartData, slots } = useMemo(() => {
     if (!data || data.length === 0) {
       return { chartData: [], slots: [] };
     }
 
-    // 1. Find all unique slots and create a sorted list
     const slotSet = new Set<string>();
     data.forEach(item => {
       if (item.heureDebutCreneau && item.heureFinCreneau) {
@@ -44,17 +52,18 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
     });
     const sortedSlots = Array.from(slotSet).sort();
 
-    // 2. Initialize hourly buckets from 6am to 10pm
-    const hourlyData: Record<string, any> = {};
-    for (let i = 6; i < 23; i++) {
-        const hourLabel = `${String(i).padStart(2, '0')}h`;
-        hourlyData[hourLabel] = { hour: hourLabel };
+    const fifteenMinuteBuckets: Record<string, any> = {};
+    const startTime = 5 * 60; // 05:00
+    const endTime = 23 * 60 + 15; // 23:15
+    for (let i = startTime; i <= endTime; i += 15) {
+        const timeLabel = formatMinute(i);
+        fifteenMinuteBuckets[timeLabel] = { time: timeLabel };
         sortedSlots.forEach(slot => {
-            hourlyData[hourLabel][slot] = 0;
+            fifteenMinuteBuckets[timeLabel][`${slot}_onTime`] = 0;
+            fifteenMinuteBuckets[timeLabel][`${slot}_offTime`] = 0;
         });
     }
 
-    // 3. Populate the buckets
     data.forEach(item => {
         if (!item.heureCloture || !item.heureDebutCreneau || !item.heureFinCreneau) {
             return;
@@ -62,23 +71,49 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
 
         const slotLabel = getSlotLabel(item.heureDebutCreneau, item.heureFinCreneau);
         const closureDate = new Date(item.heureCloture * 1000);
-        const closureHour = closureDate.getUTCHours();
-        const closureHourLabel = `${String(closureHour).padStart(2, '0')}h`;
+        const totalMinutes = closureDate.getUTCHours() * 60 + closureDate.getUTCMinutes();
+        
+        // Find the correct 15-minute bucket
+        const bucketMinute = Math.floor(totalMinutes / 15) * 15;
+        const bucketLabel = formatMinute(bucketMinute);
 
-        // Find the correct bucket and slot to increment
-        if (hourlyData[closureHourLabel] && sortedSlots.includes(slotLabel)) {
-            hourlyData[closureHourLabel][slotLabel]++;
+        if (fifteenMinuteBuckets[bucketLabel] && sortedSlots.includes(slotLabel)) {
+            const isOnTime = item.retardStatus === 'onTime';
+            if (isOnTime) {
+                fifteenMinuteBuckets[bucketLabel][`${slotLabel}_onTime`]++;
+            } else {
+                fifteenMinuteBuckets[bucketLabel][`${slotLabel}_offTime`]++;
+            }
         }
     });
     
-    // 4. Convert to array and filter out empty hours
-    const finalChartData = Object.values(hourlyData).filter(hourData => {
-        // Check if this hour has any data at all
-        return sortedSlots.some(slot => hourData[slot] > 0);
-    });
+    const finalChartData = Object.values(fifteenMinuteBuckets);
 
     return { chartData: finalChartData, slots: sortedSlots };
   }, [data]);
+  
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-background border p-2 rounded shadow-lg">
+          <p className="font-bold">{`Heure: ${label}`}</p>
+          <ul>
+            {payload.map((pld: any, index: number) => {
+              if (pld.value === 0) return null;
+              const nameParts = pld.name.split(' - ');
+              return (
+                 <li key={index} style={{ color: pld.color }}>
+                   {`${nameParts[0]}: ${pld.value} (${nameParts[1]})`}
+                 </li>
+              )
+            })}
+          </ul>
+        </div>
+      );
+    }
+    return null;
+  };
+
 
   if (!chartData.length) {
     return (
@@ -99,34 +134,51 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Volume de Clôtures par Heure et Créneau</CardTitle>
+        <CardTitle>Volume de Clôtures par Quart d'Heure et Créneau</CardTitle>
         <CardDescription>
-          Distribution des livraisons par heure de clôture, réparties par créneau promis au client.
+          Distribution des livraisons par heure de clôture. Les zones pleines sont à l'heure, les zones hachurées sont hors délai (avance/retard).
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={400}>
+        <ResponsiveContainer width="100%" height={500}>
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
           >
+            <Defs>
+              {slots.map((slot, index) => (
+                <Pattern key={`pattern-${slot}`} id={`pattern_${index}`} patternUnits="userSpaceOnUse" width="8" height="8">
+                   <rect width="8" height="8" fill={COLORS[index % COLORS.length]} fillOpacity={0.4} />
+                   <path d="M-2 10 l12 -12 M0 8 l8 -8 M6 10 l4 -4" stroke="white" strokeWidth="1" />
+                </Pattern>
+              ))}
+            </Defs>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="hour" />
+            <XAxis dataKey="time" tickFormatter={(time) => time.endsWith(':00') ? `${time.substring(0,2)}h` : ''} interval="preserveStartEnd" />
             <YAxis allowDecimals={false} />
-            <Tooltip />
+            <Tooltip content={<CustomTooltip />} />
             <Legend />
-            {slots.map((slot, index) => (
+            {slots.map((slot, index) => [
               <Area
-                key={slot}
+                key={`${slot}_onTime`}
                 type="monotone"
-                dataKey={slot}
-                name={slot}
+                dataKey={`${slot}_onTime`}
+                name={`${slot} - À l'heure`}
                 stackId="1"
                 stroke={COLORS[index % COLORS.length]}
                 fill={COLORS[index % COLORS.length]}
-                fillOpacity={0.6}
+                fillOpacity={0.8}
+              />,
+              <Area
+                key={`${slot}_offTime`}
+                type="monotone"
+                dataKey={`${slot}_offTime`}
+                name={`${slot} - Hors délai`}
+                stackId="1"
+                stroke={COLORS[index % COLORS.length]}
+                fill={`url(#pattern_${index})`}
               />
-            ))}
+            ])}
           </AreaChart>
         </ResponsiveContainer>
       </CardContent>
