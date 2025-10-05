@@ -79,7 +79,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     });
 
     return combined
-      .filter(item => item.negativeRatingsCount > 0)
       .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
   }, [ratings, allCommentsForSummary, data]);
 
@@ -125,7 +124,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     });
 
     return combined
-      .filter(item => item.negativeRatingsCount > 0)
       .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
   }, [ratings, allCommentsForSummary, data]);
 
@@ -185,7 +183,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     });
 
     return combined
-      .filter(item => item.negativeRatingsCount > 0)
       .sort((a, b) => {
         if (a.depot < b.depot) return -1;
         if (a.depot > b.depot) return 1;
