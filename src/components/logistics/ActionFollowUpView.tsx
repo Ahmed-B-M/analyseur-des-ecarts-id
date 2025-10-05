@@ -194,7 +194,7 @@ const ActionFollowUpView = () => {
                                         <TableCell>{suivi.date}</TableCell>
                                         <TableCell>{getNomDepot(suivi.entrepot)}</TableCell>
                                         <TableCell>{suivi.livreur}</TableCell>
-                                        <TableCell className="max-w-xs truncate">{suivi.commentaire}</TableCell>
+                                        <TableCell className="max-w-xs whitespace-pre-wrap">{suivi.commentaire}</TableCell>
                                         <TableCell>
                                              <Select 
                                                 value={finalCategory} 
@@ -222,7 +222,7 @@ const ActionFollowUpView = () => {
                                                     />
                                                 </div>
                                             ) : (
-                                                <span className="max-w-xs truncate block">{editableActions[suivi.id]}</span>
+                                                <span className="max-w-xs block whitespace-pre-wrap">{editableActions[suivi.id]}</span>
                                             )}
                                         </TableCell>
                                         <TableCell>

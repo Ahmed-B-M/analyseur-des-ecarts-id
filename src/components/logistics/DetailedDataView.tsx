@@ -143,7 +143,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
                   {delayInMinutes > 0 ? '+' : ''}{delayInMinutes} min
                 </TableCell>
                 <TableCell>{item.notation ?? 'N/A'}</TableCell>
-                <TableCell className="max-w-xs truncate" title={item.commentaire || ''}>{item.commentaire}</TableCell>
+                <TableCell className="max-w-xs whitespace-pre-wrap" title={item.commentaire || ''}>{item.commentaire}</TableCell>
               </TableRow>
               )
             }) : (

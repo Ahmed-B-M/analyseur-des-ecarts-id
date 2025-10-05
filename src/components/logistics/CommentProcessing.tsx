@@ -177,7 +177,7 @@ const CommentProcessing = ({ data }: CommentProcessingProps) => {
               <TableCell>{comment.entrepot}</TableCell>
               <TableCell>{comment.nomTournee}</TableCell>
               <TableCell>{comment.sequence}</TableCell>
-              <TableCell className="max-w-xs truncate">{comment.comment}</TableCell>
+              <TableCell className="max-w-xs whitespace-pre-wrap">{comment.comment}</TableCell>
               <TableCell>
                 <Select onValueChange={(value: CommentCategory) => handleCategoryChange(comment.id, value)} value={comment.category}>
                   <SelectTrigger>
