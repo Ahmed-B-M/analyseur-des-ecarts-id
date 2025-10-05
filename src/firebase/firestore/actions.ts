@@ -70,20 +70,29 @@ export async function batchSaveCategorizedComments(
     comments: any[],
 ) {
     const batch = writeBatch(firestore);
-    const collectionRef = collection(firestore, 'commentCategories');
-
+    
     comments.forEach(comment => {
-        const docRef = doc(firestore, 'commentCategories', comment.id);
-        batch.set(docRef, comment);
+        // Ensure comment.id is a non-empty string before creating a doc ref
+        if (comment && typeof comment.id === 'string' && comment.id.trim() !== '') {
+            const docRef = doc(firestore, 'commentCategories', comment.id);
+            batch.set(docRef, comment);
+        } else {
+            console.warn("Skipping comment with invalid ID:", comment);
+        }
     });
 
     try {
         await batch.commit();
-    } catch(serverError) {
+    } catch(serverError: any) {
+        // Since we cannot reliably determine which specific document failed in a batch write,
+        // we will log a more generic error. The developer can inspect the `comments` array.
+        console.error("Batch save failed. Data that was being written:", comments);
         const permissionError = new FirestorePermissionError({
-          path: collectionRef.path,
+          path: 'commentCategories', // Path of the collection
           operation: 'write',
-          requestResourceData: comments,
+          // Note: requestResourceData should ideally be the specific failing doc, 
+          // but we don't know which one it is. We log the whole batch above.
+          requestResourceData: { info: "Batch write to 'commentCategories' failed." },
         });
         errorEmitter.emit('permission-error', permissionError);
         throw serverError;
@@ -108,3 +117,5 @@ export async function updateCategorizedComment(
         throw serverError;
     }
 }
+
+    
