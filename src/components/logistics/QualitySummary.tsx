@@ -33,14 +33,32 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
   const ratings = useMemo(() => (data || []).filter(
     (d: MergedData) => d.notation
   ), [data]);
-
+  
   const allCommentsInData = useMemo(() => (data || []).filter(
     (d: MergedData) => d.commentaire
   ), [data]);
 
   const allCommentsForSummary = useMemo(() => {
-    return [...savedCategorizedComments, ...uncategorizedCommentsForSummary];
-  }, [savedCategorizedComments, uncategorizedCommentsForSummary]);
+    const enrichedUncategorized = uncategorizedCommentsForSummary.map((uncat: any) => {
+        const originalItem = data.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === uncat.id);
+        return {
+            ...uncat,
+            livreur: originalItem?.livreur || 'Inconnu',
+            entrepot: originalItem?.entrepot || 'Inconnu',
+        }
+    });
+
+    const enrichedSaved = savedCategorizedComments.map(saved => {
+        const originalItem = data.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === saved.id);
+        return {
+            ...saved,
+            livreur: originalItem?.livreur || 'Inconnu',
+            entrepot: originalItem?.entrepot || 'Inconnu',
+        }
+    });
+
+    return [...enrichedSaved, ...enrichedUncategorized];
+  }, [savedCategorizedComments, uncategorizedCommentsForSummary, data]);
 
   const negativeRatingsData = useMemo(() => (data || []).filter(
     (d: MergedData) => d.notation != null && d.notation <= 3
@@ -177,12 +195,9 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     }, {} as Record<string, { negativeRatingCount: number }>);
 
     const commentsGrouped = allCommentsForSummary.reduce((acc, curr) => {
-      const originalItem = data.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === curr.id);
-      if (!originalItem) return acc;
-
-      const depot = getNomDepot(originalItem.tournee?.entrepot || 'Inconnu');
-      const carrier = getCarrierFromDriverName(originalItem.livreur || '') || 'Inconnu';
-      const driver = originalItem.livreur || 'Inconnu';
+      const depot = getNomDepot(curr.entrepot);
+      const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+      const driver = curr.livreur;
       const key = `${depot}|${carrier}|${driver}`;
 
       if (!acc[key]) {
