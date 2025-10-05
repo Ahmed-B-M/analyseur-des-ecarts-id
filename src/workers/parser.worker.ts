@@ -243,7 +243,7 @@ self.addEventListener('message', async (event: MessageEvent) => {
   try {
     const { tourneesFiles, tachesFiles } = event.data;
 
-    const allTournees: any[] = [];
+    let allTournees: any[] = [];
     for (const file of tourneesFiles) {
         const buffer = await file.arrayBuffer();
         const wb = XLSX.read(buffer, { type: 'buffer' });
@@ -251,6 +251,16 @@ self.addEventListener('message', async (event: MessageEvent) => {
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
         allTournees.push(...normalizeData(json, 'tournees'));
     }
+
+    // Deduplicate tournees
+    const uniqueTournees = new Map<string, any>();
+    allTournees.forEach(t => {
+        const key = `${t.date}|${t.entrepot}|${t.nom}`;
+        if (!uniqueTournees.has(key)) {
+            uniqueTournees.set(key, t);
+        }
+    });
+    allTournees = Array.from(uniqueTournees.values());
 
     if (allTournees.length === 0) {
         throw new Error("Aucune donnée de tournée valide n'a pu être lue dans les fichiers fournis.");
@@ -268,7 +278,7 @@ self.addEventListener('message', async (event: MessageEvent) => {
       };
     });
     
-    const allTaches: any[] = [];
+    let allTaches: any[] = [];
     for (const file of tachesFiles) {
         const buffer = await file.arrayBuffer();
         const wb = XLSX.read(buffer, { type: 'buffer' });
@@ -276,6 +286,16 @@ self.addEventListener('message', async (event: MessageEvent) => {
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
         allTaches.push(...normalizeData(json, 'taches', tourneeStartTimes));
     }
+
+    // Deduplicate taches
+    const uniqueTaches = new Map<string, any>();
+    allTaches.forEach(t => {
+        const key = `${t.date}|${t.nomTournee}|${t.livreur}|${t.heureCloture}`;
+        if (!uniqueTaches.has(key)) {
+            uniqueTaches.set(key, t);
+        }
+    });
+    allTaches = Array.from(uniqueTaches.values());
 
 
     if (allTaches.length === 0) {
