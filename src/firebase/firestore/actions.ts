@@ -72,15 +72,19 @@ export async function batchSaveCategorizedComments(
     const batch = writeBatch(firestore);
     
     comments.forEach(comment => {
-        // Ensure comment.id is a non-empty string and sanitize it
         if (comment && typeof comment.id === 'string' && comment.id.trim() !== '') {
-            // Firestore document IDs must not contain forward slashes (/) or other invalid characters.
-            // encodeURIComponent is a safe way to escape them.
-            const sanitizedId = encodeURIComponent(comment.id);
-            const docRef = doc(firestore, 'commentCategories', sanitizedId);
-            batch.set(docRef, { ...comment, id: sanitizedId }); // Use the sanitized ID in the document data as well
+            // Firestore document IDs must not be empty and must not contain slashes or other reserved characters.
+            // A simple and safe approach is to remove problematic characters.
+            const sanitizedId = comment.id.replace(/[\/\\*\[\]]/g, '');
+
+            if (sanitizedId.length > 0) {
+              const docRef = doc(firestore, 'commentCategories', sanitizedId);
+              batch.set(docRef, { ...comment, id: sanitizedId });
+            } else {
+              console.warn("Skipping comment with an ID that became empty after sanitization:", comment);
+            }
         } else {
-            console.warn("Skipping comment with invalid ID:", comment);
+            console.warn("Skipping comment with invalid or missing ID:", comment);
         }
     });
 
@@ -102,12 +106,18 @@ export async function batchSaveCategorizedComments(
     }
 }
 
+
 export async function updateCategorizedComment(
     firestore: Firestore,
     commentId: string,
     category: string
 ) {
-    const sanitizedId = encodeURIComponent(commentId);
+    // Sanitize the ID in the same way as when creating it
+    const sanitizedId = commentId.replace(/[\/\\*\[\]]/g, '');
+    if (sanitizedId.length === 0) {
+      console.error("Cannot update comment with an ID that is empty after sanitization:", commentId);
+      return;
+    }
     const docRef = doc(firestore, 'commentCategories', sanitizedId);
     try {
         await updateDoc(docRef, { category });
