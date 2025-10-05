@@ -263,6 +263,7 @@ export type PostalCodeStats = {
     entrepot: string;
     totalLivraisons: number;
     livraisonsRetard: string;
+    lateCount: number;
 };
 
 export type SaturationData = {

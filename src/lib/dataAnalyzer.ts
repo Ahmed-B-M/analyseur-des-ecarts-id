@@ -747,9 +747,13 @@ function calculatePostalCodeStats(data: MergedData[]): AnalysisData['postalCodeS
     const postalCodeStats: Record<string, { total: number; late: number; depot: string }> = {};
     data.forEach(item => {
         if (item.codePostal && item.tournee) {
-            if (!postalCodeStats[item.codePostal]) postalCodeStats[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
+            if (!postalCodeStats[item.codePostal]) {
+                postalCodeStats[item.codePostal] = { total: 0, late: 0, depot: item.tournee.entrepot };
+            }
             postalCodeStats[item.codePostal].total++;
-            if (item.retardStatus === 'late') postalCodeStats[item.codePostal].late++;
+            if (item.retardStatus === 'late') {
+                postalCodeStats[item.codePostal].late++;
+            }
         }
     });
     return Object.entries(postalCodeStats).map(([codePostal, stats]) => ({
@@ -757,7 +761,8 @@ function calculatePostalCodeStats(data: MergedData[]): AnalysisData['postalCodeS
         entrepot: stats.depot,
         totalLivraisons: stats.total,
         livraisonsRetard: stats.total > 0 ? `${((stats.late / stats.total) * 100).toFixed(1)}%` : '0.0%',
-    })).sort((a, b) => parseFloat(b.livraisonsRetard) - parseFloat(a.livraisonsRetard));
+        lateCount: stats.late,
+    })).sort((a, b) => b.lateCount - a.lateCount);
 };
 
 function calculateSaturationData(filteredData: MergedData[]): AnalysisData['saturationData'] {

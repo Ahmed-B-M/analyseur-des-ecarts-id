@@ -75,13 +75,6 @@ export default function DashboardTabs({
         return new Set(existingSuivis.map(s => `${s.nomTournee}|${s.date}|${s.entrepot}-${s.sequence}`));
     }, [existingSuivis]);
 
-    const chartData = analysisData ? (analysisData.postalCodeStats || []).map(item => ({
-        codePostal: item.codePostal,
-        entrepot: item.entrepot,
-        totalLivraisons: item.totalLivraisons,
-        retardPercent: parseFloat(item.livraisonsRetard.slice(0, -1)),
-    })) : [];
-
     // Sanitize an ID the same way as when saving
     const sanitizeId = (id: string) => id.replace(/[^a-zA-Z0-9-]/g, '_');
 
@@ -173,7 +166,7 @@ export default function DashboardTabs({
                     processedActions={existingSuivis || []} 
                     categorizedComments={[...(savedCategorizedComments || []), ...uncategorizedCommentsForSummary]} 
                 />
-                <HotZonesChart data={chartData} />
+                <HotZonesChart data={analysisData.postalCodeStats} />
                 <DepotAnalysisTable data={analysisData.warehouseStats} />
                 <PostalCodeTable data={analysisData.postalCodeStats} />
             </TabsContent>
@@ -224,7 +217,7 @@ export default function DashboardTabs({
             </TabsContent>
             <TabsContent value="rdp" className="mt-6 space-y-6">
                 <DeliveryVolumeChart data={filteredData} />
-                <HotZonesChart data={chartData} />
+                <HotZonesChart data={analysisData.postalCodeStats} />
                 <DepotAnalysisTable data={analysisData.depotStats} />
                 <PostalCodeTable data={analysisData.postalCodeStats} />
             </TabsContent>

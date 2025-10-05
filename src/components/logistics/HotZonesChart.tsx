@@ -12,12 +12,14 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { PostalCodeStats } from '@/lib/types';
 
 type ChartData = {
   codePostal: string;
   entrepot: string;
   totalLivraisons: number;
-  retardPercent: number;
+  livraisonsRetard: string; // This is a percentage string like "50.0%"
+  lateCount: number; // We need the actual count of late deliveries
 };
 
 type HotZonesChartProps = {
@@ -44,6 +46,7 @@ const getColorForDepot = (depot: string) => {
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
+    const retardPercent = parseFloat(data.livraisonsRetard.replace('%',''));
     return (
       <div className="rounded-lg border bg-background p-2 shadow-sm">
         <div className="grid grid-cols-2 gap-2">
@@ -71,7 +74,13 @@ const CustomTooltip = ({ active, payload }: any) => {
             <span className="text-[0.70rem] uppercase text-muted-foreground">
               % Retard
             </span>
-            <span className="font-bold">{data.retardPercent.toFixed(2)}%</span>
+            <span className="font-bold">{retardPercent.toFixed(2)}%</span>
+          </div>
+           <div className="flex flex-col">
+            <span className="text-[0.70rem] uppercase text-muted-foreground">
+              Nb. Retards
+            </span>
+            <span className="font-bold">{data.lateCount}</span>
           </div>
         </div>
       </div>
@@ -83,28 +92,34 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 
 export default function HotZonesChart({ data }: HotZonesChartProps) {
-    const top20Data = useMemo(() => {
+    const impactfulData = useMemo(() => {
         if (!data || data.length === 0) {
             return [];
         }
-        const sortedData = [...data].sort((a, b) => b.totalLivraisons - a.totalLivraisons);
-        const top20Count = Math.ceil(sortedData.length * 0.2);
-        return sortedData.slice(0, top20Count);
+        // Select postal codes with the highest number of late deliveries
+        return [...data].sort((a, b) => b.lateCount - a.lateCount);
     }, [data]);
 
     const depots = useMemo(() => {
-        return [...new Set(top20Data.map(d => d.entrepot))].map(depot => ({
+        return [...new Set(impactfulData.map(d => d.entrepot))].map(depot => ({
             value: depot,
             color: getColorForDepot(depot)
         }));
-    }, [top20Data]);
+    }, [impactfulData]);
+
+    const chartDisplayData = useMemo(() => {
+      return impactfulData.map(d => ({
+        ...d,
+        retardPercent: parseFloat(d.livraisonsRetard.replace('%', ''))
+      }));
+    }, [impactfulData]);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Carte des Zones Critiques par Code Postal (Top 20%)</CardTitle>
+        <CardTitle>Carte des Zones Critiques par Code Postal</CardTitle>
         <CardDescription>
-          Analyse croisée du volume et du retard pour les 20% des codes postaux avec le plus de livraisons.
+          Analyse des codes postaux ayant le plus grand nombre de livraisons en retard, croisant volume et pourcentage de retard.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -137,7 +152,7 @@ export default function HotZonesChart({ data }: HotZonesChartProps) {
               <ZAxis type="number" dataKey="totalLivraisons" range={[50, 1000]} name="Volume" />
               <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
                {depots.map(depot => (
-                 <Scatter key={depot.value} name={depot.value} data={top20Data.filter(d => d.entrepot === depot.value)} fill={depot.color} shape="circle" />
+                 <Scatter key={depot.value} name={depot.value} data={chartDisplayData.filter(d => d.entrepot === depot.value)} fill={depot.color} shape="circle" />
                ))}
             </ScatterChart>
           </ResponsiveContainer>
@@ -149,7 +164,7 @@ export default function HotZonesChart({ data }: HotZonesChartProps) {
                 <li><strong>Position verticale (de bas en haut) :</strong> Plus une bulle est haute, plus le nombre de livraisons est important.</li>
                 <li><strong>Taille de la bulle :</strong> Représente également le volume de livraisons.</li>
             </ul>
-            <p className="mt-2 font-bold">Les bulles en haut à droite sont les zones les plus critiques.</p>
+            <p className="mt-2 font-bold">Les bulles en haut à droite sont les zones les plus critiques (volume élevé et taux de retard élevé).</p>
         </div>
       </CardContent>
     </Card>
