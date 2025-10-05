@@ -1,7 +1,7 @@
 
 'use server';
 
-import { initializeApp, getApps, App, cert } from 'firebase-admin/app';
+import { initializeApp, getApps, App, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, WriteBatch } from 'firebase-admin/firestore';
 import type { Tournee, Tache } from '@/lib/types';
 
@@ -11,20 +11,10 @@ function getAdminApp(): App {
     return getApps()[0];
   }
 
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    : undefined;
-
-  if (!serviceAccount) {
-    // For local dev, you might not have the service account env var.
-    // In a real deployed environment, this should be securely configured.
-    console.warn("Firebase Admin SDK service account not found. Using default credentials.");
-    // This will use Application Default Credentials (e.g., from gcloud auth login)
-    return initializeApp();
-  }
-
+  // In a managed environment like Cloud Run, App Engine, or Cloud Functions,
+  // the SDK can often auto-discover credentials.
   return initializeApp({
-    credential: cert(serviceAccount),
+    credential: applicationDefault(),
   });
 }
 
