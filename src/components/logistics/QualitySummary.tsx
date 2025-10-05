@@ -60,67 +60,116 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
   }, [data, allCommentsForSummary]);
 
   const summaryByDepot = useMemo(() => {
+    // Group all data by depot to get total ratings for avg calculation
+    const allDataGrouped = data.reduce((acc, curr) => {
+        const depot = getNomDepot(curr.entrepot);
+        if (!acc[depot]) {
+            acc[depot] = { totalRatingValue: 0, ratedTasksCount: 0 };
+        }
+        if (curr.notation != null) {
+            acc[depot].ratedTasksCount++;
+            acc[depot].totalRatingValue += curr.notation;
+        }
+        return acc;
+    }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
+    
+    // Group negative data for other stats
     const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
         if(!acc[depot]) {
             acc[depot] = {
-                totalRatings: 0,
                 negativeRatingsCount: 0,
                 commentCount: 0,
-                totalRatingValue: 0,
             };
         }
-        
-        acc[depot].totalRatings++;
         acc[depot].negativeRatingsCount++;
-        acc[depot].totalRatingValue += curr.notation!;
         if (curr.commentaire) {
           acc[depot].commentCount++;
         }
-        
         return acc;
-    }, {} as Record<string, { totalRatings: number, negativeRatingsCount: number, commentCount: number, totalRatingValue: number }>);
+    }, {} as Record<string, { negativeRatingsCount: number, commentCount: number }>);
 
-    return Object.entries(grouped).map(([depot, stats]) => ({
+    return Object.keys(grouped).map((depot) => {
+      const depotNegativeStats = grouped[depot];
+      const depotAllStats = allDataGrouped[depot];
+      return {
         depot,
-        totalRatings: stats.totalRatings,
-        negativeRatingsCount: stats.negativeRatingsCount,
-        averageRating: stats.totalRatings > 0 ? (stats.totalRatingValue / stats.totalRatings).toFixed(2) : 'N/A',
-        commentCount: stats.commentCount,
-    })).filter(item => item.negativeRatingsCount > 0)
-     .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-  }, [negativeRatingsData]);
+        totalRatings: depotAllStats?.ratedTasksCount || 0,
+        negativeRatingsCount: depotNegativeStats?.negativeRatingsCount || 0,
+        averageRating: (depotAllStats?.ratedTasksCount || 0) > 0 ? (depotAllStats.totalRatingValue / depotAllStats.ratedTasksCount).toFixed(2) : 'N/A',
+        commentCount: depotNegativeStats?.commentCount || 0,
+      }
+    })
+    .filter(item => item.negativeRatingsCount > 0)
+    .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
+  }, [negativeRatingsData, data]);
 
 
   const summaryByCarrier = useMemo(() => {
+    // Group all data by carrier for avg rating
+    const allDataGrouped = data.reduce((acc, curr) => {
+      const depot = getNomDepot(curr.entrepot);
+      const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+      const key = `${depot}|${carrier}`;
+      if (!acc[key]) {
+        acc[key] = { totalRatingValue: 0, ratedTasksCount: 0 };
+      }
+      if (curr.notation != null) {
+        acc[key].ratedTasksCount++;
+        acc[key].totalRatingValue += curr.notation;
+      }
+      return acc;
+    }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
+    
+    // Group negative data
     const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
         const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
         const key = `${depot}|${carrier}`;
 
         if (!acc[key]) {
-            acc[key] = { depot, carrier, negativeRatingsCount: 0, commentCount: 0, totalRatingValue: 0, totalRatings: 0 };
+            acc[key] = { depot, carrier, negativeRatingsCount: 0, commentCount: 0 };
         }
-        
-        acc[key].totalRatings++;
         acc[key].negativeRatingsCount++;
-        acc[key].totalRatingValue += curr.notation!;
         if (curr.commentaire) {
             acc[key].commentCount++;
         }
         return acc;
-    }, {} as Record<string, { depot: string, carrier: string, negativeRatingsCount: number, commentCount: number, totalRatingValue: number, totalRatings: number }>);
+    }, {} as Record<string, { depot: string, carrier: string, negativeRatingsCount: number, commentCount: number }>);
     
-    return Object.values(grouped).map(stats => ({
-        ...stats,
-        averageRating: stats.totalRatings > 0 ? (stats.totalRatingValue / stats.totalRatings).toFixed(2) : 'N/A',
-    }))
+    return Object.keys(grouped).map(key => {
+      const negativeStats = grouped[key];
+      const allStats = allDataGrouped[key];
+      return {
+        ...negativeStats,
+        totalRatings: allStats?.ratedTasksCount || 0,
+        averageRating: (allStats?.ratedTasksCount || 0) > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
+      }
+    })
     .filter(item => item.negativeRatingsCount > 0)
     .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-  }, [negativeRatingsData]);
+  }, [negativeRatingsData, data]);
 
 
   const summaryByDriver = useMemo(() => {
+     // Group all data by driver for avg rating
+     const allDataGrouped = data.reduce((acc, curr) => {
+      const depot = getNomDepot(curr.entrepot);
+      const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+      const driver = curr.livreur || 'Inconnu';
+      const key = `${depot}|${carrier}|${driver}`;
+
+      if (!acc[key]) {
+        acc[key] = { totalRatingValue: 0, ratedTasksCount: 0 };
+      }
+      if (curr.notation != null) {
+        acc[key].ratedTasksCount++;
+        acc[key].totalRatingValue += curr.notation;
+      }
+      return acc;
+    }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
+    
+    // Group negative data
      const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
         const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
@@ -128,12 +177,10 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         const key = `${depot}|${carrier}|${driver}`;
 
         if (!acc[key]) {
-            acc[key] = { depot, carrier, driver, negativeRatingsCount: 0, totalRatingValue: 0, totalRatings: 0, categoryCounts: {} as Record<CommentCategory, number> };
+            acc[key] = { depot, carrier, driver, negativeRatingsCount: 0, categoryCounts: {} as Record<CommentCategory, number> };
         }
 
-        acc[key].totalRatings++;
         acc[key].negativeRatingsCount++;
-        acc[key].totalRatingValue += curr.notation!;
         
         if (curr.commentaire) {
           const category = curr.category as CommentCategory;
@@ -141,13 +188,18 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         }
 
         return acc;
-    }, {} as Record<string, { depot: string, carrier: string, driver: string, negativeRatingsCount: number, totalRatingValue: number, totalRatings: number, categoryCounts: Record<CommentCategory, number> }>);
+    }, {} as Record<string, { depot: string, carrier: string, driver: string, negativeRatingsCount: number, categoryCounts: Record<CommentCategory, number> }>);
 
-    return Object.values(grouped).map(stats => ({
-        ...stats,
-        averageRating: stats.totalRatings > 0 ? (stats.totalRatingValue / stats.totalRatings).toFixed(2) : 'N/A',
-        categorySummary: Object.entries(stats.categoryCounts).map(([cat, count]) => `${count} ${cat}`).join(', '),
-    }))
+    return Object.keys(grouped).map(key => {
+        const negativeStats = grouped[key];
+        const allStats = allDataGrouped[key];
+        return {
+            ...negativeStats,
+            totalRatings: allStats?.ratedTasksCount || 0,
+            averageRating: (allStats?.ratedTasksCount || 0) > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
+            categorySummary: Object.entries(negativeStats.categoryCounts).map(([cat, count]) => `${count} ${cat}`).join(', '),
+        }
+    })
     .filter(item => item.negativeRatingsCount > 0)
     .sort((a, b) => {
         if (a.depot < b.depot) return -1;
@@ -158,7 +210,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         if (a.driver > b.driver) return 1;
         return 0;
     });
-  }, [negativeRatingsData]);
+  }, [negativeRatingsData, data]);
 
   
   const unassignedDrivers = useMemo(() => {
@@ -180,14 +232,14 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     }));
   }, [negativeRatingsData]);
 
-  if (negativeRatingsData.length === 0) {
+  if (data.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Analyse de la Qualité</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">Aucune note négative (≤ 3) à afficher pour la sélection actuelle.</p>
+          <p className="text-muted-foreground">Aucune donnée à afficher pour la sélection actuelle.</p>
         </CardContent>
       </Card>
     );
@@ -223,7 +275,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             </TabsList>
             <TabsContent value="depot">
               <Table>
-                <TableHeader><TableRow><TableHead>Dépôt (Total Mauvaises Notes)</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (sur notes ≤ 3)</TableHead><TableHead>Nb. Commentaires Associés</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Dépôt (Total Notes)</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (sur toutes les notes)</TableHead><TableHead>Nb. Commentaires Associés</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {summaryByDepot.map(({ depot, totalRatings, negativeRatingsCount, averageRating, commentCount }) => (
                     <TableRow key={depot}><TableCell>{depot} ({totalRatings})</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
@@ -233,7 +285,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             </TabsContent>
             <TabsContent value="carrier">
               <Table>
-                <TableHeader><TableRow><TableHead>Dépôt</TableHead><TableHead>Transporteur (Total Mauvaises Notes)</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (sur notes ≤ 3)</TableHead><TableHead>Nb. Commentaires Associés</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Dépôt</TableHead><TableHead>Transporteur (Total Notes)</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (sur toutes les notes)</TableHead><TableHead>Nb. Commentaires Associés</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {summaryByCarrier.map(({ depot, carrier, totalRatings, negativeRatingsCount, averageRating, commentCount }, index) => (
                     <TableRow key={index}><TableCell>{depot}</TableCell><TableCell>{carrier} ({totalRatings})</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
@@ -247,9 +299,9 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
                   <TableRow>
                     <TableHead>Dépôt</TableHead>
                     <TableHead>Transporteur</TableHead>
-                    <TableHead>Livreur (Total Mauvaises Notes)</TableHead>
+                    <TableHead>Livreur (Total Notes)</TableHead>
                     <TableHead>Nb. Mauvaises Notes</TableHead>
-                    <TableHead>Note Moyenne (sur notes ≤ 3)</TableHead>
+                    <TableHead>Note Moyenne (sur toutes les notes)</TableHead>
                     <TableHead>Catégories de Commentaires</TableHead>
                   </TableRow>
                 </TableHeader>
