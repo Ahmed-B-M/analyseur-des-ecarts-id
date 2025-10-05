@@ -28,42 +28,37 @@ interface CommentToCategorize {
     category: CommentCategory;
 }
 
-function CommentsList({ commentsToCategorize: initialComments, onSave, savedCategorizedComments }: { commentsToCategorize: CommentToCategorize[], onSave: (comments: CommentToCategorize[]) => void, savedCategorizedComments: CategorizedComment[] }) {
+function CommentsList({ commentsToCategorize, onSave }: { commentsToCategorize: CommentToCategorize[], onSave: (comments: CommentToCategorize[]) => void }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [sortConfig, setSortConfig] = useState<{ key: keyof CommentToCategorize; direction: 'asc' | 'desc' } | null>({ key: 'note', direction: 'asc' });
-    const [categorizedComments, setCategorizedComments] = useState<CommentToCategorize[]>(initialComments);
+    const [localComments, setLocalComments] = useState<CommentToCategorize[]>(commentsToCategorize);
     const { toast } = useToast();
 
     useEffect(() => {
-        // This logic re-filters the initialComments when savedCategorizedComments changes.
-        const savedIds = new Set(savedCategorizedComments.map(c => c.id));
-        const filteredInitial = initialComments.filter(c => !savedIds.has(c.id));
-        setCategorizedComments(filteredInitial);
-    }, [initialComments, savedCategorizedComments]);
+        setLocalComments(commentsToCategorize);
+    }, [commentsToCategorize]);
 
 
     const sortedData = useMemo(() => {
-        if (!sortConfig) return categorizedComments;
-        return [...categorizedComments].sort((a, b) => {
+        if (!sortConfig) return localComments;
+        return [...localComments].sort((a, b) => {
             let aValue = a[sortConfig.key];
             let bValue = b[sortConfig.key];
             if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
             if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
         });
-    }, [categorizedComments, sortConfig]);
+    }, [localComments, sortConfig]);
     
     const handleCategoryChange = (id: string, newCategory: CommentCategory) => {
-        setCategorizedComments(prev => prev.map(c => c.id === id ? { ...c, category: newCategory } : c));
+        setLocalComments(prev => prev.map(c => c.id === id ? { ...c, category: newCategory } : c));
     };
 
     const handleSaveComment = (commentId: string) => {
-        const commentToSave = categorizedComments.find(c => c.id === commentId);
+        const commentToSave = localComments.find(c => c.id === commentId);
         if (commentToSave) {
             onSave([commentToSave]);
-            // Optimistically remove from UI
-            setCategorizedComments(prev => prev.filter(c => c.id !== commentId));
-            toast({ title: "Commentaire sauvegardé", description: "La catégorie a été enregistrée." });
+            toast({ title: "Commentaire sauvegardé", description: "La catégorie a été enregistrée. La liste va s'actualiser." });
         }
     };
 
@@ -129,7 +124,7 @@ function CommentsList({ commentsToCategorize: initialComments, onSave, savedCate
                                 </TableCell>
                             </TableRow>
                         )) : (
-                            <TableRow><TableCell colSpan={7} className="text-center h-24">Aucun commentaire à catégoriser.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={7} className="text-center h-24">Aucun nouveau commentaire à catégoriser.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
@@ -217,8 +212,7 @@ export default function NegativeCommentsTable({ data, savedCategorizedComments }
             <CardContent className="space-y-4">
                <CommentsList 
                 commentsToCategorize={commentsToCategorize} 
-                onSave={handleSave} 
-                savedCategorizedComments={savedCategorizedComments}
+                onSave={handleSave}
                />
             </CardContent>
         </Card>
