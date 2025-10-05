@@ -1,3 +1,4 @@
+
 'use server';
 
 import { ai } from '@/ai/genkit';
@@ -9,9 +10,9 @@ const CategorizeCommentInputSchema = z.object({
 
 const CategorizeCommentOutputSchema = z.object({
   category: z
-    .enum(['Retard', 'Avance', 'Rupture chaine de froid', 'Attitude Livreur','Casse','Manquant', 'Autre'])
+    .enum(['Retard', 'Avance', 'Rupture chaine de froid', 'Attitude Livreur','Casse','Manquant', 'Erreur de préparation', 'Erreur de livraison', 'Autre'])
     .describe(
-      "The category of the comment. Must be one of: 'Retard', 'Avance', 'Rupture chaine de froid', 'Attitude Livreur','Casse','Manquant', 'Autre'."
+      "The category of the comment. Must be one of: 'Retard', 'Avance', 'Rupture chaine de froid', 'Attitude Livreur','Casse','Manquant', 'Erreur de préparation', 'Erreur de livraison', 'Autre'."
     ),
 });
 
@@ -22,7 +23,7 @@ const categorizeCommentFlow = ai.defineFlow(
     outputSchema: CategorizeCommentOutputSchema,
   },
   async (input) => {
-    const prompt = `Categorize the following customer comment into one of these categories: 'Retard', 'Avance', 'Rupture chaine de froid', 'Attitude Livreur','Casse','Manquant', 'Autre'. Comment: "${input.comment}"`;
+    const prompt = `Categorize the following customer comment into one of these categories: 'Retard', 'Avance', 'Rupture chaine de froid', 'Attitude Livreur','Casse','Manquant', 'Erreur de préparation', 'Erreur de livraison', 'Autre'. Comment: "${input.comment}"`;
     
     const { output } = await ai.generate({
       prompt: prompt,
