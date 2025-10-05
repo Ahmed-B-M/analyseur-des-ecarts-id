@@ -58,64 +58,66 @@ const generateQualityEmailBody = ({ summaryByDepot, summaryByCarrier, summaryByD
 
   for (const depot of depots) {
     const depotSummary = summaryByDepot.find(s => s.depot === depot);
-    const carriersForDepot = summaryByCarrier.filter(s => s.depot === depot);
-    const driversForDepot = summaryByDriver.filter(s => s.depot === depot);
+    const carriersForDepot = summaryByCarrier.filter(s => s.depot === depot && s.negativeRatingsCount > 0);
+    const driversForDepot = summaryByDriver.filter(s => s.depot === depot && s.negativeRatingsCount > 0);
 
-    depotSections += `
-      <div class="card">
-        <h2>Synthèse pour le Dépôt : ${depot}</h2>
-        
-        <!-- Depot Summary Card -->
-        <div style="background-color: #f9f9f9; border: 1px solid #eee; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
-          <h3 style="margin-top: 0;">Indicateurs Clés</h3>
-          <p><strong>Total des notes reçues :</strong> ${depotSummary?.totalRatings ?? 0}</p>
-          <p><strong>Nombre de mauvaises notes (≤ 3) :</strong> ${depotSummary?.negativeRatingsCount ?? 0}</p>
-          <p><strong>Note moyenne globale :</strong> ${depotSummary?.averageRating ?? 'N/A'}</p>
-          <p><strong>Nombre de commentaires laissés :</strong> ${depotSummary?.commentCount ?? 0}</p>
+    if (depotSummary && depotSummary.negativeRatingsCount > 0) {
+      depotSections += `
+        <div class="card">
+          <h2>Synthèse pour le Dépôt : ${depot}</h2>
+          
+          <!-- Depot Summary Card -->
+          <div style="background-color: #f9f9f9; border: 1px solid #eee; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0;">Indicateurs Clés</h3>
+            <p><strong>Total des notes reçues :</strong> ${depotSummary?.totalRatings ?? 0}</p>
+            <p><strong>Nombre de mauvaises notes (≤ 3) :</strong> ${depotSummary?.negativeRatingsCount ?? 0}</p>
+            <p><strong>Note moyenne globale :</strong> ${depotSummary?.averageRating ?? 'N/A'}</p>
+            <p><strong>Nombre de commentaires laissés :</strong> ${depotSummary?.commentCount ?? 0}</p>
+          </div>
+
+          <!-- Carrier Table -->
+          ${carriersForDepot.length > 0 ? `
+            <h3>Détail par Transporteur (avec mauvaises notes)</h3>
+            <div class="table-container">
+              <table>
+                <thead><tr><th>Transporteur</th><th>Nb. Mauvaises Notes</th><th>Note Moyenne (globale)</th><th>Nb. Commentaires</th></tr></thead>
+                <tbody>
+                  ${carriersForDepot.map(s => `
+                    <tr>
+                      <td>${s.carrier} (${s.totalRatings})</td>
+                      <td>${s.negativeRatingsCount}</td>
+                      <td>${s.averageRating}</td>
+                      <td>${s.commentCount}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
+
+          <!-- Driver Table -->
+          ${driversForDepot.length > 0 ? `
+            <h3>Détail par Livreur (avec mauvaises notes)</h3>
+            <div class="table-container">
+              <table>
+                <thead><tr><th>Transporteur</th><th>Livreur</th><th>Nb. Mauvaises Notes</th><th>Note Moyenne (globale)</th><th>Catégories de Commentaires</th></tr></thead>
+                <tbody>
+                  ${driversForDepot.map(s => `
+                    <tr>
+                      <td>${s.carrier}</td>
+                      <td>${s.driver} (${s.totalRatings})</td>
+                      <td>${s.negativeRatingsCount}</td>
+                      <td>${s.averageRating}</td>
+                      <td>${s.categorySummary}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
         </div>
-
-        <!-- Carrier Table -->
-        ${carriersForDepot.length > 0 ? `
-          <h3>Détail par Transporteur</h3>
-          <div class="table-container">
-            <table>
-              <thead><tr><th>Transporteur</th><th>Nb. Mauvaises Notes</th><th>Note Moyenne (globale)</th><th>Nb. Commentaires</th></tr></thead>
-              <tbody>
-                ${carriersForDepot.map(s => `
-                  <tr>
-                    <td>${s.carrier} (${s.totalRatings})</td>
-                    <td>${s.negativeRatingsCount}</td>
-                    <td>${s.averageRating}</td>
-                    <td>${s.commentCount}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        ` : ''}
-
-        <!-- Driver Table -->
-        ${driversForDepot.length > 0 ? `
-          <h3>Détail par Livreur</h3>
-          <div class="table-container">
-            <table>
-              <thead><tr><th>Transporteur</th><th>Livreur</th><th>Nb. Mauvaises Notes</th><th>Note Moyenne (globale)</th><th>Catégories de Commentaires</th></tr></thead>
-              <tbody>
-                ${driversForDepot.map(s => `
-                  <tr>
-                    <td>${s.carrier}</td>
-                    <td>${s.driver} (${s.totalRatings})</td>
-                    <td>${s.negativeRatingsCount}</td>
-                    <td>${s.averageRating}</td>
-                    <td>${s.categorySummary}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        ` : ''}
-      </div>
-    `;
+      `;
+    }
   }
 
   let body = `
@@ -134,9 +136,9 @@ const generateQualityEmailBody = ({ summaryByDepot, summaryByCarrier, summaryByD
         </style>
       </head>
       <body>
-        <h1>Rapport de Synthèse de la Qualité</h1>
+        <h1>Rapport de Synthèse de la Qualité (Focus sur les Mauvaises Notes)</h1>
         <p>Bonjour,</p>
-        <p>Veuillez trouver ci-dessous les synthèses de la qualité par dépôt pour la période sélectionnée.</p>
+        <p>Veuillez trouver ci-dessous les synthèses de la qualité par dépôt pour la période sélectionnée, en se concentrant sur les entités avec au moins une mauvaise note.</p>
         
         ${depotSections}
 
@@ -168,7 +170,7 @@ const generateQualityEmailBody = ({ summaryByDepot, summaryByCarrier, summaryByD
 const QualityEmailGenerator = (props: QualityEmailGeneratorProps) => {
 
   const handleSendEmail = () => {
-    const subject = "Rapport de Synthèse de la Qualité";
+    const subject = "Rapport de Synthèse de la Qualité (Focus sur les Mauvaises Notes)";
     const body = generateQualityEmailBody(props);
     
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
