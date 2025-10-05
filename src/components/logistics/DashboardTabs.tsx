@@ -4,11 +4,9 @@
 import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { DateRangePicker } from './DateRangePicker';
 import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck, MessageSquare, ClipboardCheck, FileText, Tags, Mail } from 'lucide-react';
 import AnalysisDashboard from './AnalysisDashboard';
 import DetailedDataView from './DetailedDataView';
-import CalendarView from './CalendarView';
 import ComparisonView from './ComparisonView';
 import DepotComparison from './DepotComparison';
 import NegativeCommentsTable from './NegativeCommentsTable';
@@ -148,7 +146,6 @@ export default function DashboardTabs({
                         {unprocessedCommentsCount > 0 && <Badge className="ml-2">{unprocessedCommentsCount}</Badge>}
                     </TabsTrigger>
                     <TabsTrigger value="actionFollowUp"><ClipboardCheck className="w-4 h-4 mr-2" />Suivi Actions</TabsTrigger>
-                    <TabsTrigger value="calendar"><Calendar className="w-4 h-4 mr-2" />Analyse par Période</TabsTrigger>
                     <TabsTrigger value="data"><List className="w-4 h-4 mr-2" />Données Détaillées</TabsTrigger>
                     <TabsTrigger value="rdp"><LayoutDashboard className="w-4 h-4 mr-2" />RDP</TabsTrigger>
                     <TabsTrigger value="reportRD"><FileText className="w-4 h-4 mr-2" />Rapport RD</TabsTrigger>
@@ -220,38 +217,6 @@ export default function DashboardTabs({
                     savedCategorizedComments={savedCategorizedComments || []} 
                     uncategorizedCommentsForSummary={uncategorizedCommentsForSummary}
                 />
-            </TabsContent>
-            <TabsContent value="calendar" className="mt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="md:col-span-1">
-                        <CalendarView 
-                            data={rawData}
-                            onDateSelect={(date) => {
-                                setFilters({ ...filters, selectedDate: date, dateRange: undefined });
-                            }}
-                            onWeekSelect={(week) => {
-                                setFilters({ ...filters, dateRange: week, selectedDate: undefined });
-                            }}
-                        />
-                    </div>
-                    <div className="md:col-span-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Analyse par Période Personnalisée</CardTitle>
-                                <CardDescription>
-                                Sélectionnez une plage de dates pour mettre à jour l'ensemble du tableau de bord.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <DateRangePicker 
-                                    className="max-w-sm"
-                                    onDateChange={(range) => setFilters({ ...filters, dateRange: range, selectedDate: undefined })}
-                                    date={filters.dateRange}
-                                />
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
             </TabsContent>
             <TabsContent value="data" className="mt-6">
                 <DetailedDataView data={filteredData} />
