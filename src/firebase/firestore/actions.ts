@@ -80,15 +80,26 @@ export async function batchSaveCategorizedComments(
 
             if (sanitizedId.length > 0) {
                 const docRef = doc(firestore, 'commentCategories', sanitizedId);
+                const dataToSave = {
+                    id: sanitizedId,
+                    date: comment.date,
+                    livreur: comment.livreur,
+                    ville: comment.ville,
+                    note: comment.note,
+                    comment: comment.comment,
+                    category: comment.category,
+                    entrepot: comment.entrepot, // Make sure entrepot is saved
+                };
+
                 try {
                     // Use setDoc for a single, direct write operation.
-                    await setDoc(docRef, { ...comment, id: sanitizedId });
+                    await setDoc(docRef, dataToSave);
                 } catch (serverError: any) {
                     console.error("Save failed for comment:", comment, "Error:", serverError);
                     const permissionError = new FirestorePermissionError({
                         path: docRef.path,
                         operation: 'write',
-                        requestResourceData: comment,
+                        requestResourceData: dataToSave,
                     });
                     errorEmitter.emit('permission-error', permissionError);
                     // We throw to let the calling component know something went wrong.
@@ -129,3 +140,5 @@ export async function updateCategorizedComment(
         throw serverError;
     }
 }
+
+    

@@ -89,6 +89,7 @@ const CommentCategorizationView = () => {
                         <TableHeader className="sticky top-0 bg-background">
                             <TableRow>
                                 <TableHead>Date</TableHead>
+                                <TableHead>Entrepôt</TableHead>
                                 <TableHead>Livreur</TableHead>
                                 <TableHead>Ville</TableHead>
                                 <TableHead>Note</TableHead>
@@ -99,7 +100,7 @@ const CommentCategorizationView = () => {
                         <TableBody>
                             {sortedComments.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                                         Aucun commentaire n'a encore été catégorisé et sauvegardé.
                                     </TableCell>
                                 </TableRow>
@@ -107,6 +108,7 @@ const CommentCategorizationView = () => {
                                 sortedComments.map((comment) => (
                                     <TableRow key={comment.id}>
                                         <TableCell>{comment.date}</TableCell>
+                                        <TableCell>{comment.entrepot}</TableCell>
                                         <TableCell>{comment.livreur}</TableCell>
                                         <TableCell>{comment.ville}</TableCell>
                                         <TableCell>{comment.note}</TableCell>
@@ -138,3 +140,5 @@ const CommentCategorizationView = () => {
 };
 
 export default CommentCategorizationView;
+
+    

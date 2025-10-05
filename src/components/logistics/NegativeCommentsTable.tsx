@@ -21,6 +21,7 @@ interface CommentToCategorize {
     id: string;
     date: string;
     livreur: string;
+    entrepot: string;
     ville: string;
     codePostal: string;
     note: number;
@@ -87,6 +88,7 @@ function CommentsList({ commentsToCategorize, onSave }: { commentsToCategorize: 
                     <TableHeader className="sticky top-0 bg-secondary">
                         <TableRow>
                             <TableHead onClick={() => handleSort('date')} className="cursor-pointer">Date</TableHead>
+                            <TableHead onClick={() => handleSort('entrepot')} className="cursor-pointer">Entrepôt</TableHead>
                             <TableHead onClick={() => handleSort('livreur')} className="cursor-pointer">Livreur</TableHead>
                             <TableHead onClick={() => handleSort('ville')} className="cursor-pointer">Ville</TableHead>
                             <TableHead onClick={() => handleSort('note')} className="cursor-pointer">Note</TableHead>
@@ -99,6 +101,7 @@ function CommentsList({ commentsToCategorize, onSave }: { commentsToCategorize: 
                         {paginatedData.length > 0 ? paginatedData.map((item) => (
                             <TableRow key={item.id}>
                                 <TableCell>{item.date}</TableCell>
+                                <TableCell>{item.entrepot}</TableCell>
                                 <TableCell>{item.livreur}</TableCell>
                                 <TableCell>{item.ville}, {item.codePostal}</TableCell>
                                 <TableCell><Badge variant={item.note === 3 ? "secondary" : "destructive"}>{item.note}</Badge></TableCell>
@@ -125,7 +128,7 @@ function CommentsList({ commentsToCategorize, onSave }: { commentsToCategorize: 
                                 </TableCell>
                             </TableRow>
                         )) : (
-                            <TableRow><TableCell colSpan={7} className="text-center h-24">Aucun nouveau commentaire à catégoriser.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={8} className="text-center h-24">Aucun nouveau commentaire à catégoriser.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
@@ -169,6 +172,7 @@ export default function NegativeCommentsTable({ data, savedCategorizedComments }
                 id: `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`,
                 date: item.date,
                 livreur: item.livreur || 'N/A',
+                entrepot: item.entrepot,
                 ville: item.ville,
                 codePostal: item.codePostal,
                 note: item.notation!,
@@ -227,3 +231,5 @@ export default function NegativeCommentsTable({ data, savedCategorizedComments }
         </Card>
     );
 }
+
+    
