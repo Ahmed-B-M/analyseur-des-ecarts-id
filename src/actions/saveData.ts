@@ -1,7 +1,7 @@
 
 'use server';
 
-import { initializeApp, getApps, App, cert, applicationDefault } from 'firebase-admin/app';
+import { initializeApp, getApps, App, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, WriteBatch } from 'firebase-admin/firestore';
 import type { Tournee, Tache } from '@/lib/types';
 
@@ -11,8 +11,6 @@ function getAdminApp(): App {
     return getApps()[0];
   }
 
-  // In a managed environment like Cloud Run, App Engine, or Cloud Functions,
-  // the SDK can often auto-discover credentials.
   return initializeApp({
     credential: applicationDefault(),
   });
