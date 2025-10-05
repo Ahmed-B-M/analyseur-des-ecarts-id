@@ -11,26 +11,55 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MergedData } from '@/lib/types';
-import { useMemo } from 'react';
+import { MergedData, SuiviCommentaire } from '@/lib/types';
+import { useMemo, useState, useEffect } from 'react';
 import { getCarrierFromDriverName, getNomDepot } from '@/lib/utils';
-import CommentCategorizationTable from './CommentCategorizationTable';
+import CommentCategorizationTable, { CategorizedComment } from './CommentCategorizationTable';
 import { categorizeComment, CommentCategory } from '@/lib/comment-categorization';
 import EmailGenerator from './EmailGenerator';
+import GlobalCommentView from './GlobalCommentView';
 
 interface QualitySummaryProps {
     data: MergedData[];
+    processedActions: SuiviCommentaire[];
 }
 
-const QualitySummary = ({ data }: QualitySummaryProps) => {
+const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
 
   const ratings = useMemo(() => (data || []).filter(
     (d: MergedData) => d.notation
   ), [data]);
 
   const negativeRatings = useMemo(() => (data || []).filter(
-    (d: MergedData) => d.notation && d.notation <= 3
+    (d: MergedData) => d.notation && d.notation <= 3 && d.commentaire
   ), [data]);
+  
+  const initialCategorizedComments = useMemo(() => {
+    return negativeRatings.map((d, index) => ({
+        id: index,
+        date: d.date,
+        livreur: d.livreur || 'Inconnu',
+        ville: d.ville,
+        note: d.notation,
+        comment: d.commentaire,
+        category: categorizeComment(d.commentaire),
+    }));
+  }, [negativeRatings]);
+
+  const [categorizedComments, setCategorizedComments] = useState<CategorizedComment[]>(initialCategorizedComments);
+
+  // Reset state if the underlying data changes
+  useEffect(() => {
+    setCategorizedComments(initialCategorizedComments);
+  }, [initialCategorizedComments]);
+
+  const handleCategoryChange = (id: number, newCategory: CommentCategory) => {
+    setCategorizedComments(prevComments =>
+      prevComments.map(comment =>
+        comment.id === id ? { ...comment, category: newCategory } : comment
+      )
+    );
+  };
 
   const summaryByDepot = useMemo(() => {
     const allRatingsGrouped = ratings.reduce((acc, curr) => {
@@ -135,20 +164,23 @@ const QualitySummary = ({ data }: QualitySummaryProps) => {
       return acc;
     }, {} as Record<string, { depot: string; carrier: string; driver: string; totalRating: number; ratingCount: number }>);
 
-    const negativeRatingsGrouped = negativeRatings.reduce((acc, curr) => {
-      const depot = getNomDepot(curr.tournee?.entrepot || 'Inconnu');
-      const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
-      const driver = curr.livreur || 'Inconnu';
+    const negativeRatingsGrouped = categorizedComments.reduce((acc, curr, index) => {
+      // Find the original MergedData item to get depot and carrier info
+      const originalItem = negativeRatings[curr.id];
+      if (!originalItem) return acc;
+
+      const depot = getNomDepot(originalItem.tournee?.entrepot || 'Inconnu');
+      const carrier = getCarrierFromDriverName(originalItem.livreur || '') || 'Inconnu';
+      const driver = originalItem.livreur || 'Inconnu';
       const key = `${depot}|${carrier}|${driver}`;
 
       if (!acc[key]) {
         acc[key] = { negativeRatingCount: 0, commentCount: 0, categoryCounts: {} as Record<CommentCategory, number> };
       }
       acc[key].negativeRatingCount++;
-      if (curr.commentaire) {
+      if (curr.comment) {
         acc[key].commentCount++;
-        const category = categorizeComment(curr.commentaire);
-        acc[key].categoryCounts[category] = (acc[key].categoryCounts[category] || 0) + 1;
+        acc[key].categoryCounts[curr.category] = (acc[key].categoryCounts[curr.category] || 0) + 1;
       }
       return acc;
     }, {} as Record<string, { negativeRatingCount: number; commentCount: number; categoryCounts: Record<CommentCategory, number> }>);
@@ -183,7 +215,7 @@ const QualitySummary = ({ data }: QualitySummaryProps) => {
         if (a.driver > b.driver) return 1;
         return 0;
     });
-  }, [ratings, negativeRatings]);
+  }, [ratings, negativeRatings, categorizedComments]);
   
   const unassignedDrivers = useMemo(() => {
     const drivers = data.reduce((acc, curr) => {
@@ -228,6 +260,13 @@ const QualitySummary = ({ data }: QualitySummaryProps) => {
             unassignedDrivers={unassignedDrivers}
         />
       </div>
+
+      <GlobalCommentView 
+        data={data}
+        processedActions={processedActions}
+        categorizedComments={categorizedComments}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Synthèses Générales de la Qualité</CardTitle>
@@ -307,7 +346,10 @@ const QualitySummary = ({ data }: QualitySummaryProps) => {
         </Card>
       )}
 
-      <CommentCategorizationTable data={data} />
+      <CommentCategorizationTable 
+        categorizedComments={categorizedComments}
+        onCategoryChange={handleCategoryChange}
+      />
     </div>
   );
 };

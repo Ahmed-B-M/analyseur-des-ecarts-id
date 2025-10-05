@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -23,11 +24,10 @@ import DepotConfigurator from './DepotConfigurator';
 import CommentProcessing from './CommentProcessing';
 import { Badge } from '@/components/ui/badge';
 import ActionFollowUpView from './ActionFollowUpView';
-import { useCollection } from '@/firebase/firestore/use-collection';
+import { useCollection, useMemoFirebase } from '@/firebase';
 import { useFirestore } from '@/firebase';
 import { collection } from 'firebase/firestore';
-import { useMemoFirebase } from '@/firebase/provider';
-import { SuiviCommentaireWithId } from './ActionFollowUpView';
+import type { SuiviCommentaireWithId } from './ActionFollowUpView';
 
 
 interface DashboardTabsProps {
@@ -111,6 +111,7 @@ export default function DashboardTabs({
                 <ActionFollowUpView />
             </TabsContent>
             <TabsContent value="reportRD" className="mt-6 space-y-6">
+                 {/* This now receives processed comments which might have updated categories */}
                 <GlobalCommentView data={filteredData} processedActions={existingSuivis || []} /> 
                 <HotZonesChart data={chartData} />
                 <DepotAnalysisTable data={analysisData.warehouseStats} />
@@ -148,7 +149,7 @@ export default function DashboardTabs({
                 <NegativeRatingsSummary data={filteredData} />
             </TabsContent>
             <TabsContent value="quality" className="mt-6">
-                <QualitySummary data={filteredData} />
+                <QualitySummary data={filteredData} processedActions={existingSuivis || []} />
             </TabsContent>
             <TabsContent value="calendar" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

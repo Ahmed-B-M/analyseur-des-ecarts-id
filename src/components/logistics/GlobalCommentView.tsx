@@ -4,14 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { MergedData, SuiviCommentaire } from '@/lib/types';
 import { categorizeComment, commentCategories } from '@/lib/comment-categorization';
+import { CategorizedComment } from './CommentCategorizationTable';
 
 interface GlobalCommentViewProps {
     data: MergedData[];
     processedActions: SuiviCommentaire[];
+    categorizedComments?: CategorizedComment[]; // Now optional
 }
 
-const GlobalCommentView: React.FC<GlobalCommentViewProps> = ({ data, processedActions }) => {
-    const negativeComments = data.filter(item => item.commentaire && item.notation != null && item.notation <= 3);
+const GlobalCommentView: React.FC<GlobalCommentViewProps> = ({ data, processedActions, categorizedComments }) => {
+    // Determine which source of comments to use
+    const commentsToAnalyze = categorizedComments 
+      ? categorizedComments
+      : data.filter(item => item.commentaire && item.notation != null && item.notation <= 3);
 
     const categoryCounts = commentCategories.reduce((acc, category) => {
         acc[category] = 0;
@@ -19,8 +24,10 @@ const GlobalCommentView: React.FC<GlobalCommentViewProps> = ({ data, processedAc
     }, {} as Record<string, number>);
     
     let totalCategorized = 0;
-    negativeComments.forEach(item => {
-        const category = categorizeComment(item.commentaire);
+    commentsToAnalyze.forEach(item => {
+        // If categorizedComments is provided, its category is already correct
+        // Otherwise, we need to calculate it
+        const category = categorizedComments ? item.category : categorizeComment(item.comment);
         if (categoryCounts.hasOwnProperty(category)) {
             categoryCounts[category]++;
             totalCategorized++;

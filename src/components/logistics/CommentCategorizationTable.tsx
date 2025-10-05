@@ -24,38 +24,27 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { commentCategories, CommentCategory, categorizeComment } from '@/lib/comment-categorization';
-import { useState, useMemo } from 'react';
+import { commentCategories, CommentCategory } from '@/lib/comment-categorization';
+import { useMemo } from 'react';
 
-interface CommentCategorizationTableProps {
-  data: MergedData[];
+// Define the shape of the comment object with its category
+export interface CategorizedComment {
+    id: number;
+    date: string;
+    livreur: string;
+    ville: string;
+    note: number | null;
+    comment: string | null;
+    category: CommentCategory;
 }
 
-const CommentCategorizationTable = ({ data }: CommentCategorizationTableProps) => {
-  const negativeComments = useMemo(() => {
-    return data
-      .filter((d) => d.notation && d.notation <= 3 && d.commentaire)
-      .map((d, index) => ({
-        id: index,
-        date: d.date,
-        livreur: d.livreur || 'Inconnu',
-        ville: d.ville,
-        note: d.notation,
-        comment: d.commentaire,
-        category: categorizeComment(d.commentaire),
-      }));
-  }, [data]);
+interface CommentCategorizationTableProps {
+  categorizedComments: CategorizedComment[];
+  onCategoryChange: (id: number, newCategory: CommentCategory) => void;
+}
 
-  const [categorizedComments, setCategorizedComments] = useState(negativeComments);
+const CommentCategorizationTable = ({ categorizedComments, onCategoryChange }: CommentCategorizationTableProps) => {
 
-  const handleCategoryChange = (id: number, newCategory: CommentCategory) => {
-    setCategorizedComments(prevComments =>
-      prevComments.map(comment =>
-        comment.id === id ? { ...comment, category: newCategory } : comment
-      )
-    );
-  };
-  
   const commentsByCategory = useMemo(() => {
     return categorizedComments.reduce((acc, comment) => {
       if (!acc[comment.category]) {
@@ -63,11 +52,11 @@ const CommentCategorizationTable = ({ data }: CommentCategorizationTableProps) =
       }
       acc[comment.category].push(comment);
       return acc;
-    }, {} as Record<CommentCategory, typeof categorizedComments>);
+    }, {} as Record<CommentCategory, CategorizedComment[]>);
   }, [categorizedComments]);
 
 
-  if (negativeComments.length === 0) {
+  if (categorizedComments.length === 0) {
     return null;
   }
 
@@ -105,7 +94,7 @@ const CommentCategorizationTable = ({ data }: CommentCategorizationTableProps) =
                             <TableCell>
                               <Select
                                 value={currentCategory}
-                                onValueChange={(newCat: CommentCategory) => handleCategoryChange(id, newCat)}
+                                onValueChange={(newCat: CommentCategory) => onCategoryChange(id, newCat)}
                               >
                                 <SelectTrigger>
                                   <SelectValue />
