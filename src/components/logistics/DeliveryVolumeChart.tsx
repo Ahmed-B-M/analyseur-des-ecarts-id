@@ -11,8 +11,8 @@ interface DeliveryVolumeChartProps {
   data: MergedData[];
 }
 
-// Helper function to format seconds into HHh
-const formatTime = (seconds: number): string => {
+// Helper function to format seconds into HHh for slot labels
+const formatSlotTime = (seconds: number): string => {
     if (isNaN(seconds) || seconds < 0) return 'N/A';
     const date = new Date(seconds * 1000);
     const hours = date.getUTCHours();
@@ -37,8 +37,8 @@ export default function DeliveryVolumeChart({ data }: DeliveryVolumeChartProps) 
     
     data.forEach(item => {
       if (item.heureDebutCreneau && item.heureFinCreneau && item.heureCloture) {
-        const slotStart = formatTime(item.heureDebutCreneau);
-        const slotEnd = formatTime(item.heureFinCreneau);
+        const slotStart = formatSlotTime(item.heureDebutCreneau);
+        const slotEnd = formatSlotTime(item.heureFinCreneau);
         if (slotStart === 'N/A' || slotEnd === 'N/A') return;
         const slotLabel = `${slotStart}-${slotEnd}`;
         allSlots.add(slotLabel);
