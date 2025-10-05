@@ -15,7 +15,7 @@ import { commentCategories, CategorizedComment } from '@/lib/comment-categorizat
 import { Mail } from 'lucide-react';
 
 interface EmailGeneratorProps {
-  depotStats: DepotStats[];
+  warehouseStats: DepotStats[];
   postalCodeStats: PostalCodeStats[];
   globalCommentData: {
     processedActions: SuiviCommentaire[];
@@ -24,7 +24,7 @@ interface EmailGeneratorProps {
 }
 
 const generateEmailBody = (
-  depotStats: DepotStats[],
+  warehouseStats: DepotStats[],
   postalCodeStats: PostalCodeStats[],
   globalCommentData: EmailGeneratorProps['globalCommentData']
 ) => {
@@ -122,7 +122,7 @@ const generateEmailBody = (
                 </tr>
               </thead>
               <tbody>
-                ${depotStats.map(stat => `
+                ${warehouseStats.map(stat => `
                   <tr>
                     <td>${stat.entrepot}</td>
                     <td>${stat.ponctualitePrev}</td>
@@ -180,11 +180,11 @@ const generateEmailBody = (
 };
 
 
-const EmailGenerator = ({ depotStats, postalCodeStats, globalCommentData }: EmailGeneratorProps) => {
+const EmailGenerator = ({ warehouseStats, postalCodeStats, globalCommentData }: EmailGeneratorProps) => {
 
   const handleSendEmail = () => {
     const subject = "Rapport d'Analyse des Écarts Logistiques";
-    const body = generateEmailBody(depotStats, postalCodeStats, globalCommentData);
+    const body = generateEmailBody(warehouseStats, postalCodeStats, globalCommentData);
     
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
@@ -203,7 +203,7 @@ const EmailGenerator = ({ depotStats, postalCodeStats, globalCommentData }: Emai
         </DialogHeader>
         <div 
           className="max-h-[70vh] overflow-y-auto p-4 border rounded-md"
-          dangerouslySetInnerHTML={{ __html: generateEmailBody(depotStats, postalCodeStats, globalCommentData) }}
+          dangerouslySetInnerHTML={{ __html: generateEmailBody(warehouseStats, postalCodeStats, globalCommentData) }}
         />
         <DialogFooter>
           <Button onClick={handleSendEmail}>Envoyer l'Email</Button>

@@ -96,7 +96,7 @@ export default function DashboardTabs({
     
     const uncategorizedCommentsCount = useMemo(() => {
         if (isLoadingCategories || !savedCategorizedComments) {
-            return filteredData.filter(d => d.notation != null && d.notation <= 3 && d.commentaire).length;
+            return 0;
         }
 
         const savedIds = new Set(savedCategorizedComments.map(c => sanitizeId(c.id)));
@@ -162,7 +162,7 @@ export default function DashboardTabs({
             <TabsContent value="reportRD" className="mt-6 space-y-6">
                 <div className="flex justify-end">
                     <EmailGenerator 
-                        depotStats={analysisData.depotStats}
+                        warehouseStats={analysisData.warehouseStats}
                         postalCodeStats={analysisData.postalCodeStats}
                         globalCommentData={{
                             processedActions: existingSuivis || [],
