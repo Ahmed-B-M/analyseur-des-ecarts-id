@@ -1,9 +1,9 @@
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import type { MergedData } from '@/lib/types';
 import { commentCategories, categorizeComment, CommentCategory } from '@/lib/comment-categorization';
 import { useToast } from '@/hooks/use-toast';
@@ -191,10 +191,11 @@ const CommentProcessing = ({ data }: CommentProcessingProps) => {
                 </Select>
               </TableCell>
               <TableCell>
-                <Input 
+                <Textarea 
                   value={comment.action} 
                   onChange={(e) => handleActionChange(comment.id, e.target.value)}
                   placeholder="Ajouter une action corrective"
+                  className="min-w-[200px]"
                 />
               </TableCell>
               <TableCell>
