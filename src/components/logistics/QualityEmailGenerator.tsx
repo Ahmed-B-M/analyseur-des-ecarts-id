@@ -64,11 +64,11 @@ const generateQualityEmailBody = ({ summaryByDepot, summaryByCarrier, summaryByD
     if (depotSummary && depotSummary.negativeRatingsCount > 0) {
       depotSections += `
         <div class="card">
-          <h2>Synthèse pour le Dépôt : ${depot}</h2>
+          <h2>${depot}</h2>
           
           <!-- Depot Summary Card -->
           <div style="background-color: #f9f9f9; border: 1px solid #eee; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
-            <h3 style="margin-top: 0;">Indicateurs Clés</h3>
+            <h3 style="margin-top: 0;">Indicateurs Clés du Dépôt</h3>
             <p><strong>Total des notes reçues :</strong> ${depotSummary?.totalRatings ?? 0}</p>
             <p><strong>Nombre de mauvaises notes (≤ 3) :</strong> ${depotSummary?.negativeRatingsCount ?? 0}</p>
             <p><strong>Note moyenne globale :</strong> ${depotSummary?.averageRating ?? 'N/A'}</p>
@@ -80,7 +80,7 @@ const generateQualityEmailBody = ({ summaryByDepot, summaryByCarrier, summaryByD
             <h3>Détail par Transporteur (avec mauvaises notes)</h3>
             <div class="table-container">
               <table>
-                <thead><tr><th>Transporteur</th><th>Nb. Mauvaises Notes</th><th>Note Moyenne (globale)</th><th>Nb. Commentaires</th></tr></thead>
+                <thead><tr><th>Transporteur (Total Notes)</th><th>Nb. Mauvaises Notes</th><th>Note Moyenne (globale)</th><th>Nb. Commentaires</th></tr></thead>
                 <tbody>
                   ${carriersForDepot.map(s => `
                     <tr>
@@ -100,7 +100,7 @@ const generateQualityEmailBody = ({ summaryByDepot, summaryByCarrier, summaryByD
             <h3>Détail par Livreur (avec mauvaises notes)</h3>
             <div class="table-container">
               <table>
-                <thead><tr><th>Transporteur</th><th>Livreur</th><th>Nb. Mauvaises Notes</th><th>Note Moyenne (globale)</th><th>Catégories de Commentaires</th></tr></thead>
+                <thead><tr><th>Transporteur</th><th>Livreur (Total Notes)</th><th>Nb. Mauvaises Notes</th><th>Note Moyenne (globale)</th><th>Catégories de Commentaires</th></tr></thead>
                 <tbody>
                   ${driversForDepot.map(s => `
                     <tr>
@@ -124,14 +124,14 @@ const generateQualityEmailBody = ({ summaryByDepot, summaryByCarrier, summaryByD
     <html>
       <head>
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 20px; }
-          h1, h2, h3 { color: #00338D; }
-          h1 { border-bottom: 2px solid #00338D; padding-bottom: 10px; }
-          h2 { border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 25px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 20px; background-color: #f4f4f4; }
+          h1 { color: #00338D; border-bottom: 2px solid #00338D; padding-bottom: 10px; font-size: 24px; }
+          h2 { color: #00338D; border-bottom: 1px solid #ccc; padding-bottom: 8px; margin-top: 30px; font-size: 20px; }
+          h3 { color: #555; font-size: 16px; margin-top: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
+          th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
           th { background-color: #f2f2f2; font-weight: bold; }
-          .card { border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); page-break-inside: avoid; }
+          .card { background-color: #ffffff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); page-break-inside: avoid; }
           .table-container { overflow-x: auto; }
         </style>
       </head>
@@ -159,8 +159,8 @@ const generateQualityEmailBody = ({ summaryByDepot, summaryByCarrier, summaryByD
           </div>
         ` : ''}
 
-        <p>Cordialement,</p>
-        <p>L'équipe Analyse de Données</p>
+        <p style="margin-top: 30px; font-style: italic;">Cordialement,</p>
+        <p style="font-style: italic;">L'équipe Analyse de Données</p>
       </body>
     </html>
   `;
