@@ -74,10 +74,11 @@ export async function batchSaveCategorizedComments(
     comments.forEach(comment => {
         // Ensure comment.id is a non-empty string and sanitize it
         if (comment && typeof comment.id === 'string' && comment.id.trim() !== '') {
-            // Firestore document IDs must not contain forward slashes (/)
-            const sanitizedId = comment.id.replace(/\//g, '_');
+            // Firestore document IDs must not contain forward slashes (/) or other invalid characters.
+            // encodeURIComponent is a safe way to escape them.
+            const sanitizedId = encodeURIComponent(comment.id);
             const docRef = doc(firestore, 'commentCategories', sanitizedId);
-            batch.set(docRef, { ...comment, id: sanitizedId });
+            batch.set(docRef, { ...comment, id: sanitizedId }); // Use the sanitized ID in the document data as well
         } else {
             console.warn("Skipping comment with invalid ID:", comment);
         }
@@ -106,7 +107,7 @@ export async function updateCategorizedComment(
     commentId: string,
     category: string
 ) {
-    const sanitizedId = commentId.replace(/\//g, '_');
+    const sanitizedId = encodeURIComponent(commentId);
     const docRef = doc(firestore, 'commentCategories', sanitizedId);
     try {
         await updateDoc(docRef, { category });
