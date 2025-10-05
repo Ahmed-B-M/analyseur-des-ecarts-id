@@ -239,20 +239,6 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
   return normalized;
 }
 
-function mergeData(tournees: Tournee[], taches: Tache[]): MergedData[] {
-  const tourneeMap = new Map(tournees.map((t) => [t.uniqueId, t]));
-  return taches.map((tache, index) => {
-    const tournee = tourneeMap.get(tache.tourneeUniqueId) || null;
-    return {
-      ...tache,
-      ordre: index + 1,
-      tournee: tournee,
-      depot: getNomDepot(tache.entrepot), 
-    };
-  });
-}
-
-
 self.addEventListener('message', async (event: MessageEvent) => {
   try {
     const { tourneesFile, tachesFile } = event.data;
@@ -284,8 +270,6 @@ self.addEventListener('message', async (event: MessageEvent) => {
       tourneeStartTimes.set(uniqueId, startTime);
       return {
         ...t,
-        bacsReels: 0,
-        poidsReel: 0,
         uniqueId: uniqueId,
         heureDepartReelle: startTime
       };
@@ -301,14 +285,8 @@ self.addEventListener('message', async (event: MessageEvent) => {
       ...t,
       tourneeUniqueId: `${t.nomTournee}|${t.date}|${t.entrepot}`
     }));
-
-    const mergedData = mergeData(tournees, taches);
     
-    if (!mergedData || mergedData.length === 0) {
-       throw new Error("La fusion des données a échoué. Aucune donnée n'a été générée.");
-    }
-
-    self.postMessage({ type: 'success', data: mergedData });
+    self.postMessage({ type: 'success', data: { tournees, taches } });
 
   } catch (error: any) {
     self.postMessage({ type: 'error', error: `Erreur lors du traitement des fichiers: ${error.message}` });

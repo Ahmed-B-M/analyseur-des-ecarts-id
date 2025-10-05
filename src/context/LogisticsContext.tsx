@@ -7,12 +7,15 @@ import { analyzeData } from '@/lib/dataAnalyzer';
 import { DateRange } from 'react-day-picker';
 import { getNomDepot } from '@/lib/config-depots';
 import { getCarrierFromDriverName } from '@/lib/utils';
+import { saveUploadedData } from '@/actions/saveData';
+import { toast } from '@/hooks/use-toast';
 
 // 1. State & Action Types
 type State = {
   tourneesFile: File | null;
   tachesFile: File | null;
   isLoading: boolean;
+  isSaving: boolean;
   error: string | null;
   analysisData: AnalysisData | null;
   filters: Record<string, any>;
@@ -23,16 +26,20 @@ type State = {
 type Action =
   | { type: 'SET_FILE'; fileType: 'tournees' | 'taches'; file: File | null }
   | { type: 'START_PROCESSING' }
-  | { type: 'PROCESSING_SUCCESS'; data: MergedData[] }
+  | { type: 'PROCESSING_SUCCESS'; data: { tournees: any[], taches: any[] } }
   | { type: 'PROCESSING_ERROR'; error: string }
   | { type: 'SET_FILTERS'; filters: Record<string, any> }
-  | { type: 'RESET' };
+  | { type: 'RESET' }
+  | { type: 'START_SAVING' }
+  | { type: 'SAVING_SUCCESS' }
+  | { type: 'SAVING_ERROR', error: string };
 
 // 2. Initial State
 const initialState: State = {
   tourneesFile: null,
   tachesFile: null,
   isLoading: false,
+  isSaving: false,
   error: null,
   analysisData: null,
   rawData: null,
@@ -54,8 +61,18 @@ function logisticsReducer(state: State, action: Action): State {
     case 'START_PROCESSING':
       return { ...state, isLoading: true, error: null };
     case 'PROCESSING_SUCCESS':
-        // Enrich data with carrier information
-        const enrichedData = action.data.map(item => ({
+        const { tournees, taches } = action.data;
+
+        // Merge and enrich data for immediate analysis
+        const tourneeMap = new Map(tournees.map((t: any) => [t.uniqueId, t]));
+        const mergedData: MergedData[] = taches.map((tache: any, index: number) => ({
+            ...tache,
+            ordre: index + 1,
+            tournee: tourneeMap.get(tache.tourneeUniqueId) || null,
+            depot: getNomDepot(tache.entrepot),
+        }));
+
+        const enrichedData = mergedData.map(item => ({
             ...item,
             carrier: item.tournee ? getCarrierFromDriverName(item.tournee.livreur) : null
         }));
@@ -75,6 +92,12 @@ function logisticsReducer(state: State, action: Action): State {
       return { ...state, filters: action.filters };
     case 'RESET':
       return { ...initialState };
+    case 'START_SAVING':
+        return { ...state, isSaving: true, error: null };
+    case 'SAVING_SUCCESS':
+        return { ...state, isSaving: false };
+    case 'SAVING_ERROR':
+        return { ...state, isSaving: false, error: action.error };
     default:
       return state;
   }
@@ -101,6 +124,26 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
       const { type, data, error } = event.data;
       if (type === 'success') {
         dispatch({ type: 'PROCESSING_SUCCESS', data });
+
+        // Trigger saving to Firestore after successful processing
+        toast({ title: "Sauvegarde des données...", description: "Les données des fichiers sont en cours de sauvegarde dans la base de données." });
+        dispatch({ type: 'START_SAVING' });
+        
+        saveUploadedData(data.tournees, data.taches)
+            .then(result => {
+                if (result.success) {
+                    dispatch({ type: 'SAVING_SUCCESS' });
+                    toast({ title: "Sauvegarde réussie", description: `${result.tournees} tournées et ${result.taches} tâches ont été sauvegardées.` });
+                } else {
+                    throw new Error(result.error);
+                }
+            })
+            .catch(err => {
+                console.error("Saving error:", err);
+                dispatch({ type: 'SAVING_ERROR', error: err.message || "Une erreur est survenue lors de la sauvegarde." });
+                toast({ variant: "destructive", title: "Erreur de sauvegarde", description: err.message });
+            });
+
       } else {
         dispatch({ type: 'PROCESSING_ERROR', error });
       }
