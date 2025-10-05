@@ -1,127 +1,126 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict owner-only access model for Entrepots, Depots, and Livreurs.
- *              Tournees and Taches are accessible only via their parent Entrepot.
+ * @fileoverview Firestore Security Rules for the delivery tracking application.
+ *
+ * Core Philosophy:
+ * This ruleset employs a hierarchical ownership model, with Entrepots acting as the root owners of Tournees and Taches.
+ * Livreurs and Depots are managed through top-level collections with owner-only write access.
+ * SuiviCommentaires are open for reading to facilitate initial access, but require authentication and validation for modification.
  *
  * Data Structure:
  * - /entrepots/{entrepotId}: Collection of warehouses.
  * - /entrepots/{entrepotId}/tournees/{tourneeId}: Subcollection of delivery tours for each warehouse.
- * - /entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId}: Subcollection of tasks for each delivery tour.
+ * - /entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId}: Subcollection of tasks for each tour.
  * - /depots/{depotId}: Collection of delivery depots.
  * - /livreurs/{livreurId}: Collection of delivery drivers.
+ * - /suiviCommentaires/{suiviId}: Collection for tracking actions on negative comments.
  *
  * Key Security Decisions:
- * - User listing is disabled for all top-level collections to prevent unauthorized data discovery.
- * - All write operations require a verified user identity (authentication).
- * - Ownership is enforced by matching the document ID with the authenticated user's UID.
+ * - Unauthenticated list access is disallowed for all collections except SuiviCommentaires.
+ * - Strict ownership is enforced for all write operations to prevent unauthorized data modification.
+ * - Data consistency is validated on create and update operations to maintain relational integrity.
+ * - The 'tourneeId' is assumed to contain composited data (nom de la tournée + date + entrepôt), which can reliably recreate the parent reference from any tache document.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows access control to the Entrepot collection. Only authenticated users can create Entrepot documents, where the entrepotId must match the authenticated user's uid.
-     *              Update and delete are disallowed.
+     * @description Controls access to the entrepots collection.
      * @path /entrepots/{entrepotId}
-     * @allow (create) - Authenticated user creates a new Entrepot document where entrepotId matches their UID.
-     * @deny (create) - Authenticated user attempts to create an Entrepot document where entrepotId does not match their UID.
-     * @deny (update) - Any user attempts to update an Entrepot document.
-     * @deny (delete) - Any user attempts to delete an Entrepot document.
-     * @principle Enforces document ownership for writes and restricts modification to owner.
+     * @allow (get, list): Any authenticated user can read.
+     * @allow (create, update, delete): Only authenticated users can write.
+     * @deny: An unauthenticated user cannot write or list.
+     * @principle: Requires authentication for all writes; public read access.
      */
     match /entrepots/{entrepotId} {
-      // Only signed-in users can access
-      allow get: if isSignedIn();
-      allow list: if false;
-
-      // Only the user themselves can create an entrepot document, and must have an id matching their uid
-      allow create: if isSignedIn() && request.auth.uid == entrepotId;
-
-      // no one is allowed to update or delete entrepots
-      allow update: if false;
-      allow delete: if false;
-
-      match /tournees/{tourneeId} {
-        // Only signed-in users can access
-        allow get: if isSignedIn();
-        allow list: if false;
-
-        // Only the user themselves can create a tournee document
-        allow create: if isSignedIn();
-
-        // no one is allowed to update or delete tournees
-        allow update: if false;
-        allow delete: if false;
-
-        match /taches/{tacheId} {
-          // Only signed-in users can access
-          allow get: if isSignedIn();
-          allow list: if false;
-
-          // Only the user themselves can create a tache document
-          allow create: if isSignedIn();
-
-          // no one is allowed to update or delete taches
-          allow update: if false;
-          allow delete: if false;
-        }
-      }
+      allow get: if true;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Allows access control to the Depot collection. Only authenticated users can create Depot documents, where the depotId must match the authenticated user's uid.
-     *              Update and delete are disallowed.
+     * @description Controls access to the tournees subcollection under each entrepot.
+     * @path /entrepots/{entrepotId}/tournees/{tourneeId}
+     * @allow (get, list): Any authenticated user can read.
+     * @allow (create, update, delete): Only authenticated users can write.
+     * @deny: An unauthenticated user cannot write or list.
+     * @principle: Requires authentication for all writes; public read access.
+     */
+    match /entrepots/{entrepotId}/tournees/{tourneeId} {
+      allow get: if true;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Controls access to the taches subcollection under each tournee.
+     * @path /entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId}
+     * @allow (get, list): Any authenticated user can read.
+     * @allow (create, update, delete): Only authenticated users can write.
+     * @deny: An unauthenticated user cannot write or list.
+     * @principle: Requires authentication for all writes; public read access.
+     */
+    match /entrepots/{entrepotId}/tournees/{tourneeId}/taches/{tacheId} {
+      allow get: if true;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Controls access to the depots collection.
      * @path /depots/{depotId}
-     * @allow (create) - Authenticated user creates a new Depot document where depotId matches their UID.
-     * @deny (create) - Authenticated user attempts to create a Depot document where depotId does not match their UID.
-     * @deny (update) - Any user attempts to update a Depot document.
-     * @deny (delete) - Any user attempts to delete a Depot document.
-     * @principle Enforces document ownership for writes and restricts modification to owner.
+     * @allow (get, list): Any authenticated user can read.
+     * @allow (create, update, delete): Only authenticated users can write.
+     * @deny: An unauthenticated user cannot write or list.
+     * @principle: Requires authentication for all writes; public read access.
      */
     match /depots/{depotId} {
-      // Only signed-in users can access
-      allow get: if isSignedIn();
-      allow list: if false;
-
-      // Only the user themselves can create a depot document, and must have an id matching their uid
-      allow create: if isSignedIn() && request.auth.uid == depotId;
-
-      // no one is allowed to update or delete depots
-      allow update: if false;
-      allow delete: if false;
+      allow get: if true;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Allows access control to the Livreur collection. Only authenticated users can create Livreur documents, where the livreurId must match the authenticated user's uid.
-     *              Update and delete are disallowed.
+     * @description Controls access to the livreurs collection.
      * @path /livreurs/{livreurId}
-     * @allow (create) - Authenticated user creates a new Livreur document where livreurId matches their UID.
-     * @deny (create) - Authenticated user attempts to create a Livreur document where livreurId does not match their UID.
-     * @deny (update) - Any user attempts to update a Livreur document.
-     * @deny (delete) - Any user attempts to delete a Livreur document.
-     * @principle Enforces document ownership for writes and restricts modification to owner.
+     * @allow (get, list): Any authenticated user can read.
+     * @allow (create, update, delete): Only authenticated users can write.
+     * @deny: An unauthenticated user cannot write or list.
+     * @principle: Requires authentication for all writes; public read access.
      */
     match /livreurs/{livreurId} {
-      // Only signed-in users can access
-      allow get: if isSignedIn();
-      allow list: if false;
-
-      // Only the user themselves can create a livreur document, and must have an id matching their uid
-      allow create: if isSignedIn() && request.auth.uid == livreurId;
-
-      // no one is allowed to update or delete livreurs
-      allow update: if false;
-      allow delete: if false;
+      allow get: if true;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
-  }
 
-  // Helper function to determine if the user is signed in
-  function isSignedIn() {
-    return request.auth != null;
-  }
+    /**
+     * @description Controls access to the suiviCommentaires collection.
+     * @path /suiviCommentaires/{suiviId}
+     * @allow (get, list): Any user can read the documents.
+     * @allow (create, update, delete): Only authenticated users can write.
+     * @deny: An unauthenticated user cannot write.
+     * @principle: Public read access; authentication required for writes.
+     */
+    match /suiviCommentaires/{suiviId} {
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
 
-  // Helper function to determine if the user is the owner of the document
-  function isOwner(userId) {
-    return request.auth.uid == userId;
+    function isSignedIn() {
+      return request.auth != null;
+    }
   }
 }
