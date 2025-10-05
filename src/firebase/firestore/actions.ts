@@ -1,7 +1,7 @@
 
 'use client';
 
-import { collection, addDoc, Firestore, DocumentReference, updateDoc, writeBatch, doc } from 'firebase/firestore';
+import { collection, addDoc, Firestore, DocumentReference, updateDoc, writeBatch, doc, setDoc } from 'firebase/firestore';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 
@@ -69,34 +69,37 @@ export async function batchSaveCategorizedComments(
     firestore: Firestore,
     comments: any[],
 ) {
-    const batch = writeBatch(firestore);
-    
-    comments.forEach(comment => {
+    if (!comments || comments.length === 0) return;
+
+    // This function is now designed to handle one or more comments,
+    // but the UI calls it with one. This is more robust.
+    for (const comment of comments) {
         if (comment && typeof comment.id === 'string' && comment.id.trim() !== '') {
-            const sanitizedId = comment.id.replace(/[.*#\[\]\/\\]/g, '');
+            // Sanitize the ID more aggressively to only allow valid characters.
+            const sanitizedId = comment.id.replace(/[^a-zA-Z0-9-]/g, '_');
 
             if (sanitizedId.length > 0) {
-              const docRef = doc(firestore, 'commentCategories', sanitizedId);
-              batch.set(docRef, { ...comment, id: sanitizedId });
+                const docRef = doc(firestore, 'commentCategories', sanitizedId);
+                try {
+                    // Use setDoc for a single, direct write operation.
+                    await setDoc(docRef, { ...comment, id: sanitizedId });
+                } catch (serverError: any) {
+                    console.error("Save failed for comment:", comment, "Error:", serverError);
+                    const permissionError = new FirestorePermissionError({
+                        path: docRef.path,
+                        operation: 'write',
+                        requestResourceData: comment,
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
+                    // We throw to let the calling component know something went wrong.
+                    throw serverError;
+                }
             } else {
               console.warn("Skipping comment with an ID that became empty after sanitization:", comment);
             }
         } else {
             console.warn("Skipping comment with invalid or missing ID:", comment);
         }
-    });
-
-    try {
-        await batch.commit();
-    } catch(serverError: any) {
-        console.error("Batch save failed. Data that was being written:", comments);
-        const permissionError = new FirestorePermissionError({
-          path: 'commentCategories',
-          operation: 'write',
-          requestResourceData: { info: "Batch write to 'commentCategories' failed." },
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        throw serverError;
     }
 }
 
@@ -106,7 +109,9 @@ export async function updateCategorizedComment(
     commentId: string,
     category: string
 ) {
-    const sanitizedId = commentId.replace(/[.*#\[\]\/\\]/g, '');
+    // Ensure the ID is sanitized in the same way it was when created.
+    const sanitizedId = commentId.replace(/[^a-zA-Z0-9-]/g, '_');
+
     if (sanitizedId.length === 0) {
       console.error("Cannot update comment with an ID that is empty after sanitization:", commentId);
       return;
