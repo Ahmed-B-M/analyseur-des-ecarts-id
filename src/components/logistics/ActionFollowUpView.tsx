@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirestore } from '@/firebase';
-import { collection, doc, deleteDoc } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -14,14 +14,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, AlertCircle, Trash2, Save } from 'lucide-react';
-import { SuiviCommentaire } from '@/lib/types';
+import { Loader2, AlertCircle, Trash2 } from 'lucide-react';
+import type { SuiviCommentaire } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useMemoFirebase } from '@/firebase/provider';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../ui/alert-dialog';
+import { getNomDepot } from '@/lib/utils';
+import { commentCategories, type CommentCategory } from '@/lib/comment-categorization';
 
 
 export type SuiviCommentaireWithId = SuiviCommentaire & { id: string };
@@ -61,6 +63,19 @@ const ActionFollowUpView = () => {
         toast({
             title: "Statut mis à jour",
             description: `Le statut du suivi a été changé à "${newStatus}".`,
+        });
+    };
+    
+    const handleCategoryChange = (id: string, newCategory: CommentCategory) => {
+        if (!firestore) return;
+        
+        const docRef = doc(firestore, 'suiviCommentaires', id);
+
+        updateDocumentNonBlocking(docRef, { categorie: newCategory });
+
+        toast({
+            title: "Catégorie mise à jour",
+            description: `La catégorie a été changée à "${newCategory}".`,
         });
     };
 
@@ -136,6 +151,7 @@ const ActionFollowUpView = () => {
                             <TableRow>
                                 <TableHead>Date Action</TableHead>
                                 <TableHead>Date Livraison</TableHead>
+                                <TableHead>Dépôt</TableHead>
                                 <TableHead>Livreur</TableHead>
                                 <TableHead>Commentaire</TableHead>
                                 <TableHead>Catégorie</TableHead>
@@ -147,7 +163,7 @@ const ActionFollowUpView = () => {
                         <TableBody>
                             {sortedSuivis.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
                                         Aucune action corrective enregistrée pour le moment.
                                     </TableCell>
                                 </TableRow>
@@ -156,9 +172,24 @@ const ActionFollowUpView = () => {
                                     <TableRow key={suivi.id}>
                                         <TableCell>{new Date(suivi.traiteLe).toLocaleDateString('fr-FR')}</TableCell>
                                         <TableCell>{suivi.date}</TableCell>
+                                        <TableCell>{getNomDepot(suivi.entrepot)}</TableCell>
                                         <TableCell>{suivi.livreur}</TableCell>
                                         <TableCell className="max-w-xs truncate">{suivi.commentaire}</TableCell>
-                                        <TableCell>{suivi.categorie}</TableCell>
+                                        <TableCell>
+                                             <Select 
+                                                value={suivi.categorie} 
+                                                onValueChange={(newCategory: CommentCategory) => handleCategoryChange(suivi.id, newCategory)}
+                                            >
+                                                <SelectTrigger className="w-48">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {commentCategories.map(cat => (
+                                                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
                                         <TableCell onClick={() => setEditingId(suivi.id)} className="cursor-pointer">
                                             {editingId === suivi.id ? (
                                                 <div className="flex items-center gap-2">
