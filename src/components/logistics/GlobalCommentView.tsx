@@ -2,18 +2,12 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { MergedData } from '@/lib/types';
+import type { MergedData, SuiviCommentaire } from '@/lib/types';
 import { categorizeComment, commentCategories } from '@/lib/comment-categorization';
-
-interface ProcessedAction {
-    id: string;
-    category: string;
-    action: string;
-}
 
 interface GlobalCommentViewProps {
     data: MergedData[];
-    processedActions: ProcessedAction[];
+    processedActions: SuiviCommentaire[];
 }
 
 const GlobalCommentView: React.FC<GlobalCommentViewProps> = ({ data, processedActions }) => {
@@ -42,13 +36,13 @@ const GlobalCommentView: React.FC<GlobalCommentViewProps> = ({ data, processedAc
         return percentageB - percentageA;
     });
 
-    const actionsByCategory = processedActions.reduce((acc, { category, action }) => {
-        if (!acc[category]) {
-            acc[category] = [];
+    const actionsByCategory = (processedActions || []).reduce((acc, { categorie, actionCorrective }) => {
+        if (!acc[categorie]) {
+            acc[categorie] = [];
         }
         // Avoid duplicate actions for the same category
-        if (!acc[category].includes(action)) {
-            acc[category].push(action);
+        if (!acc[categorie].includes(actionCorrective)) {
+            acc[categorie].push(actionCorrective);
         }
         return acc;
     }, {} as Record<string, string[]>);

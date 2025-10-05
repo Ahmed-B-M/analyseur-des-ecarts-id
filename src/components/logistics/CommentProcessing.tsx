@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,6 +9,11 @@ import { commentCategories, categorizeComment, CommentCategory } from '@/lib/com
 import { useToast } from '@/hooks/use-toast';
 import { saveSuiviCommentaire } from '@/firebase/firestore/actions';
 import { useFirestore } from '@/firebase';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection } from 'firebase/firestore';
+import { useMemoFirebase } from '@/firebase/provider';
+import type { SuiviCommentaireWithId } from './ActionFollowUpView';
+import { Loader2 } from 'lucide-react';
 
 interface Comment {
   id: string;
@@ -24,103 +29,101 @@ interface Comment {
 
 interface CommentProcessingProps {
     data: MergedData[];
-    onCommentProcessed: (processedComment: { id: string; category: string; action: string }) => void;
-    processedCommentIds: string[];
 }
 
-const CommentProcessing: React.FC<CommentProcessingProps> = ({ data, onCommentProcessed, processedCommentIds }) => {
-  const [comments, setComments] = useState<Comment[]>([]);
+const CommentProcessing: React.FC<CommentProcessingProps> = ({ data }) => {
+  const [commentsToProcess, setCommentsToProcess] = useState<Comment[]>([]);
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  useEffect(() => {
-    const unprocessedComments = data
-      .filter(item => {
-          const commentId = `${item.tourneeUniqueId}-${item.sequence || item.ordre}`;
-          return item.commentaire && item.notation != null && item.notation <= 3 && !processedCommentIds.includes(commentId)
-      })
-      .map((item) => ({
-        id: `${item.tourneeUniqueId}-${item.sequence || item.ordre}`,
-        comment: item.commentaire || '',
-        category: categorizeComment(item.commentaire),
-        action: '',
-        date: item.date,
-        livreur: item.livreur || 'N/A',
-        entrepot: item.entrepot,
-        nomTournee: item.nomTournee,
-        sequence: item.sequence,
-      }));
-    setComments(unprocessedComments);
-  }, [data, processedCommentIds]);
+  // Fetch all existing follow-ups from Firestore
+  const suiviCollectionRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'suiviCommentaires');
+  }, [firestore]);
 
+  const { data: existingSuivis, isLoading: isLoadingSuivis } = useCollection<SuiviCommentaireWithId>(suiviCollectionRef);
+
+  // Generate a set of IDs for comments that have already been processed
+  const processedCommentIds = useMemo(() => {
+      if (!existingSuivis) return new Set();
+      // The ID in `suiviCommentaires` is the auto-generated doc ID. 
+      // We need to build a key from the data to match against incoming comments.
+      return new Set(existingSuivis.map(s => `${s.nomTournee}|${s.date}|${s.entrepot}-${s.sequence}`));
+  }, [existingSuivis]);
+
+
+  useEffect(() => {
+      // Don't do anything until we have the list of processed comments
+      if (isLoadingSuivis) return;
+
+      const unprocessedComments = data
+          .filter(item => {
+              // Create a unique, stable ID for each comment from the source data
+              const uniqueCommentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
+              return item.commentaire && item.notation != null && item.notation <= 3 && !processedCommentIds.has(uniqueCommentId);
+          })
+          .map((item) => ({
+              id: `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`,
+              comment: item.commentaire || '',
+              category: categorizeComment(item.commentaire),
+              action: '',
+              date: item.date,
+              livreur: item.livreur || 'N/A',
+              entrepot: item.entrepot,
+              nomTournee: item.nomTournee,
+              sequence: item.sequence || item.ordre,
+          }));
+      setCommentsToProcess(unprocessedComments);
+  }, [data, processedCommentIds, isLoadingSuivis]);
 
   const handleProcessComment = async (comment: Comment) => {
-    if (!firestore) {
-        toast({
-            variant: "destructive",
-            title: "Erreur de base de données",
-            description: "La connexion à Firestore n'est pas disponible.",
-        });
-        return;
-    }
-    if (comment.action.trim() === '') {
-        toast({
-            variant: "destructive",
-            title: "Action requise",
-            description: "Veuillez saisir une action corrective avant de traiter le commentaire.",
-        });
-        return;
-    }
+      if (!firestore) {
+          toast({ variant: "destructive", title: "Erreur", description: "La connexion à Firestore n'est pas disponible." });
+          return;
+      }
+      if (comment.action.trim() === '') {
+          toast({ variant: "destructive", title: "Action requise", description: "Veuillez saisir une action corrective." });
+          return;
+      }
 
-    try {
-        await saveSuiviCommentaire(firestore, {
-            id: comment.id,
-            date: comment.date,
-            livreur: comment.livreur,
-            entrepot: comment.entrepot,
-            nomTournee: comment.nomTournee,
-            sequence: comment.sequence,
-            comment: comment.comment,
-            category: comment.category,
-            action: comment.action
-        });
+      try {
+          await saveSuiviCommentaire(firestore, { ...comment });
+          toast({ title: "Succès", description: "L'action corrective a été enregistrée." });
+          
+          // Remove the processed comment from the local state to update the UI instantly
+          setCommentsToProcess(prev => prev.filter(c => c.id !== comment.id));
 
-        toast({
-            title: "Succès",
-            description: "L'action corrective a été enregistrée dans la base de données.",
-        });
-
-        onCommentProcessed({
-            id: comment.id,
-            category: comment.category,
-            action: comment.action,
-        });
-
-    } catch (e: any) {
-         toast({
-            variant: "destructive",
-            title: "Erreur de sauvegarde",
-            description: e.message || "Impossible d'enregistrer l'action corrective.",
-        });
-    }
+      } catch (e: any) {
+           toast({ variant: "destructive", title: "Erreur de sauvegarde", description: e.message });
+      }
   };
 
   const handleActionChange = (id: string, action: string) => {
-    setComments(comments.map(c => c.id === id ? { ...c, action } : c));
+    setCommentsToProcess(commentsToProcess.map(c => c.id === id ? { ...c, action } : c));
   };
 
   const handleCategoryChange = (id: string, category: CommentCategory) => {
-    setComments(comments.map(c => c.id === id ? { ...c, category } : c));
+    setCommentsToProcess(commentsToProcess.map(c => c.id === id ? { ...c, category } : c));
   };
   
-  if (!comments.length) {
-      return <div className="text-center p-4">Aucun commentaire négatif à traiter.</div>
+  if (isLoadingSuivis) {
+      return (
+          <div className="flex items-center justify-center p-8">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mr-3" />
+              <span className="text-muted-foreground">Chargement des commentaires traités...</span>
+          </div>
+      )
+  }
+  
+  if (!commentsToProcess.length) {
+      return <div className="text-center p-8 text-muted-foreground">Aucun nouveau commentaire négatif à traiter.</div>
   }
 
   return (
-    <div>
+    <div className="max-h-[75vh] overflow-y-auto">
       <Table>
-        <TableHeader>
+        <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
             <TableHead>Date</TableHead>
             <TableHead>Livreur</TableHead>
@@ -134,14 +137,14 @@ const CommentProcessing: React.FC<CommentProcessingProps> = ({ data, onCommentPr
           </TableRow>
         </TableHeader>
         <TableBody>
-          {comments.map(comment => (
+          {commentsToProcess.map(comment => (
             <TableRow key={comment.id}>
               <TableCell>{comment.date}</TableCell>
               <TableCell>{comment.livreur}</TableCell>
               <TableCell>{comment.entrepot}</TableCell>
               <TableCell>{comment.nomTournee}</TableCell>
               <TableCell>{comment.sequence}</TableCell>
-              <TableCell>{comment.comment}</TableCell>
+              <TableCell className="max-w-xs truncate">{comment.comment}</TableCell>
               <TableCell>
                 <Select onValueChange={(value: CommentCategory) => handleCategoryChange(comment.id, value)} value={comment.category}>
                   <SelectTrigger>

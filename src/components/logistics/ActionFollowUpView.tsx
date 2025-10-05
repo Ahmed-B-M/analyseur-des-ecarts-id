@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useMemoFirebase } from '@/firebase/provider';
 
-type SuiviCommentaireWithId = SuiviCommentaire & { id: string };
+export type SuiviCommentaireWithId = SuiviCommentaire & { id: string };
 
 const ActionFollowUpView = () => {
     const firestore = useFirestore();

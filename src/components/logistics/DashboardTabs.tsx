@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { DateRangePicker } from './DateRangePicker';
@@ -18,18 +18,17 @@ import DepotAnalysisTable from './DepotAnalysisTable';
 import PostalCodeTable from './PostalCodeTable';
 import SlotAnalysisChart from './SlotAnalysisChart';
 import GlobalCommentView from './GlobalCommentView';
-import type { AnalysisData, MergedData } from '@/lib/types';
+import type { AnalysisData, MergedData, SuiviCommentaire } from '@/lib/types';
 import DepotConfigurator from './DepotConfigurator';
 import CommentProcessing from './CommentProcessing';
 import { Badge } from '@/components/ui/badge';
 import ActionFollowUpView from './ActionFollowUpView';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirestore } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { useMemoFirebase } from '@/firebase/provider';
+import { SuiviCommentaireWithId } from './ActionFollowUpView';
 
-// Define a type for the processed actions for clarity
-interface ProcessedAction {
-  id: string;
-  category: string;
-  action: string;
-}
 
 interface DashboardTabsProps {
     activeTab: string;
@@ -52,16 +51,20 @@ export default function DashboardTabs({
     setFilters,
     applyFilterAndSwitchTab
 }: DashboardTabsProps) {
-    const [processedActions, setProcessedActions] = useState<ProcessedAction[]>([]);
 
-    const handleCommentProcessed = (action: ProcessedAction) => {
-        // Add the new action and prevent duplicates
-        if (!processedActions.find(p => p.id === action.id)) {
-            setProcessedActions(prev => [...prev, action]);
-        }
-    };
+    const firestore = useFirestore();
 
-    const processedCommentIds = processedActions.map(p => p.id);
+    const suiviCollectionRef = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, 'suiviCommentaires');
+    }, [firestore]);
+
+    const { data: existingSuivis, isLoading: isLoadingSuivis } = useCollection<SuiviCommentaireWithId>(suiviCollectionRef);
+
+    const processedCommentIds = useMemo(() => {
+        if (!existingSuivis) return new Set();
+        return new Set(existingSuivis.map(s => `${s.nomTournee}|${s.date}|${s.entrepot}-${s.sequence}`));
+    }, [existingSuivis]);
 
     const chartData = analysisData ? (analysisData.postalCodeStats || []).map(item => ({
         codePostal: item.codePostal,
@@ -70,10 +73,13 @@ export default function DashboardTabs({
         retardPercent: parseFloat(item.livraisonsRetard.slice(0, -1)),
     })) : [];
 
-    const unprocessedCommentsCount = filteredData.filter(d => {
-        const commentId = `${d.tourneeUniqueId}-${d.sequence || d.ordre}`; // Consistent ID generation
-        return d.commentaire && d.notation != null && d.notation <= 3 && !processedCommentIds.includes(commentId);
-    }).length;
+    const unprocessedCommentsCount = useMemo(() => {
+        if (isLoadingSuivis) return 0; // Don't count until we know what's processed
+        return filteredData.filter(d => {
+            const commentId = `${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`;
+            return d.commentaire && d.notation != null && d.notation <= 3 && !processedCommentIds.has(commentId);
+        }).length;
+    }, [filteredData, processedCommentIds, isLoadingSuivis]);
 
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -101,12 +107,11 @@ export default function DashboardTabs({
                 </TabsList>
             </div>
 
-            {/* TabsContent remains the same, but props passed to children will be updated */}
              <TabsContent value="actionFollowUp" className="mt-6">
                 <ActionFollowUpView />
             </TabsContent>
             <TabsContent value="reportRD" className="mt-6 space-y-6">
-                <GlobalCommentView data={filteredData} processedActions={processedActions} /> 
+                <GlobalCommentView data={filteredData} processedActions={existingSuivis || []} /> 
                 <HotZonesChart data={chartData} />
                 <DepotAnalysisTable data={analysisData.warehouseStats} />
                 <PostalCodeTable data={analysisData.postalCodeStats} />
@@ -114,12 +119,9 @@ export default function DashboardTabs({
             <TabsContent value="commentProcessing" className="mt-6">
                 <CommentProcessing 
                     data={filteredData} 
-                    onCommentProcessed={handleCommentProcessed}
-                    processedCommentIds={processedCommentIds}
                 />
             </TabsContent>
             
-            {/* Other TabsContent sections */}
             <TabsContent value="dashboard" className="mt-6">
                 <AnalysisDashboard 
                     analysisData={analysisData}
