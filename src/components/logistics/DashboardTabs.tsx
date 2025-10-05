@@ -5,7 +5,7 @@ import { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { DateRangePicker } from './DateRangePicker';
-import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck, MessageSquare, ClipboardCheck, FileText } from 'lucide-react';
+import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck, MessageSquare, ClipboardCheck, FileText, Tags } from 'lucide-react';
 import AnalysisDashboard from './AnalysisDashboard';
 import DetailedDataView from './DetailedDataView';
 import CalendarView from './CalendarView';
@@ -28,6 +28,8 @@ import { useCollection, useMemoFirebase } from '@/firebase';
 import { useFirestore } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import type { SuiviCommentaireWithId } from './ActionFollowUpView';
+import { CategorizedComment } from './CommentCategorizationTable';
+import CommentCategorizationView from './CommentCategorizationView';
 
 
 interface DashboardTabsProps {
@@ -59,7 +61,13 @@ export default function DashboardTabs({
         return collection(firestore, 'suiviCommentaires');
     }, [firestore]);
 
+    const categorizedCommentsCollectionRef = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, 'commentCategories');
+    }, [firestore]);
+
     const { data: existingSuivis, isLoading: isLoadingSuivis } = useCollection<SuiviCommentaireWithId>(suiviCollectionRef);
+    const { data: savedCategorizedComments, isLoading: isLoadingCategories } = useCollection<CategorizedComment>(categorizedCommentsCollectionRef);
 
     const processedCommentIds = useMemo(() => {
         if (!existingSuivis) return new Set();
@@ -80,6 +88,14 @@ export default function DashboardTabs({
             return d.commentaire && d.notation != null && d.notation <= 3 && !processedCommentIds.has(commentId);
         }).length;
     }, [filteredData, processedCommentIds, isLoadingSuivis]);
+    
+    const uncategorizedCommentsCount = useMemo(() => {
+        if (isLoadingCategories) return 0;
+        const savedIds = new Set(savedCategorizedComments?.map(c => c.id) || []);
+        return filteredData.filter(d => 
+            d.notation != null && d.notation <= 3 && d.commentaire && !savedIds.has(`${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`)
+        ).length;
+    }, [filteredData, savedCategorizedComments, isLoadingCategories]);
 
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -88,7 +104,12 @@ export default function DashboardTabs({
                     <TabsTrigger value="dashboard"><BarChart2 className="w-4 h-4 mr-2" />Tableau de Bord</TabsTrigger>
                     <TabsTrigger value="comparison"><TrendingUp className="w-4 h-4 mr-2" />Analyse Comparative</TabsTrigger>
                     <TabsTrigger value="depotComparison"><LayoutDashboard className="w-4 h-4 mr-2" />Comparaison Dépôts</TabsTrigger>
-                    <TabsTrigger value="negativeComments"><MessageCircleWarning className="w-4 h-4 mr-2" />Avis Négatifs</TabsTrigger>
+                     <TabsTrigger value="negativeComments">
+                        <MessageCircleWarning className="w-4 h-4 mr-2" />
+                        Catégoriser Avis
+                        {uncategorizedCommentsCount > 0 && <Badge className="ml-2">{uncategorizedCommentsCount}</Badge>}
+                    </TabsTrigger>
+                    <TabsTrigger value="allCategories"><Tags className="w-4 h-4 mr-2" />Toutes les catégories</TabsTrigger>
                     <TabsTrigger value="negativeRatings"><StarOff className="w-4 h-4 mr-2" />Notes Négatives</TabsTrigger>
                     <TabsTrigger value="quality"><ShieldCheck className="w-4 h-4 mr-2" />Synthèse Qualité</TabsTrigger>
                 </TabsList>
@@ -111,8 +132,7 @@ export default function DashboardTabs({
                 <ActionFollowUpView />
             </TabsContent>
             <TabsContent value="reportRD" className="mt-6 space-y-6">
-                 {/* This now receives processed comments which might have updated categories */}
-                <GlobalCommentView data={filteredData} processedActions={existingSuivis || []} /> 
+                <GlobalCommentView data={filteredData} processedActions={existingSuivis || []} categorizedComments={savedCategorizedComments || []} />
                 <HotZonesChart data={chartData} />
                 <DepotAnalysisTable data={analysisData.warehouseStats} />
                 <PostalCodeTable data={analysisData.postalCodeStats} />
@@ -143,13 +163,16 @@ export default function DashboardTabs({
                 />
             </TabsContent>
             <TabsContent value="negativeComments" className="mt-6">
-                <NegativeCommentsTable data={filteredData} />
+                <NegativeCommentsTable data={filteredData} savedCategorizedComments={savedCategorizedComments || []} />
+            </TabsContent>
+            <TabsContent value="allCategories" className="mt-6">
+                <CommentCategorizationView />
             </TabsContent>
             <TabsContent value="negativeRatings" className="mt-6">
                 <NegativeRatingsSummary data={filteredData} />
             </TabsContent>
             <TabsContent value="quality" className="mt-6">
-                <QualitySummary data={filteredData} processedActions={existingSuivis || []} />
+                <QualitySummary data={filteredData} processedActions={existingSuivis || []} categorizedComments={savedCategorizedComments || []} />
             </TabsContent>
             <TabsContent value="calendar" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

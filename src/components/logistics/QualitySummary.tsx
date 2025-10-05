@@ -12,91 +12,25 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MergedData, SuiviCommentaire } from '@/lib/types';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { getCarrierFromDriverName, getNomDepot } from '@/lib/utils';
-import CommentCategorizationTable, { CategorizedComment } from './CommentCategorizationTable';
-import { categorizeComment, CommentCategory } from '@/lib/comment-categorization';
+import { CommentCategory } from '@/lib/comment-categorization';
 import EmailGenerator from './EmailGenerator';
 import GlobalCommentView from './GlobalCommentView';
-import { Button } from '../ui/button';
-import { Loader2, Save } from 'lucide-react';
-import { useFirestore } from '@/firebase';
-import { useToast } from '@/hooks/use-toast';
-import { batchSaveCategorizedComments, updateCategorizedComment } from '@/firebase/firestore/actions';
+import { CategorizedComment } from './CommentCategorizationTable';
 
 interface QualitySummaryProps {
     data: MergedData[];
     processedActions: SuiviCommentaire[];
+    categorizedComments: CategorizedComment[];
 }
 
-const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
-  const firestore = useFirestore();
-  const { toast } = useToast();
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasBeenSaved, setHasBeenSaved] = useState(false);
+const QualitySummary = ({ data, processedActions, categorizedComments }: QualitySummaryProps) => {
 
   const ratings = useMemo(() => (data || []).filter(
     (d: MergedData) => d.notation
   ), [data]);
-
-  const negativeRatings = useMemo(() => (data || []).filter(
-    (d: MergedData) => d.notation && d.notation <= 3 && d.commentaire
-  ), [data]);
   
-  const initialCategorizedComments = useMemo(() => {
-    return negativeRatings.map((d, index) => ({
-        id: `${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}`,
-        date: d.date,
-        livreur: d.livreur || 'Inconnu',
-        ville: d.ville,
-        note: d.notation,
-        comment: d.commentaire,
-        category: categorizeComment(d.commentaire),
-    }));
-  }, [negativeRatings]);
-
-  const [categorizedComments, setCategorizedComments] = useState<CategorizedComment[]>(initialCategorizedComments);
-
-  // Reset state if the underlying data changes
-  useEffect(() => {
-    setCategorizedComments(initialCategorizedComments);
-    setHasBeenSaved(false); // Reset save state when data changes
-  }, [initialCategorizedComments]);
-
-  const handleCategoryChange = async (id: string, newCategory: CommentCategory) => {
-    setCategorizedComments(prevComments =>
-      prevComments.map(comment =>
-        comment.id === id ? { ...comment, category: newCategory } : comment
-      )
-    );
-    // If it has been saved before, update automatically
-    if (hasBeenSaved && firestore) {
-      try {
-        await updateCategorizedComment(firestore, id, newCategory);
-        toast({ title: 'Catégorie mise à jour', description: 'La modification a été enregistrée.' });
-      } catch (error) {
-        toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de mettre à jour la catégorie.' });
-      }
-    }
-  };
-
-  const handleSaveAllCategories = async () => {
-    if (!firestore) {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Connexion à la base de données non disponible.' });
-      return;
-    }
-    setIsSaving(true);
-    try {
-      await batchSaveCategorizedComments(firestore, categorizedComments);
-      setHasBeenSaved(true);
-      toast({ title: 'Sauvegarde réussie', description: 'Toutes les catégories de commentaires ont été enregistrées.' });
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Erreur de sauvegarde', description: 'Impossible d\'enregistrer les catégories.' });
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
   const summaryByDepot = useMemo(() => {
     const allRatingsGrouped = ratings.reduce((acc, curr) => {
       const depot = getNomDepot(curr.tournee?.entrepot || 'Inconnu');
@@ -108,13 +42,15 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
       return acc;
     }, {} as Record<string, { totalRating: number; ratingCount: number }>);
 
-    const negativeRatingsGrouped = negativeRatings.reduce((acc, curr) => {
-      const depot = getNomDepot(curr.tournee?.entrepot || 'Inconnu');
+    const negativeRatingsGrouped = categorizedComments.reduce((acc, curr) => {
+      const originalItem = data.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === curr.id);
+      if (!originalItem) return acc;
+      const depot = getNomDepot(originalItem.tournee?.entrepot || 'Inconnu');
       if (!acc[depot]) {
         acc[depot] = { negativeRatingCount: 0, commentCount: 0 };
       }
       acc[depot].negativeRatingCount++;
-      if (curr.commentaire) {
+      if (curr.comment) {
         acc[depot].commentCount++;
       }
       return acc;
@@ -138,7 +74,7 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
     return combined
       .filter(item => item.negativeRatingsCount > 0)
       .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-  }, [ratings, negativeRatings]);
+  }, [ratings, categorizedComments, data]);
 
   const summaryByCarrier = useMemo(() => {
     const allRatingsGrouped = ratings.reduce((acc, curr) => {
@@ -151,13 +87,15 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
       return acc;
     }, {} as Record<string, { depot: string; carrier: string; totalRating: number; ratingCount: number }>);
 
-    const negativeRatingsGrouped = negativeRatings.reduce((acc, curr) => {
-      const key = `${getNomDepot(curr.tournee?.entrepot || 'Inconnu')} | ${getCarrierFromDriverName(curr.livreur || '') || 'Inconnu'}`;
+    const negativeRatingsGrouped = categorizedComments.reduce((acc, curr) => {
+       const originalItem = data.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === curr.id);
+      if (!originalItem) return acc;
+      const key = `${getNomDepot(originalItem.tournee?.entrepot || 'Inconnu')} | ${getCarrierFromDriverName(originalItem.livreur || '') || 'Inconnu'}`;
       if (!acc[key]) {
-        acc[key] = { depot: getNomDepot(curr.tournee?.entrepot || 'Inconnu'), carrier: getCarrierFromDriverName(curr.livreur || '') || 'Inconnu', negativeRatingCount: 0, commentCount: 0 };
+        acc[key] = { depot: getNomDepot(originalItem.tournee?.entrepot || 'Inconnu'), carrier: getCarrierFromDriverName(originalItem.livreur || '') || 'Inconnu', negativeRatingCount: 0, commentCount: 0 };
       }
       acc[key].negativeRatingCount++;
-      if (curr.commentaire) {
+      if (curr.comment) {
         acc[key].commentCount++;
       }
       return acc;
@@ -182,7 +120,7 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
     return combined
       .filter(item => item.negativeRatingsCount > 0)
       .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-  }, [ratings, negativeRatings]);
+  }, [ratings, categorizedComments, data]);
 
 
   const summaryByDriver = useMemo(() => {
@@ -201,7 +139,7 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
     }, {} as Record<string, { depot: string; carrier: string; driver: string; totalRating: number; ratingCount: number }>);
 
     const negativeRatingsGrouped = categorizedComments.reduce((acc, curr) => {
-      const originalItem = negativeRatings.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === curr.id);
+      const originalItem = data.find(item => `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}` === curr.id);
       if (!originalItem) return acc;
 
       const depot = getNomDepot(originalItem.tournee?.entrepot || 'Inconnu');
@@ -250,7 +188,7 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
         if (a.driver > b.driver) return 1;
         return 0;
     });
-  }, [ratings, negativeRatings, categorizedComments]);
+  }, [ratings, categorizedComments, data]);
   
   const unassignedDrivers = useMemo(() => {
     const drivers = data.reduce((acc, curr) => {
@@ -271,14 +209,14 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
     }));
   }, [data]);
 
-  if (negativeRatings.length === 0) {
+  if (categorizedComments.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Analyse de la Qualité</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">Aucune note négative ({"<="} 3) à afficher pour la sélection actuelle.</p>
+          <p className="text-muted-foreground">Aucun commentaire catégorisé à afficher pour la sélection actuelle. Allez dans l'onglet "Catégoriser Avis" pour commencer.</p>
         </CardContent>
       </Card>
     );
@@ -287,10 +225,6 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
   return (
     <div className='space-y-6'>
       <div className="flex justify-end gap-4">
-        <Button onClick={handleSaveAllCategories} disabled={isSaving || hasBeenSaved}>
-          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          {hasBeenSaved ? 'Catégories Sauvegardées' : 'Sauvegarder les Catégories'}
-        </Button>
         <EmailGenerator 
             data={data} 
             summaryByDepot={summaryByDepot}
@@ -384,11 +318,6 @@ const QualitySummary = ({ data, processedActions }: QualitySummaryProps) => {
           </CardContent>
         </Card>
       )}
-
-      <CommentCategorizationTable 
-        categorizedComments={categorizedComments}
-        onCategoryChange={handleCategoryChange}
-      />
     </div>
   );
 };

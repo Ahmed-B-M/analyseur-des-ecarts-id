@@ -10,7 +10,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MergedData } from '@/lib/types';
 import {
   Select,
   SelectContent,
@@ -33,8 +32,8 @@ export interface CategorizedComment {
     date: string;
     livreur: string;
     ville: string;
-    note: number | null;
-    comment: string | null;
+    note: number;
+    comment: string;
     category: CommentCategory;
 }
 

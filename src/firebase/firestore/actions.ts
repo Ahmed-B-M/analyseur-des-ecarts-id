@@ -73,9 +73,7 @@ export async function batchSaveCategorizedComments(
     
     comments.forEach(comment => {
         if (comment && typeof comment.id === 'string' && comment.id.trim() !== '') {
-            // Firestore document IDs must not be empty and must not contain slashes or other reserved characters.
-            // A simple and safe approach is to remove problematic characters.
-            const sanitizedId = comment.id.replace(/[\/\\*\[\]]/g, '');
+            const sanitizedId = comment.id.replace(/[.*#\[\]\/\\]/g, '');
 
             if (sanitizedId.length > 0) {
               const docRef = doc(firestore, 'commentCategories', sanitizedId);
@@ -91,14 +89,10 @@ export async function batchSaveCategorizedComments(
     try {
         await batch.commit();
     } catch(serverError: any) {
-        // Since we cannot reliably determine which specific document failed in a batch write,
-        // we will log a more generic error. The developer can inspect the `comments` array.
         console.error("Batch save failed. Data that was being written:", comments);
         const permissionError = new FirestorePermissionError({
-          path: 'commentCategories', // Path of the collection
+          path: 'commentCategories',
           operation: 'write',
-          // Note: requestResourceData should ideally be the specific failing doc, 
-          // but we don't know which one it is. We log the whole batch above.
           requestResourceData: { info: "Batch write to 'commentCategories' failed." },
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -112,8 +106,7 @@ export async function updateCategorizedComment(
     commentId: string,
     category: string
 ) {
-    // Sanitize the ID in the same way as when creating it
-    const sanitizedId = commentId.replace(/[\/\\*\[\]]/g, '');
+    const sanitizedId = commentId.replace(/[.*#\[\]\/\\]/g, '');
     if (sanitizedId.length === 0) {
       console.error("Cannot update comment with an ID that is empty after sanitization:", commentId);
       return;
