@@ -36,14 +36,18 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     const uniqueComments = new Map<string, any>();
     allCategorized.forEach(comment => {
         if(!uniqueComments.has(comment.id)) {
-            uniqueComments.set(comment.id, comment)
+            const item = data.find(d => `${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}` === comment.id);
+            uniqueComments.set(comment.id, {
+                ...comment,
+                livreur: item?.livreur || 'Inconnu',
+                entrepot: item?.entrepot || 'Inconnu',
+            })
         }
     });
     return Array.from(uniqueComments.values());
-  }, [savedCategorizedComments, uncategorizedCommentsForSummary]);
+  }, [savedCategorizedComments, uncategorizedCommentsForSummary, data]);
 
-  // This is the main data source for this component.
-  // It includes all deliveries with negative ratings, and enriches them with comment categories if available.
+
   const negativeRatingsData = useMemo(() => {
     const commentsMap = new Map(allCommentsForSummary.map(c => [c.id, c]));
     
@@ -54,13 +58,12 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         const commentInfo = commentsMap.get(commentId);
         return {
           ...item,
-          category: commentInfo ? commentInfo.category : 'Autre', // Use assigned category or default
+          category: commentInfo ? commentInfo.category : 'Autre',
         };
       });
   }, [data, allCommentsForSummary]);
 
   const summaryByDepot = useMemo(() => {
-    // Group all data by depot to get total ratings for avg calculation
     const allDataGrouped = data.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
         if (!acc[depot]) {
@@ -73,7 +76,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         return acc;
     }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
     
-    // Group negative data for other stats
     const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
         if(!acc[depot]) {
@@ -89,15 +91,15 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         return acc;
     }, {} as Record<string, { negativeRatingsCount: number, commentCount: number }>);
 
-    return Object.keys(grouped).map((depot) => {
-      const depotNegativeStats = grouped[depot];
+    return Object.keys(allDataGrouped).map((depot) => {
+      const depotNegativeStats = grouped[depot] || { negativeRatingsCount: 0, commentCount: 0 };
       const depotAllStats = allDataGrouped[depot];
       return {
         depot,
         totalRatings: depotAllStats?.ratedTasksCount || 0,
-        negativeRatingsCount: depotNegativeStats?.negativeRatingsCount || 0,
+        negativeRatingsCount: depotNegativeStats.negativeRatingsCount,
         averageRating: (depotAllStats?.ratedTasksCount || 0) > 0 ? (depotAllStats.totalRatingValue / depotAllStats.ratedTasksCount).toFixed(2) : 'N/A',
-        commentCount: depotNegativeStats?.commentCount || 0,
+        commentCount: depotNegativeStats.commentCount,
       }
     })
     .filter(item => item.negativeRatingsCount > 0)
@@ -106,7 +108,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
 
   const summaryByCarrier = useMemo(() => {
-    // Group all data by carrier for avg rating
     const allDataGrouped = data.reduce((acc, curr) => {
       const depot = getNomDepot(curr.entrepot);
       const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
@@ -121,7 +122,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
       return acc;
     }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
     
-    // Group negative data
     const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
         const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
@@ -137,8 +137,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         return acc;
     }, {} as Record<string, { depot: string, carrier: string, negativeRatingsCount: number, commentCount: number }>);
     
-    return Object.keys(grouped).map(key => {
-      const negativeStats = grouped[key];
+    return Object.keys(allDataGrouped).map(key => {
+      const negativeStats = grouped[key] || { depot: key.split('|')[0], carrier: key.split('|')[1], negativeRatingsCount: 0, commentCount: 0 };
       const allStats = allDataGrouped[key];
       return {
         ...negativeStats,
@@ -152,7 +152,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
 
   const summaryByDriver = useMemo(() => {
-     // Group all data by driver for avg rating
      const allDataGrouped = data.reduce((acc, curr) => {
       const depot = getNomDepot(curr.entrepot);
       const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
@@ -169,7 +168,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
       return acc;
     }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
     
-    // Group negative data
      const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
         const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
@@ -190,8 +188,14 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         return acc;
     }, {} as Record<string, { depot: string, carrier: string, driver: string, negativeRatingsCount: number, categoryCounts: Record<CommentCategory, number> }>);
 
-    return Object.keys(grouped).map(key => {
-        const negativeStats = grouped[key];
+    return Object.keys(allDataGrouped).map(key => {
+        const negativeStats = grouped[key] || { 
+            depot: key.split('|')[0], 
+            carrier: key.split('|')[1],
+            driver: key.split('|')[2],
+            negativeRatingsCount: 0, 
+            categoryCounts: {} 
+        };
         const allStats = allDataGrouped[key];
         return {
             ...negativeStats,
@@ -345,3 +349,5 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 };
 
 export default QualitySummary;
+
+    
