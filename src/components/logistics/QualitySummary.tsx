@@ -199,6 +199,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         const allStats = allDataGrouped[key];
         
         const categorySummary = Object.entries(negativeStats.categoryCounts)
+            .sort(([, countA], [, countB]) => countB - countA)
             .map(([cat, count]) => `${count} ${cat}`)
             .join(', ');
 
@@ -258,9 +259,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     <div className='space-y-6'>
        <div className="flex justify-end">
         <QualityEmailGenerator 
-          summaryByDepot={summaryByDepot}
-          summaryByCarrier={summaryByCarrier}
-          summaryByDriver={summaryByDriver}
+          allComments={allCommentsForSummary}
+          allData={data}
           unassignedDrivers={unassignedDrivers}
         />
       </div>
