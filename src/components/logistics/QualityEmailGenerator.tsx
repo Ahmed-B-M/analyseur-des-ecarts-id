@@ -296,21 +296,6 @@ const generateQualityEmailBody = (
 
 const QualityEmailGenerator = ({ allComments, allData, unassignedDrivers }: QualityEmailGeneratorProps) => {
 
-    const negativeRatingsData = useMemo(() => {
-        const commentsMap = new Map(allComments.map(c => [c.id, c]));
-        return allData
-          .filter(d => d.notation != null && d.notation <= 3)
-          .map(item => {
-            const commentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
-            const commentInfo = commentsMap.get(commentId);
-            return {
-              ...item,
-              category: commentInfo ? commentInfo.category : 'Autre',
-            };
-          });
-    }, [allData, allComments]);
-
-
     const summaryByDepot = useMemo(() => {
         const allDataGrouped = allData.reduce((acc, curr) => {
             const depot = getNomDepot(curr.entrepot);
@@ -324,7 +309,7 @@ const QualityEmailGenerator = ({ allComments, allData, unassignedDrivers }: Qual
             return acc;
         }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
         
-        const grouped = negativeRatingsData.reduce((acc, curr) => {
+        const grouped = allComments.reduce((acc, curr) => {
             const depot = getNomDepot(curr.entrepot);
             if(!acc[depot]) {
                 acc[depot] = {
@@ -333,7 +318,7 @@ const QualityEmailGenerator = ({ allComments, allData, unassignedDrivers }: Qual
                 };
             }
             acc[depot].negativeRatingsCount++;
-            if (curr.commentaire) {
+            if (curr.comment) {
               acc[depot].commentCount++;
             }
             return acc;
@@ -352,7 +337,7 @@ const QualityEmailGenerator = ({ allComments, allData, unassignedDrivers }: Qual
         })
         .filter(item => item.negativeRatingsCount > 0)
         .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-    }, [negativeRatingsData, allData]);
+    }, [allData, allComments]);
 
     const summaryByCarrier = useMemo(() => {
         const allDataGrouped = allData.reduce((acc, curr) => {
@@ -369,7 +354,7 @@ const QualityEmailGenerator = ({ allComments, allData, unassignedDrivers }: Qual
           return acc;
         }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
         
-        const grouped = negativeRatingsData.reduce((acc, curr) => {
+        const grouped = allComments.reduce((acc, curr) => {
             const depot = getNomDepot(curr.entrepot);
             const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
             const key = `${depot}|${carrier}`;
@@ -378,7 +363,7 @@ const QualityEmailGenerator = ({ allComments, allData, unassignedDrivers }: Qual
                 acc[key] = { depot, carrier, negativeRatingsCount: 0, commentCount: 0 };
             }
             acc[key].negativeRatingsCount++;
-            if (curr.commentaire) {
+            if (curr.comment) {
                 acc[key].commentCount++;
             }
             return acc;
@@ -395,7 +380,7 @@ const QualityEmailGenerator = ({ allComments, allData, unassignedDrivers }: Qual
         })
         .filter(item => item.negativeRatingsCount > 0)
         .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-    }, [negativeRatingsData, allData]);
+    }, [allData, allComments]);
 
 
     const summaryByDriver = useMemo(() => {
@@ -415,7 +400,7 @@ const QualityEmailGenerator = ({ allComments, allData, unassignedDrivers }: Qual
          return acc;
        }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
        
-        const grouped = negativeRatingsData.reduce((acc, curr) => {
+        const grouped = allComments.reduce((acc, curr) => {
            const depot = getNomDepot(curr.entrepot);
            const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
            const driver = curr.livreur || 'Inconnu';
@@ -427,7 +412,7 @@ const QualityEmailGenerator = ({ allComments, allData, unassignedDrivers }: Qual
    
            acc[key].negativeRatingsCount++;
            
-           if (curr.commentaire) {
+           if (curr.comment) {
              const category = curr.category as CommentCategory;
              acc[key].categoryCounts[category] = (acc[key].categoryCounts[category] || 0) + 1;
            }
@@ -467,7 +452,7 @@ const QualityEmailGenerator = ({ allComments, allData, unassignedDrivers }: Qual
            if (a.driver > b.driver) return 1;
            return 0;
        });
-    }, [negativeRatingsData, allData]);
+    }, [allData, allComments]);
 
   const handleSendEmail = () => {
     const subject = "Rapport de Synthèse de la Qualité (Focus sur les Mauvaises Notes)";
