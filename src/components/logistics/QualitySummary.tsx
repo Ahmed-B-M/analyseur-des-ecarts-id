@@ -197,11 +197,16 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             categoryCounts: {} 
         };
         const allStats = allDataGrouped[key];
+        
+        const categorySummary = Object.entries(negativeStats.categoryCounts)
+            .map(([cat, count]) => `${count} ${cat}`)
+            .join(', ');
+
         return {
             ...negativeStats,
             totalRatings: allStats?.ratedTasksCount || 0,
             averageRating: (allStats?.ratedTasksCount || 0) > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
-            categorySummary: Object.entries(negativeStats.categoryCounts).map(([cat, count]) => `${count} ${cat}`).join(', '),
+            categorySummary: categorySummary,
         }
     })
     .filter(item => item.negativeRatingsCount > 0)
@@ -349,5 +354,3 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 };
 
 export default QualitySummary;
-
-    
