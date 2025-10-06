@@ -11,10 +11,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Mail } from 'lucide-react';
-import type { MergedData } from '@/lib/types';
-import { getCarrierFromDriverName, getNomDepot } from '@/lib/utils';
-import { useMemo } from 'react';
-import { CommentCategory } from '@/lib/comment-categorization';
 
 interface Summary {
   depot: string;
@@ -49,8 +45,9 @@ interface UnassignedDriver {
 }
 
 interface QualityEmailGeneratorProps {
-  allComments: any[];
-  allData: MergedData[];
+  summaryByDepot: Summary[];
+  summaryByCarrier: CarrierSummary[];
+  summaryByDriver: DriverSummary[];
   unassignedDrivers: UnassignedDriver[];
 }
 
@@ -294,165 +291,7 @@ const generateQualityEmailBody = (
   return body;
 };
 
-const QualityEmailGenerator = ({ allComments, allData, unassignedDrivers }: QualityEmailGeneratorProps) => {
-
-    const summaryByDepot = useMemo(() => {
-        const allDataGrouped = allData.reduce((acc, curr) => {
-            const depot = getNomDepot(curr.entrepot);
-            if (!acc[depot]) {
-                acc[depot] = { totalRatingValue: 0, ratedTasksCount: 0 };
-            }
-            if (curr.notation != null) {
-                acc[depot].ratedTasksCount++;
-                acc[depot].totalRatingValue += curr.notation;
-            }
-            return acc;
-        }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
-        
-        const grouped = allComments.reduce((acc, curr) => {
-            const depot = getNomDepot(curr.entrepot);
-            if(!acc[depot]) {
-                acc[depot] = {
-                    negativeRatingsCount: 0,
-                    commentCount: 0,
-                };
-            }
-            acc[depot].negativeRatingsCount++;
-            if (curr.comment) {
-              acc[depot].commentCount++;
-            }
-            return acc;
-        }, {} as Record<string, { negativeRatingsCount: number, commentCount: number }>);
-
-        return Object.keys(allDataGrouped).map((depot) => {
-          const depotNegativeStats = grouped[depot] || { negativeRatingsCount: 0, commentCount: 0 };
-          const depotAllStats = allDataGrouped[depot];
-          return {
-            depot,
-            totalRatings: depotAllStats?.ratedTasksCount || 0,
-            negativeRatingsCount: depotNegativeStats.negativeRatingsCount,
-            averageRating: (depotAllStats?.ratedTasksCount || 0) > 0 ? (depotAllStats.totalRatingValue / depotAllStats.ratedTasksCount).toFixed(2) : 'N/A',
-            commentCount: depotNegativeStats.commentCount,
-          }
-        })
-        .filter(item => item.negativeRatingsCount > 0)
-        .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-    }, [allData, allComments]);
-
-    const summaryByCarrier = useMemo(() => {
-        const allDataGrouped = allData.reduce((acc, curr) => {
-          const depot = getNomDepot(curr.entrepot);
-          const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
-          const key = `${depot}|${carrier}`;
-          if (!acc[key]) {
-            acc[key] = { totalRatingValue: 0, ratedTasksCount: 0 };
-          }
-          if (curr.notation != null) {
-            acc[key].ratedTasksCount++;
-            acc[key].totalRatingValue += curr.notation;
-          }
-          return acc;
-        }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
-        
-        const grouped = allComments.reduce((acc, curr) => {
-            const depot = getNomDepot(curr.entrepot);
-            const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
-            const key = `${depot}|${carrier}`;
-
-            if (!acc[key]) {
-                acc[key] = { depot, carrier, negativeRatingsCount: 0, commentCount: 0 };
-            }
-            acc[key].negativeRatingsCount++;
-            if (curr.comment) {
-                acc[key].commentCount++;
-            }
-            return acc;
-        }, {} as Record<string, { depot: string, carrier: string, negativeRatingsCount: number, commentCount: number }>);
-        
-        return Object.keys(allDataGrouped).map(key => {
-          const negativeStats = grouped[key] || { depot: key.split('|')[0], carrier: key.split('|')[1], negativeRatingsCount: 0, commentCount: 0 };
-          const allStats = allDataGrouped[key];
-          return {
-            ...negativeStats,
-            totalRatings: allStats?.ratedTasksCount || 0,
-            averageRating: (allStats?.ratedTasksCount || 0) > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
-          }
-        })
-        .filter(item => item.negativeRatingsCount > 0)
-        .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-    }, [allData, allComments]);
-
-
-    const summaryByDriver = useMemo(() => {
-        const allDataGrouped = allData.reduce((acc, curr) => {
-         const depot = getNomDepot(curr.entrepot);
-         const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
-         const driver = curr.livreur || 'Inconnu';
-         const key = `${depot}|${carrier}|${driver}`;
-   
-         if (!acc[key]) {
-           acc[key] = { totalRatingValue: 0, ratedTasksCount: 0 };
-         }
-         if (curr.notation != null) {
-           acc[key].ratedTasksCount++;
-           acc[key].totalRatingValue += curr.notation;
-         }
-         return acc;
-       }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
-       
-        const grouped = allComments.reduce((acc, curr) => {
-           const depot = getNomDepot(curr.entrepot);
-           const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
-           const driver = curr.livreur || 'Inconnu';
-           const key = `${depot}|${carrier}|${driver}`;
-   
-           if (!acc[key]) {
-               acc[key] = { depot, carrier, driver, negativeRatingsCount: 0, categoryCounts: {} as Record<CommentCategory, number> };
-           }
-   
-           acc[key].negativeRatingsCount++;
-           
-           if (curr.comment) {
-             const category = curr.category as CommentCategory;
-             acc[key].categoryCounts[category] = (acc[key].categoryCounts[category] || 0) + 1;
-           }
-   
-           return acc;
-       }, {} as Record<string, { depot: string, carrier: string, driver: string, negativeRatingsCount: number, categoryCounts: Record<CommentCategory, number> }>);
-   
-       return Object.keys(allDataGrouped).map(key => {
-           const negativeStats = grouped[key] || { 
-               depot: key.split('|')[0], 
-               carrier: key.split('|')[1],
-               driver: key.split('|')[2],
-               negativeRatingsCount: 0, 
-               categoryCounts: {} 
-           };
-           const allStats = allDataGrouped[key];
-           
-           const categorySummary = Object.entries(negativeStats.categoryCounts)
-               .sort(([, countA], [, countB]) => countB - countA)
-               .map(([cat, count]) => `${count} ${cat}`)
-               .join(', ');
-   
-           return {
-               ...negativeStats,
-               totalRatings: allStats?.ratedTasksCount || 0,
-               averageRating: (allStats?.ratedTasksCount || 0) > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
-               categorySummary: categorySummary,
-           }
-       })
-       .filter(item => item.negativeRatingsCount > 0)
-       .sort((a, b) => {
-           if (a.depot < b.depot) return -1;
-           if (a.depot > b.depot) return 1;
-           if (a.carrier < b.carrier) return -1;
-           if (a.carrier > b.carrier) return 1;
-           if (a.driver < b.driver) return -1;
-           if (a.driver > b.driver) return 1;
-           return 0;
-       });
-    }, [allData, allComments]);
+const QualityEmailGenerator = ({ summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers }: QualityEmailGeneratorProps) => {
 
   const handleSendEmail = () => {
     const subject = "Rapport de Synthèse de la Qualité (Focus sur les Mauvaises Notes)";

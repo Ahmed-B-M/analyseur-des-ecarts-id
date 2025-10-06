@@ -31,7 +31,6 @@ interface QualitySummaryProps {
 const QualitySummary = ({ data, processedActions, savedCategorizedComments, uncategorizedCommentsForSummary }: QualitySummaryProps) => {
 
   const allCommentsForSummary = useMemo(() => {
-    // Combine saved and unsaved comments for a complete view
     const allCategorized = [...savedCategorizedComments, ...uncategorizedCommentsForSummary];
     const uniqueComments = new Map<string, any>();
     allCategorized.forEach(comment => {
@@ -54,7 +53,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     return data
       .filter(d => d.notation != null && d.notation <= 3)
       .map(item => {
-        const commentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
+        const commentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || d.ordre}`;
         const commentInfo = commentsMap.get(commentId);
         return {
           ...item,
@@ -259,8 +258,9 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     <div className='space-y-6'>
        <div className="flex justify-end">
         <QualityEmailGenerator 
-          allComments={allCommentsForSummary}
-          allData={data}
+          summaryByDepot={summaryByDepot}
+          summaryByCarrier={summaryByCarrier}
+          summaryByDriver={summaryByDriver}
           unassignedDrivers={unassignedDrivers}
         />
       </div>
