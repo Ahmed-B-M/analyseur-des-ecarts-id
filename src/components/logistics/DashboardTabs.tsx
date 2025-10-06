@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -206,7 +205,7 @@ export default function DashboardTabs({
             </TabsContent>
             <TabsContent value="quality" className="mt-6">
                 <QualitySummary 
-                    data={filteredData} 
+                    data={rawData} 
                     processedActions={existingSuivis || []} 
                     savedCategorizedComments={savedCategorizedComments || []} 
                     uncategorizedCommentsForSummary={uncategorizedCommentsForSummary}
