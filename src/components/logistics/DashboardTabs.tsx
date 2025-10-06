@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -115,6 +116,16 @@ export default function DashboardTabs({
             }));
     }, [filteredData, savedCategorizedComments, isLoadingCategories]);
 
+    const filteredCommentsForEmail = useMemo(() => {
+        const validDates = new Set(filteredData.map(d => d.date));
+        const filteredProcessed = (existingSuivis || []).filter(action => validDates.has(action.date));
+        const filteredCategorized = (savedCategorizedComments || []).filter(comment => validDates.has(comment.date));
+        return {
+            processedActions: filteredProcessed,
+            categorizedComments: [...filteredCategorized, ...uncategorizedCommentsForSummary.filter(c => 'date' in c && validDates.has(c.date as string))]
+        }
+    }, [filteredData, existingSuivis, savedCategorizedComments, uncategorizedCommentsForSummary]);
+
 
     return (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -154,10 +165,7 @@ export default function DashboardTabs({
                     <EmailGenerator 
                         warehouseStats={analysisData.warehouseStats}
                         postalCodeStats={analysisData.postalCodeStats}
-                        globalCommentData={{
-                            processedActions: existingSuivis || [],
-                            categorizedComments: [...(savedCategorizedComments || []), ...uncategorizedCommentsForSummary]
-                        }}
+                        globalCommentData={filteredCommentsForEmail}
                     />
                 </div>
                 <GlobalCommentView 
@@ -209,8 +217,6 @@ export default function DashboardTabs({
                     processedActions={existingSuivis || []} 
                     savedCategorizedComments={savedCategorizedComments || []} 
                     uncategorizedCommentsForSummary={uncategorizedCommentsForSummary}
-                    warehouseStats={analysisData.warehouseStats}
-                    postalCodeStats={analysisData.postalCodeStats}
                 />
             </TabsContent>
             <TabsContent value="data" className="mt-6">

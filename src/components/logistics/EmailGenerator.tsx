@@ -13,13 +13,14 @@ import {
 import type { DepotStats, PostalCodeStats, SuiviCommentaire } from '@/lib/types';
 import { commentCategories, CategorizedComment } from '@/lib/comment-categorization';
 import { Mail } from 'lucide-react';
+import { useMemo } from 'react';
 
 interface EmailGeneratorProps {
   warehouseStats: DepotStats[];
   postalCodeStats: PostalCodeStats[];
   globalCommentData: {
     processedActions: SuiviCommentaire[];
-    categorizedComments: (CategorizedComment | { id: string; comment: string; category: string })[];
+    categorizedComments: (CategorizedComment | { id: string; comment: string; category: string; date?: string })[];
   };
 }
 
@@ -30,7 +31,7 @@ const generateEmailBody = (
 ) => {
     const { processedActions, categorizedComments } = globalCommentData;
 
-    // Recalculate comment stats for the email body
+    // Recalculate comment stats for the email body based on the already filtered data
     const categoryCounts = commentCategories.reduce((acc, category) => {
         acc[category] = 0;
         return acc;
@@ -110,7 +111,7 @@ const generateEmailBody = (
                   <th>Ponctualité Prév.</th>
                   <th>Ponctualité Réalisée</th>
                   <th>% Tournées Départ à l'heure / Arrivée en retard</th>
-                  <th>% Tournées Départ OK / Retard Liv. &gt; 15min</th>
+                  <th>% Tournées Départ OK / Retard Liv. > 15min</th>
                   <th>Note Moyenne</th>
                   <th>% Dépassement Poids</th>
                   <th>Créneau le plus choisi</th>
@@ -182,11 +183,14 @@ const generateEmailBody = (
 
 const EmailGenerator = ({ warehouseStats, postalCodeStats, globalCommentData }: EmailGeneratorProps) => {
 
+  const emailBody = useMemo(() => {
+    return generateEmailBody(warehouseStats, postalCodeStats, globalCommentData);
+  }, [warehouseStats, postalCodeStats, globalCommentData]);
+
+
   const handleSendEmail = () => {
     const subject = "Rapport d'Analyse des Écarts Logistiques";
-    const body = generateEmailBody(warehouseStats, postalCodeStats, globalCommentData);
-    
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`;
   };
 
   return (
@@ -203,7 +207,7 @@ const EmailGenerator = ({ warehouseStats, postalCodeStats, globalCommentData }: 
         </DialogHeader>
         <div 
           className="max-h-[70vh] overflow-y-auto p-4 border rounded-md"
-          dangerouslySetInnerHTML={{ __html: generateEmailBody(warehouseStats, postalCodeStats, globalCommentData) }}
+          dangerouslySetInnerHTML={{ __html: emailBody }}
         />
         <DialogFooter>
           <Button onClick={handleSendEmail}>Envoyer l'Email</Button>
