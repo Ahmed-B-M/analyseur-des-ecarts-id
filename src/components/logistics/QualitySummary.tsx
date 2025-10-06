@@ -35,32 +35,30 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     const uniqueComments = new Map<string, any>();
     allCategorized.forEach(comment => {
         if(!uniqueComments.has(comment.id)) {
-            const item = data.find(d => `${d.nomTournee}|${d.date}|${d.entrepot}-${d.sequence || d.ordre}` === comment.id);
-            uniqueComments.set(comment.id, {
-                ...comment,
-                livreur: item?.livreur || 'Inconnu',
-                entrepot: item?.entrepot || 'Inconnu',
-            })
+            uniqueComments.set(comment.id, comment);
         }
     });
     return Array.from(uniqueComments.values());
-  }, [savedCategorizedComments, uncategorizedCommentsForSummary, data]);
-
+  }, [savedCategorizedComments, uncategorizedCommentsForSummary]);
 
   const negativeRatingsData = useMemo(() => {
-    const commentsMap = new Map(allCommentsForSummary.map(c => [c.id, c]));
+    // 1. Create a definitive map of categories from your work.
+    const commentsMap = new Map(allCommentsForSummary.map(c => [c.id, c.category]));
     
+    // 2. Filter for all negative ratings
     return data
       .filter(d => d.notation != null && d.notation <= 3)
       .map(item => {
-        const commentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || d.ordre}`;
-        const commentInfo = commentsMap.get(commentId);
+        const commentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
+        // 3. Enrich with the correct category if a comment exists
+        const category = commentsMap.get(commentId) || 'Autre';
         return {
           ...item,
-          category: commentInfo ? commentInfo.category : 'Autre',
+          category: category,
         };
       });
   }, [data, allCommentsForSummary]);
+
 
   const summaryByDepot = useMemo(() => {
     const allDataGrouped = data.reduce((acc, curr) => {
@@ -75,30 +73,32 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         return acc;
     }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
     
+    const allCommentsInData = data.filter(d => d.commentaire);
+    
+    const commentCounts = allCommentsInData.reduce((acc, curr) => {
+        const depot = getNomDepot(curr.entrepot);
+        acc[depot] = (acc[depot] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
+
     const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
         if(!acc[depot]) {
-            acc[depot] = {
-                negativeRatingsCount: 0,
-                commentCount: 0,
-            };
+            acc[depot] = { negativeRatingsCount: 0 };
         }
         acc[depot].negativeRatingsCount++;
-        if (curr.commentaire) {
-          acc[depot].commentCount++;
-        }
         return acc;
-    }, {} as Record<string, { negativeRatingsCount: number, commentCount: number }>);
+    }, {} as Record<string, { negativeRatingsCount: number }>);
 
     return Object.keys(allDataGrouped).map((depot) => {
-      const depotNegativeStats = grouped[depot] || { negativeRatingsCount: 0, commentCount: 0 };
+      const depotNegativeStats = grouped[depot] || { negativeRatingsCount: 0 };
       const depotAllStats = allDataGrouped[depot];
       return {
         depot,
         totalRatings: depotAllStats?.ratedTasksCount || 0,
         negativeRatingsCount: depotNegativeStats.negativeRatingsCount,
         averageRating: (depotAllStats?.ratedTasksCount || 0) > 0 ? (depotAllStats.totalRatingValue / depotAllStats.ratedTasksCount).toFixed(2) : 'N/A',
-        commentCount: depotNegativeStats.commentCount,
+        commentCount: commentCounts[depot] || 0,
       }
     })
     .filter(item => item.negativeRatingsCount > 0)
@@ -120,6 +120,16 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
       }
       return acc;
     }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
+
+    const allCommentsInData = data.filter(d => d.commentaire);
+
+    const commentCounts = allCommentsInData.reduce((acc, curr) => {
+        const depot = getNomDepot(curr.entrepot);
+        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+        const key = `${depot}|${carrier}`;
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+    }, {} as Record<string, number>);
     
     const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
@@ -127,22 +137,20 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         const key = `${depot}|${carrier}`;
 
         if (!acc[key]) {
-            acc[key] = { depot, carrier, negativeRatingsCount: 0, commentCount: 0 };
+            acc[key] = { depot, carrier, negativeRatingsCount: 0 };
         }
         acc[key].negativeRatingsCount++;
-        if (curr.commentaire) {
-            acc[key].commentCount++;
-        }
         return acc;
-    }, {} as Record<string, { depot: string, carrier: string, negativeRatingsCount: number, commentCount: number }>);
+    }, {} as Record<string, { depot: string, carrier: string, negativeRatingsCount: number }>);
     
     return Object.keys(allDataGrouped).map(key => {
-      const negativeStats = grouped[key] || { depot: key.split('|')[0], carrier: key.split('|')[1], negativeRatingsCount: 0, commentCount: 0 };
+      const negativeStats = grouped[key] || { depot: key.split('|')[0], carrier: key.split('|')[1], negativeRatingsCount: 0 };
       const allStats = allDataGrouped[key];
       return {
         ...negativeStats,
         totalRatings: allStats?.ratedTasksCount || 0,
         averageRating: (allStats?.ratedTasksCount || 0) > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
+        commentCount: commentCounts[key] || 0,
       }
     })
     .filter(item => item.negativeRatingsCount > 0)
@@ -354,3 +362,5 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 };
 
 export default QualitySummary;
+
+    
