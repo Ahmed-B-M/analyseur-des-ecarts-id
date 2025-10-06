@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { MergedData, SuiviCommentaire } from '@/lib/types';
-import { categorizeComment, commentCategories } from '@/lib/comment-categorization';
+import { commentCategories } from '@/lib/comment-categorization';
 import { CategorizedComment } from './CommentCategorizationTable';
 
 interface GlobalCommentViewProps {
@@ -14,13 +14,29 @@ interface GlobalCommentViewProps {
 
 const GlobalCommentView: React.FC<GlobalCommentViewProps> = ({ data, processedActions, categorizedComments }) => {
     
+    // Create a Set of valid dates from the filtered data to ensure we only use relevant comments.
+    const validDates = React.useMemo(() => new Set(data.map(d => d.date)), [data]);
+
+    // Filter the categorized and processed comments based on the valid dates.
+    const filteredCategorizedComments = React.useMemo(() => {
+        return categorizedComments.filter(comment => {
+            const commentDate = 'date' in comment ? comment.date : '';
+            return validDates.has(commentDate);
+        });
+    }, [categorizedComments, validDates]);
+    
+    const filteredProcessedActions = React.useMemo(() => {
+        return processedActions.filter(action => validDates.has(action.date));
+    }, [processedActions, validDates]);
+
+
     const categoryCounts = commentCategories.reduce((acc, category) => {
         acc[category] = 0;
         return acc;
     }, {} as Record<string, number>);
     
     let totalCategorized = 0;
-    categorizedComments.forEach(item => {
+    filteredCategorizedComments.forEach(item => {
         const category = item.category;
         if (categoryCounts.hasOwnProperty(category)) {
             categoryCounts[category]++;
@@ -37,7 +53,7 @@ const GlobalCommentView: React.FC<GlobalCommentViewProps> = ({ data, processedAc
         return percentageB - percentageA;
     });
 
-    const actionsByCategory = (processedActions || []).reduce((acc, { categorie, actionCorrective }) => {
+    const actionsByCategory = (filteredProcessedActions || []).reduce((acc, { categorie, actionCorrective }) => {
         if (!acc[categorie]) {
             acc[categorie] = [];
         }
