@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -13,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MergedData, SuiviCommentaire } from '@/lib/types';
 import { useMemo } from 'react';
 import { getCarrierFromDriverName, getNomDepot } from '@/lib/utils';
-import { CommentCategory } from '@/lib/comment-categorization';
+import { CommentCategory, categorizeComment } from '@/lib/comment-categorization';
 import GlobalCommentView from './GlobalCommentView';
 import { CategorizedComment } from './CommentCategorizationTable';
 import QualityEmailGenerator from './QualityEmailGenerator';
@@ -47,15 +48,13 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
       .filter(d => d.notation != null && d.notation <= 3)
       .map(item => {
         const commentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
-        // Enrich with the correct category if a comment exists
-        const category = commentsMap.get(commentId) || 'Autre';
+        const category = commentsMap.get(commentId) || (item.commentaire ? categorizeComment(item.commentaire) : 'Autre');
         return {
           ...item,
           category: category,
         };
       });
   }, [data, commentsMap]);
-
 
   const allDataWithNotes = useMemo(() => {
     return data.filter(d => d.notation != null);
@@ -361,3 +360,5 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 };
 
 export default QualitySummary;
+
+    
