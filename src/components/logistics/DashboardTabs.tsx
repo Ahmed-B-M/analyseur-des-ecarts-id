@@ -34,8 +34,9 @@ import DeliveryVolumeChart from './DeliveryVolumeChart';
 import { GlobalKpiSection } from './dashboard/GlobalKpiSection';
 import { QualityImpactSection } from './dashboard/QualityImpactSection';
 import { WorkloadAnalysisSection } from './dashboard/WorkloadAnalysisSection';
-import { getWeek, startOfWeek, endOfWeek, parseISO } from 'date-fns';
+import { getWeek, startOfWeek, endOfWeek, parseISO, isWithinInterval } from 'date-fns';
 import { analyzeData } from '@/lib/dataAnalyzer';
+import { DateRange } from 'react-day-picker';
 
 
 interface DashboardTabsProps {
@@ -77,11 +78,27 @@ export default function DashboardTabs({
     const { data: savedCategorizedComments, isLoading: isLoadingCategories } = useCollection<CategorizedComment>(categorizedCommentsCollectionRef);
 
     useEffect(() => {
-        if (activeTab !== 'rdp' || !rawData || rawData.length === 0) return;
+        if (activeTab !== 'rdp' || !filteredData || filteredData.length === 0) return;
 
         const processRdpData = () => {
+            // Use filteredData which already respects depot/warehouse filters etc.
+            let dataForWeeklyAnalysis = filteredData;
+            
+            // Further filter by date if dateRange is present
+            if (filters.dateRange) {
+                const { from, to } = filters.dateRange as DateRange;
+                if (from && to) {
+                    dataForWeeklyAnalysis = dataForWeeklyAnalysis.filter(item => {
+                        try {
+                            return isWithinInterval(parseISO(item.date), { start: from, end: to });
+                        } catch(e) { return false; }
+                    });
+                }
+            }
+
+
             const weeks: Record<string, MergedData[]> = {};
-            rawData.forEach(item => {
+            dataForWeeklyAnalysis.forEach(item => {
                 try {
                     const date = parseISO(item.date);
                     const weekNumber = getWeek(date, { weekStartsOn: 1 });
@@ -98,6 +115,7 @@ export default function DashboardTabs({
                 return {
                     weekLabel: weekKey,
                     dateRange: { from: startOfWeek(parseISO(weekData[0].date), { weekStartsOn: 1 }), to: endOfWeek(parseISO(weekData[0].date), { weekStartsOn: 1 }) },
+                    // Re-run analysis on this specific week's data
                     analysis: analyzeData(weekData, filters),
                 };
             });
@@ -106,7 +124,7 @@ export default function DashboardTabs({
 
         processRdpData();
 
-    }, [activeTab, rawData, filters]);
+    }, [activeTab, filteredData, filters]);
     
     const processedCommentIds = useMemo(() => {
         if (!existingSuivis) return new Set();
@@ -251,7 +269,7 @@ export default function DashboardTabs({
             </TabsContent>
             <TabsContent value="quality" className="mt-6">
                 <QualitySummary 
-                    data={rawData} 
+                    data={filteredData} 
                     processedActions={existingSuivis || []} 
                     savedCategorizedComments={savedCategorizedComments || []} 
                     uncategorizedCommentsForSummary={uncategorizedCommentsForSummary}
@@ -283,5 +301,3 @@ export default function DashboardTabs({
         </Tabs>
     )
 }
-
-    
