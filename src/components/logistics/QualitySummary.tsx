@@ -194,6 +194,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
        
        const categoryCounts: Record<string, number> = {};
        groupData.negativeRatings.forEach(item => {
+           // CORRECTION: Utiliser item.comment au lieu de item.commentaire
            if (item.commentaire) {
                categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
            }
@@ -360,5 +361,3 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 };
 
 export default QualitySummary;
-
-    
