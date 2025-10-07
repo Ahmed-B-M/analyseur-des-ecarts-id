@@ -13,11 +13,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MergedData, SuiviCommentaire } from '@/lib/types';
 import { useMemo } from 'react';
-import { getCarrierFromDriverName, getNomDepot } from '@/lib/utils';
+import { getCarrierFromDriverName } from '@/lib/utils';
 import { CommentCategory, categorizeComment } from '@/lib/comment-categorization';
 import GlobalCommentView from './GlobalCommentView';
 import { CategorizedComment } from './CommentCategorizationTable';
 import QualityEmailGenerator from './QualityEmailGenerator';
+import { getNomDepot } from '@/lib/config-depots';
 
 interface QualitySummaryProps {
     data: MergedData[];
@@ -156,77 +157,74 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
   }, [negativeRatingsData, allDataWithNotes, data]);
 
 
-  const summaryByDriver = useMemo(() => {
+ const summaryByDriver = useMemo(() => {
     const allDataGrouped = allDataWithNotes.reduce((acc, curr) => {
-     const depot = getNomDepot(curr.entrepot);
-     const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
-     const driver = curr.livreur || 'Inconnu';
-     const key = `${depot}|${carrier}|${driver}`;
+        const depot = getNomDepot(curr.entrepot);
+        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+        const driver = curr.livreur || 'Inconnu';
+        const key = `${depot}|${carrier}|${driver}`;
 
-     if (!acc[key]) {
-       acc[key] = { totalRatingValue: 0, ratedTasksCount: 0 };
-     }
-       acc[key].ratedTasksCount++;
-       acc[key].totalRatingValue += curr.notation!;
-     return acc;
-   }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
-   
+        if (!acc[key]) {
+            acc[key] = { totalRatingValue: 0, ratedTasksCount: 0 };
+        }
+        acc[key].ratedTasksCount++;
+        acc[key].totalRatingValue += curr.notation!;
+        return acc;
+    }, {} as Record<string, { totalRatingValue: number; ratedTasksCount: number }>);
+
     const groupedByDriver = negativeRatingsData.reduce((acc, curr) => {
-       const depot = getNomDepot(curr.entrepot);
-       const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
-       const driver = curr.livreur || 'Inconnu';
-       const key = `${depot}|${carrier}|${driver}`;
+        const driver = curr.livreur || 'Inconnu';
+        if (!acc[driver]) {
+            acc[driver] = [];
+        }
+        acc[driver].push(curr);
+        return acc;
+    }, {} as Record<string, typeof negativeRatingsData>);
 
-       if (!acc[key]) {
-           acc[key] = {
-               depot,
-               carrier,
-               driver,
-               negativeRatings: []
-           };
-       }
-       acc[key].negativeRatings.push(curr);
-       return acc;
-   }, {} as Record<string, { depot: string; carrier: string; driver: string; negativeRatings: typeof negativeRatingsData }>);
+    return Object.entries(groupedByDriver)
+        .map(([driver, driverTasks]) => {
+            if (driverTasks.length === 0) return null;
 
-   return Object.entries(groupedByDriver).map(([key, groupData]) => {
-       const allStats = allDataGrouped[key] || { totalRatingValue: 0, ratedTasksCount: 0 };
-       
-       const categoryCounts: Record<string, number> = {};
-       groupData.negativeRatings.forEach(item => {
-           // CORRECTION: Utiliser item.comment au lieu de item.commentaire
-           if (item.commentaire) {
-               categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
-           }
-       });
+            const depot = getNomDepot(driverTasks[0].entrepot);
+            const carrier = getCarrierFromDriverName(driver) || 'Inconnu';
+            const key = `${depot}|${carrier}|${driver}`;
+            const allStats = allDataGrouped[key] || { totalRatingValue: 0, ratedTasksCount: 0 };
 
-       const categorySummary = Object.entries(categoryCounts)
-           .sort(([, countA], [, countB]) => countB - countA)
-           .map(([cat, count]) => `${count} ${cat}`)
-           .join(', ');
+            const categoryCounts: Record<string, number> = {};
+            driverTasks.forEach(item => {
+                if (item.commentaire) {
+                    const category = item.category || 'Autre';
+                    categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+                }
+            });
 
-       return {
-           depot: groupData.depot,
-           carrier: groupData.carrier,
-           driver: groupData.driver,
-           totalRatings: allStats.ratedTasksCount,
-           negativeRatingsCount: groupData.negativeRatings.length,
-           averageRating: allStats.ratedTasksCount > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
-           categorySummary: categorySummary || 'N/A',
-       }
-   })
-   .filter(item => item.negativeRatingsCount > 0)
-   .sort((a, b) => {
-       if (a.depot < b.depot) return -1;
-       if (a.depot > b.depot) return 1;
-       if (a.carrier < b.carrier) return -1;
-       if (a.carrier > b.carrier) return 1;
-       if (a.driver < b.driver) return -1;
-       if (a.driver > b.driver) return 1;
-       return 0;
-   });
-  }, [negativeRatingsData, allDataWithNotes]);
+            const categorySummary = Object.entries(categoryCounts)
+                .sort(([, countA], [, countB]) => countB - countA)
+                .map(([cat, count]) => `${count} ${cat}`)
+                .join(', ');
 
+            return {
+                depot,
+                carrier,
+                driver,
+                totalRatings: allStats.ratedTasksCount,
+                negativeRatingsCount: driverTasks.length,
+                averageRating: allStats.ratedTasksCount > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
+                categorySummary: categorySummary || 'N/A',
+            };
+        })
+        .filter(item => item !== null)
+        .sort((a, b) => {
+            if (!a || !b) return 0;
+            if (a.depot < b.depot) return -1;
+            if (a.depot > b.depot) return 1;
+            if (a.carrier < b.carrier) return -1;
+            if (a.carrier > b.carrier) return 1;
+            if (a.driver < b.driver) return -1;
+            if (a.driver > b.driver) return 1;
+            return 0;
+        });
+}, [negativeRatingsData, allDataWithNotes]);
 
   
   const unassignedDrivers = useMemo(() => {
@@ -361,3 +359,5 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 };
 
 export default QualitySummary;
+
+    
