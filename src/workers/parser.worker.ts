@@ -253,14 +253,7 @@ self.addEventListener('message', async (event: MessageEvent) => {
     }
 
     // Deduplicate tournees
-    const uniqueTournees = new Map<string, any>();
-    allTournees.forEach(t => {
-        const key = `${t.date}|${t.entrepot}|${t.nom}`;
-        if (!uniqueTournees.has(key)) {
-            uniqueTournees.set(key, t);
-        }
-    });
-    allTournees = Array.from(uniqueTournees.values());
+    allTournees = Array.from(new Map(allTournees.map(t => [`${t.date}|${t.entrepot}|${t.nom}`, t])).values());
 
     if (allTournees.length === 0) {
         throw new Error("Aucune donnée de tournée valide n'a pu être lue dans les fichiers fournis.");
@@ -286,17 +279,9 @@ self.addEventListener('message', async (event: MessageEvent) => {
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
         allTaches.push(...normalizeData(json, 'taches', tourneeStartTimes));
     }
-
+    
     // Deduplicate taches
-    const uniqueTaches = new Map<string, any>();
-    allTaches.forEach(t => {
-        const key = `${t.date}|${t.nomTournee}|${t.livreur}|${t.heureCloture}`;
-        if (!uniqueTaches.has(key)) {
-            uniqueTaches.set(key, t);
-        }
-    });
-    allTaches = Array.from(uniqueTaches.values());
-
+    allTaches = Array.from(new Map(allTaches.map(t => [`${t.date}|${t.nomTournee}|${t.livreur}|${t.heureCloture}`, t])).values());
 
     if (allTaches.length === 0) {
         throw new Error("Aucune donnée de tâche valide n'a pu être lue dans les fichiers fournis.");
