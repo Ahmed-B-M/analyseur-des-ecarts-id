@@ -191,7 +191,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
         const categoryCounts: Record<string, number> = {};
         for (const item of tasks) {
-             if (item.commentaire) { // Use 'commentaire' which is the correct field
+             if (item.commentaire) { 
                 const category = item.category || 'Autre';
                 categoryCounts[category] = (categoryCounts[category] || 0) + 1;
             }
@@ -200,7 +200,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         const categorySummary = Object.entries(categoryCounts)
             .sort(([, countA], [, countB]) => countB - countA)
             .map(([cat, count]) => `${count} ${cat}`)
-            .join(', ') || 'N/A';
+            .join(', ');
 
         return {
             depot,
@@ -209,7 +209,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             totalRatings: totalRatings,
             negativeRatingsCount: tasks.length,
             averageRating: totalRatings > 0 ? (totalRatingValue / totalRatings).toFixed(2) : 'N/A',
-            categorySummary: categorySummary,
+            categorySummary: categorySummary || '',
         };
     })
     .sort((a, b) => {
