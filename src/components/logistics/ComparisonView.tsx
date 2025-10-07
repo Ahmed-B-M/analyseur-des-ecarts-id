@@ -26,7 +26,7 @@ const ACCENT_COLOR = "hsl(var(--accent))";
 const kpiConfig: {
     key: keyof AnalysisData;
     title: string;
-    type: 'kpi' | 'percent' | 'rating' | 'count' | 'complex_percent' | 'comparison_kpi';
+    type: 'kpi' | 'percent' | 'rating' | 'count' | 'complex_percent' | 'comparison_kpi' | 'rate_from_count';
     kpiTitle?: string; // For simple KPIs
     subKey?: keyof AnalysisData[keyof AnalysisData]; // For nested values
     valueExtractor?: (analysis: AnalysisData) => number | undefined; // For complex extractions
@@ -34,8 +34,9 @@ const kpiConfig: {
     { key: 'generalKpis', kpiTitle: 'Taux de Ponctualité (Réalisé)', title: 'Taux de Ponctualité', type: 'percent' },
     { key: 'generalKpis', kpiTitle: 'Livraisons en Retard', title: 'Nb. Retards', type: 'count' },
     { key: 'generalKpis', kpiTitle: 'Avis Négatifs', title: 'Nb. Avis Négatifs', type: 'count' },
+    { key: 'generalKpis', kpiTitle: 'Livraisons en Retard', title: 'Taux de Retards', type: 'rate_from_count' },
+    { key: 'generalKpis', kpiTitle: 'Avis Négatifs', title: 'Taux d\'Avis Négatifs', type: 'rate_from_count' },
     { key: 'globalSummary', subKey: 'weightOverrunPercentage', title: '% Dépassement Poids', type: 'complex_percent' },
-    { key: 'globalSummary', subKey: 'durationOverrunPercentage', title: '% Dépassement Durée', type: 'complex_percent' },
     { key: 'firstTaskLatePercentage', title: '% Retard 1ère Tâche', type: 'complex_percent' },
     { 
         key: 'lateStartAnomalies', 
@@ -61,12 +62,26 @@ const kpiConfig: {
 
 
 export default function ComparisonView({ allData, filters, weeklyAnalyses: propWeeklyAnalyses, isForReport = false }: ComparisonViewProps) {
-  const [numberOfWeeks, setNumberOfWeeks] = useState(4);
+  const [numberOfWeeks, setNumberOfWeeks] = useState(isForReport ? 8 : 4);
   const [weeklyAnalyses, setWeeklyAnalyses] = useState<WeeklyAnalysis[]>(propWeeklyAnalyses || []);
   const [isLoading, setIsLoading] = useState(!isForReport);
 
+  const finalKpiConfig = useMemo(() => {
+    if (isForReport) {
+      const reportKpis = ['Taux de Ponctualité', 'Taux de Retards', 'Taux d\'Avis Négatifs', '% Dépassement Poids'];
+      return kpiConfig.filter(k => reportKpis.includes(k.title));
+    }
+    return kpiConfig.filter(k => k.type !== 'rate_from_count');
+  }, [isForReport]);
+
+
   useEffect(() => {
-    if (isForReport) return;
+    // For reports, data is pre-calculated and passed via props.
+    if (propWeeklyAnalyses) {
+        setWeeklyAnalyses(propWeeklyAnalyses);
+        setIsLoading(false);
+        return;
+    }
 
     const processData = async () => {
       setIsLoading(true);
@@ -111,18 +126,24 @@ export default function ComparisonView({ allData, filters, weeklyAnalyses: propW
     };
 
     processData();
-  }, [allData, filters, numberOfWeeks, isForReport]);
+  }, [allData, filters, numberOfWeeks, propWeeklyAnalyses]);
 
   const evolutionData = useMemo(() => {
     if (weeklyAnalyses.length === 0) return [];
     
-    return kpiConfig.map(config => {
+    return finalKpiConfig.map(config => {
         const values = weeklyAnalyses.map(wa => {
             let rawValue: string | number | undefined;
 
             if (config.type === 'percent' || config.type === 'rating' || config.type === 'count') {
                 const kpi = (wa.analysis[config.key] as Kpi[]).find(k => k.title === config.kpiTitle);
                 rawValue = kpi?.value;
+            } else if (config.type === 'rate_from_count') {
+                const countKpi = (wa.analysis.generalKpis as Kpi[]).find(k => k.title === config.kpiTitle);
+                const count = countKpi ? parseFloat(countKpi.value) : 0;
+                const totalDeliveriesKpi = wa.analysis.generalKpis.find(k => k.title === 'Livraisons Analysées');
+                const totalDeliveries = totalDeliveriesKpi ? parseFloat(totalDeliveriesKpi.value) : 0;
+                rawValue = totalDeliveries > 0 ? (count / totalDeliveries) * 100 : 0;
             } else if (config.type === 'complex_percent') {
                  if(config.subKey && config.key === 'globalSummary') {
                     rawValue = wa.analysis.globalSummary[config.subKey as keyof typeof wa.analysis.globalSummary];
@@ -150,7 +171,7 @@ export default function ComparisonView({ allData, filters, weeklyAnalyses: propW
             data: values,
         };
     });
-  }, [weeklyAnalyses]);
+  }, [weeklyAnalyses, finalKpiConfig]);
 
   const comparisonTableData = useMemo(() => {
     if (weeklyAnalyses.length < 2) return [];
@@ -177,12 +198,15 @@ export default function ComparisonView({ allData, filters, weeklyAnalyses: propW
         }
         
         if (typeof rawValue === 'number') {
-            return `${rawValue.toFixed(1)}%`;
+             if (config.title.includes('%') || config.title.toLowerCase().includes('taux')) {
+                return `${rawValue.toFixed(1)}%`;
+             }
+             return String(rawValue);
         }
         return rawValue || '0';
     };
 
-    return kpiConfig.map(config => {
+    return finalKpiConfig.map(config => {
         const lastValueStr = findValue(lastWeek, config);
         const prevValueStr = findValue(previousWeek, config);
 
@@ -206,7 +230,7 @@ export default function ComparisonView({ allData, filters, weeklyAnalyses: propW
             isGoodChange,
         };
     });
-  }, [weeklyAnalyses]);
+  }, [weeklyAnalyses, finalKpiConfig]);
 
 
   if (isLoading) {
@@ -217,44 +241,67 @@ export default function ComparisonView({ allData, filters, weeklyAnalyses: propW
         </div>
     )
   }
+  
+  if (isForReport) {
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            {evolutionData.map(chart => (
+                <Card key={chart.title} className="print:shadow-none">
+                    <CardHeader>
+                        <CardTitle className="text-base">{chart.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <ResponsiveContainer width="100%" height={200}>
+                            <LineChart data={chart.data}>
+                                <XAxis dataKey="week" fontSize={10} />
+                                <YAxis fontSize={10} domain={['auto', 'auto']} tickFormatter={(value) => `${value.toFixed(0)}%`}/>
+                                <Tooltip formatter={(value: number) => `${value.toFixed(2)}%`} />
+                                <Line type="monotone" dataKey="value" name={chart.title} stroke={PRIMARY_COLOR} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }}/>
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+    );
+  }
+
 
   return (
     <div className="space-y-6">
-      {!isForReport && (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>Analyse Comparative Hebdomadaire</CardTitle>
-                    <CardDescription>Évolution des indicateurs clés sur les dernières semaines.</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Comparer les</span>
-                    <Select value={String(numberOfWeeks)} onValueChange={(val) => setNumberOfWeeks(Number(val))}>
-                        <SelectTrigger className="w-[80px]">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="2">2</SelectItem>
-                            <SelectItem value="4">4</SelectItem>
-                            <SelectItem value="8">8</SelectItem>
-                            <SelectItem value="12">12</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <span className="text-sm font-medium">dernières semaines</span>
-                </div>
-            </CardHeader>
-        </Card>
-      )}
+      <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                  <CardTitle>Analyse Comparative Hebdomadaire</CardTitle>
+                  <CardDescription>Évolution des indicateurs clés sur les dernières semaines.</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Comparer les</span>
+                  <Select value={String(numberOfWeeks)} onValueChange={(val) => setNumberOfWeeks(Number(val))}>
+                      <SelectTrigger className="w-[80px]">
+                          <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="2">2</SelectItem>
+                          <SelectItem value="4">4</SelectItem>
+                          <SelectItem value="8">8</SelectItem>
+                          <SelectItem value="12">12</SelectItem>
+                      </SelectContent>
+                  </Select>
+                  <span className="text-sm font-medium">dernières semaines</span>
+              </div>
+          </CardHeader>
+      </Card>
       
-       <div className={cn("grid grid-cols-1 gap-6", !isForReport && "lg:grid-cols-3")}>
-        <div className={cn("grid grid-cols-1 gap-6", isForReport ? "md:grid-cols-2" : "lg:col-span-2 md:grid-cols-2")}>
+       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 lg:col-span-2 md:grid-cols-2">
             {evolutionData.map(chart => (
-                <Card key={chart.title} className={cn(isForReport && "print:shadow-none")}>
+                <Card key={chart.title}>
                     <CardHeader>
-                        <CardTitle className={cn(isForReport ? "text-sm" : "text-base")}>{chart.title}</CardTitle>
+                        <CardTitle className="text-base">{chart.title}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <ResponsiveContainer width="100%" height={isForReport ? 150 : 200}>
+                        <ResponsiveContainer width="100%" height={200}>
                             <LineChart data={chart.data}>
                                 <XAxis dataKey="week" fontSize={10} />
                                 <YAxis fontSize={10} domain={['auto', 'auto']} />
@@ -266,9 +313,9 @@ export default function ComparisonView({ allData, filters, weeklyAnalyses: propW
                 </Card>
             ))}
         </div>
-        <Card className={cn("lg:col-span-1", isForReport && "print:shadow-none")}>
+        <Card className="lg:col-span-1">
             <CardHeader>
-                <CardTitle className={cn(isForReport ? "text-base" : "")}>Synthèse Semaine vs S-1</CardTitle>
+                <CardTitle>Synthèse Semaine vs S-1</CardTitle>
                 <CardDescription>
                     {weeklyAnalyses.length >= 2 
                         ? `Comparaison de ${weeklyAnalyses[weeklyAnalyses.length - 1].weekLabel} et ${weeklyAnalyses[weeklyAnalyses.length - 2].weekLabel}`
@@ -309,3 +356,5 @@ export default function ComparisonView({ allData, filters, weeklyAnalyses: propW
     </div>
   );
 }
+
+    

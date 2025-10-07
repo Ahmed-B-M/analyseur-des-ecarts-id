@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck, MessageSquare, ClipboardCheck, FileText, Tags, Mail } from 'lucide-react';
@@ -17,14 +17,14 @@ import DepotAnalysisTable from './DepotAnalysisTable';
 import PostalCodeTable from './PostalCodeTable';
 import SlotAnalysisChart from './SlotAnalysisChart';
 import GlobalCommentView from './GlobalCommentView';
-import type { AnalysisData, MergedData, SuiviCommentaire } from '@/lib/types';
+import type { AnalysisData, MergedData, SuiviCommentaire, WeeklyAnalysis } from '@/lib/types';
 import DepotConfigurator from './DepotConfigurator';
 import CommentProcessing from './CommentProcessing';
 import { Badge } from '@/components/ui/badge';
 import ActionFollowUpView from './ActionFollowUpView';
 import { useCollection, useMemoFirebase } from '@/firebase';
 import { useFirestore } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import type { SuiviCommentaireWithId } from './ActionFollowUpView';
 import { CategorizedComment } from './CommentCategorizationTable';
 import CommentCategorizationView from './CommentCategorizationView';
@@ -34,6 +34,8 @@ import DeliveryVolumeChart from './DeliveryVolumeChart';
 import { GlobalKpiSection } from './dashboard/GlobalKpiSection';
 import { QualityImpactSection } from './dashboard/QualityImpactSection';
 import { WorkloadAnalysisSection } from './dashboard/WorkloadAnalysisSection';
+import { getWeek, startOfWeek, endOfWeek, parseISO } from 'date-fns';
+import { analyzeData } from '@/lib/dataAnalyzer';
 
 
 interface DashboardTabsProps {
@@ -59,6 +61,7 @@ export default function DashboardTabs({
 }: DashboardTabsProps) {
 
     const firestore = useFirestore();
+    const [rdpWeeklyAnalyses, setRdpWeeklyAnalyses] = useState<WeeklyAnalysis[]>([]);
 
     const suiviCollectionRef = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -73,6 +76,38 @@ export default function DashboardTabs({
     const { data: existingSuivis, isLoading: isLoadingSuivis } = useCollection<SuiviCommentaireWithId>(suiviCollectionRef);
     const { data: savedCategorizedComments, isLoading: isLoadingCategories } = useCollection<CategorizedComment>(categorizedCommentsCollectionRef);
 
+    useEffect(() => {
+        if (activeTab !== 'rdp' || !rawData || rawData.length === 0) return;
+
+        const processRdpData = () => {
+            const weeks: Record<string, MergedData[]> = {};
+            rawData.forEach(item => {
+                try {
+                    const date = parseISO(item.date);
+                    const weekNumber = getWeek(date, { weekStartsOn: 1 });
+                    const year = date.getFullYear();
+                    const weekKey = `${year}-W${String(weekNumber).padStart(2, '0')}`;
+                    if (!weeks[weekKey]) weeks[weekKey] = [];
+                    weeks[weekKey].push(item);
+                } catch (e) {}
+            });
+
+            const sortedWeekKeys = Object.keys(weeks).sort().slice(-8); // Get last 8 weeks for RDP
+            const analyses: WeeklyAnalysis[] = sortedWeekKeys.map(weekKey => {
+                const weekData = weeks[weekKey];
+                return {
+                    weekLabel: weekKey,
+                    dateRange: { from: startOfWeek(parseISO(weekData[0].date), { weekStartsOn: 1 }), to: endOfWeek(parseISO(weekData[0].date), { weekStartsOn: 1 }) },
+                    analysis: analyzeData(weekData, filters),
+                };
+            });
+            setRdpWeeklyAnalyses(analyses);
+        }
+
+        processRdpData();
+
+    }, [activeTab, rawData, filters]);
+    
     const processedCommentIds = useMemo(() => {
         if (!existingSuivis) return new Set();
         return new Set(existingSuivis.map(s => `${s.nomTournee}|${s.date}|${s.entrepot}-${s.sequence}`));
@@ -194,13 +229,13 @@ export default function DashboardTabs({
             </TabsContent>
             <TabsContent value="comparison" className="mt-6">
                 <ComparisonView
-                    allData={filteredData}
+                    allData={rawData}
                     filters={filters}
                 />
             </TabsContent>
             <TabsContent value="depotComparison" className="mt-6">
                 <DepotComparison
-                    allData={filteredData}
+                    allData={rawData}
                     filters={filters}
                     depots={analysisData.depots}
                 />
@@ -231,6 +266,7 @@ export default function DashboardTabs({
                     discrepancyKpis={analysisData.discrepancyKpis}
                 />
                 <QualityImpactSection qualityKpis={analysisData.qualityKpis} />
+                <ComparisonView weeklyAnalyses={rdpWeeklyAnalyses} isForReport={true} />
                 <WorkloadAnalysisSection
                     workloadByHour={analysisData.workloadByHour}
                     avgWorkload={analysisData.avgWorkload}
@@ -247,3 +283,5 @@ export default function DashboardTabs({
         </Tabs>
     )
 }
+
+    
