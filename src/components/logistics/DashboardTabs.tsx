@@ -292,7 +292,7 @@ export default function DashboardTabs({
                 />
                 <DeliveryVolumeChart data={filteredData} />
                 <HotZonesChart data={analysisData.postalCodeStats} />
-                <DepotAnalysisTable data={analysisData.depotStats} />
+                <DepotAnalysisTable data={analysisData.warehouseStats} />
                 <PostalCodeTable data={analysisData.postalCodeStats} />
             </TabsContent>
             <TabsContent value="settings" className="mt-6">
