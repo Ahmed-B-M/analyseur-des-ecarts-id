@@ -40,15 +40,18 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     return Array.from(uniqueComments.values());
   }, [savedCategorizedComments, uncategorizedCommentsForSummary]);
 
+  // This is the source of truth for categories.
   const commentsMap = useMemo(() => {
     return new Map(allCommentsForSummary.map(c => [c.id, c.category]));
   }, [allCommentsForSummary]);
 
+  // Enrich negative ratings data with the correct category from the source of truth.
   const negativeRatingsData = useMemo(() => {
     return data
       .filter(d => d.notation != null && d.notation <= 3)
       .map(item => {
         const commentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
+        // Use the map to get the definitive category. Fallback to automatic categorization only if not found.
         const category = commentsMap.get(commentId) || (item.commentaire ? categorizeComment(item.commentaire) : 'Autre');
         return {
           ...item,
@@ -191,12 +194,12 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             const allStats = allDataGrouped[key] || { totalRatingValue: 0, ratedTasksCount: 0 };
 
             const categoryCounts: Record<string, number> = {};
-            driverTasks.forEach(item => {
-                if (item.commentaire) {
-                    const category = item.category || 'Autre';
-                    categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-                }
-            });
+            // Iterate over the driver's tasks to correctly aggregate categories
+            for (const item of driverTasks) {
+                // We use item.category which comes from the reliable negativeRatingsData list
+                const category = item.category || 'Autre';
+                categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+            }
 
             const categorySummary = Object.entries(categoryCounts)
                 .sort(([, countA], [, countB]) => countB - countA)
@@ -359,5 +362,3 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 };
 
 export default QualitySummary;
-
-    
