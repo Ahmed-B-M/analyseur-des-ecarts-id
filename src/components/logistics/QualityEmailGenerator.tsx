@@ -67,224 +67,172 @@ const generateQualityEmailBody = (
     const driversForDepot = summaryByDriver.filter(s => s.depot === depot && s.negativeRatingsCount > 0);
 
     if (depotSummary && depotSummary.negativeRatingsCount > 0) {
+      
+      const summaryCard = `
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px;">
+          <tr>
+            <td style="padding: 10px 0;">
+              <table role="presentation" border="0" cellpadding="5" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center" style="padding: 10px;">
+                    <strong style="font-size: 20px; color: #005A9C; line-height: 1.2;">${depotSummary?.totalRatings ?? 0}</strong>
+                    <br>
+                    <span style="font-size: 14px; color: #555;">Total des notes</span>
+                  </td>
+                  <td align="center" style="padding: 10px;">
+                    <strong style="font-size: 20px; color: #005A9C; line-height: 1.2;">${depotSummary?.negativeRatingsCount ?? 0}</strong>
+                    <br>
+                    <span style="font-size: 14px; color: #555;">Mauvaises notes (≤ 3)</span>
+                  </td>
+                  <td align="center" style="padding: 10px;">
+                    <strong style="font-size: 20px; color: #005A9C; line-height: 1.2;">${depotSummary?.averageRating ?? 'N/A'}</strong>
+                    <br>
+                    <span style="font-size: 14px; color: #555;">Note moyenne</span>
+                  </td>
+                  <td align="center" style="padding: 10px;">
+                    <strong style="font-size: 20px; color: #005A9C; line-height: 1.2;">${depotSummary?.commentCount ?? 0}</strong>
+                    <br>
+                    <span style="font-size: 14px; color: #555;">Commentaires</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      `;
+
+      const tableStyles = `border-collapse: collapse; border-spacing: 0; width: 100%; font-size: 14px;`;
+      const thStyles = `padding: 12px 15px; text-align: left; background-color: #005A9C; color: #ffffff; font-weight: bold; text-transform: uppercase; font-size: 12px; border-style: none;`;
+      const tdStyles = (index: number) => `padding: 12px 15px; background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; border-style: none; border-top: 1px solid #dddddd;`;
+
+
+      const carrierTable = carriersForDepot.length > 0 ? `
+        <h3 style="color: #333; font-size: 18px; margin-top: 25px; margin-bottom: 10px;">Détail par Transporteur</h3>
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="${tableStyles}">
+          <thead>
+            <tr>
+              <th style="${thStyles}">Transporteur (Total Notes)</th>
+              <th style="${thStyles}">Nb. Mauvaises Notes</th>
+              <th style="${thStyles}">Note Moyenne</th>
+              <th style="${thStyles}">Nb. Commentaires</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${carriersForDepot.map((s, index) => `
+              <tr>
+                <td style="${tdStyles(index)}">${s.carrier} (${s.totalRatings})</td>
+                <td style="${tdStyles(index)}">${s.negativeRatingsCount}</td>
+                <td style="${tdStyles(index)}">${s.averageRating}</td>
+                <td style="${tdStyles(index)}">${s.commentCount}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '';
+
+      const driverTable = driversForDepot.length > 0 ? `
+        <h3 style="color: #333; font-size: 18px; margin-top: 25px; margin-bottom: 10px;">Détail par Livreur</h3>
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="${tableStyles}">
+          <thead>
+            <tr>
+              <th style="${thStyles}">Transporteur</th>
+              <th style="${thStyles}">Livreur (Total Notes)</th>
+              <th style="${thStyles}">Nb. Mauvaises Notes</th>
+              <th style="${thStyles}">Note Moyenne</th>
+              <th style="${thStyles}">Catégories de Commentaires</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${driversForDepot.map((s, index) => `
+              <tr>
+                <td style="${tdStyles(index)}">${s.carrier}</td>
+                <td style="${tdStyles(index)}">${s.driver} (${s.totalRatings})</td>
+                <td style="${tdStyles(index)}">${s.negativeRatingsCount}</td>
+                <td style="${tdStyles(index)}">${s.averageRating}</td>
+                <td style="${tdStyles(index)}">${s.categorySummary}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '';
+
       depotSections += `
-        <div class="card">
-          <h2>${depot}</h2>
-          
-          <!-- Depot Summary Card -->
-          <div class="summary-card">
-            <div class="summary-item"><strong>${depotSummary?.totalRatings ?? 0}</strong><span>Total des notes</span></div>
-            <div class="summary-item"><strong>${depotSummary?.negativeRatingsCount ?? 0}</strong><span>Mauvaises notes (≤ 3)</span></div>
-            <div class="summary-item"><strong>${depotSummary?.averageRating ?? 'N/A'}</strong><span>Note moyenne</span></div>
-            <div class="summary-item"><strong>${depotSummary?.commentCount ?? 0}</strong><span>Commentaires</span></div>
-          </div>
-
-          <!-- Carrier Table -->
-          ${carriersForDepot.length > 0 ? `
-            <h3>Détail par Transporteur</h3>
-            <div class="table-container">
-              <table>
-                <thead><tr><th>Transporteur (Total Notes)</th><th>Nb. Mauvaises Notes</th><th>Note Moyenne</th><th>Nb. Commentaires</th></tr></thead>
-                <tbody>
-                  ${carriersForDepot.map(s => `
-                    <tr>
-                      <td>${s.carrier} (${s.totalRatings})</td>
-                      <td>${s.negativeRatingsCount}</td>
-                      <td>${s.averageRating}</td>
-                      <td>${s.commentCount}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          ` : ''}
-
-          <!-- Driver Table -->
-          ${driversForDepot.length > 0 ? `
-            <h3>Détail par Livreur</h3>
-            <div class="table-container">
-              <table>
-                <thead><tr><th>Transporteur</th><th>Livreur (Total Notes)</th><th>Nb. Mauvaises Notes</th><th>Note Moyenne</th><th>Catégories de Commentaires</th></tr></thead>
-                <tbody>
-                  ${driversForDepot.map(s => `
-                    <tr>
-                      <td>${s.carrier}</td>
-                      <td>${s.driver} (${s.totalRatings})</td>
-                      <td>${s.negativeRatingsCount}</td>
-                      <td>${s.averageRating}</td>
-                      <td>${s.categorySummary}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          ` : ''}
+        <div style="background-color: #ffffff; padding: 20px 0; margin-bottom: 25px; border-bottom: 1px solid #e0e0e0;">
+          <h2 style="color: #00338D; padding-bottom: 10px; margin-top: 0; font-size: 22px;">${depot}</h2>
+          ${summaryCard}
+          ${carrierTable}
+          ${driverTable}
         </div>
       `;
     }
   }
 
+  const unassignedDriversSection = unassignedDrivers.length > 0 ? `
+    <div style="background-color: #ffffff; padding: 20px 0; margin-bottom: 25px;">
+      <h2 style="color: #00338D; padding-bottom: 10px; margin-top: 0; font-size: 22px;">Livreurs sans Transporteur Assigné</h2>
+      <p style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333;">La performance de ces livreurs est incluse dans les totaux des dépôts mais ne peut être affectée à un transporteur. Veuillez vérifier leur nommage.</p>
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse; border-spacing: 0; font-size: 14px;">
+        <thead>
+          <tr>
+            <th style="padding: 12px 15px; text-align: left; background-color: #005A9C; color: #ffffff; font-weight: bold; text-transform: uppercase; font-size: 12px; border-style: none;">Nom du Livreur</th>
+            <th style="padding: 12px 15px; text-align: left; background-color: #005A9C; color: #ffffff; font-weight: bold; text-transform: uppercase; font-size: 12px; border-style: none;">Dépôt(s) d'apparition</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${unassignedDrivers.map((s, index) => `
+            <tr>
+              <td style="padding: 12px 15px; background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; border-style: none; border-top: 1px solid #dddddd;">${s.driver}</td>
+              <td style="padding: 12px 15px; background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; border-style: none; border-top: 1px solid #dddddd;">${s.depots}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  ` : '';
+
   let body = `
-    <html>
+    <!DOCTYPE html>
+    <html lang="fr">
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Rapport de Synthèse de la Qualité</title>
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-
-          body {
-            font-family: 'Roboto', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f7f6;
-          }
-          .container {
-            max-width: 800px;
-            margin: 20px auto;
-            padding: 20px;
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-          }
-          .header {
-            text-align: center;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #005A9C;
-          }
-          .header img {
-            max-width: 150px;
-            margin-bottom: 10px;
-          }
-          h1 {
-            color: #00338D;
-            font-size: 26px;
-            margin: 0;
-          }
-          h2 {
-            color: #00338D;
-            border-bottom: 1px solid #e0e0e0;
-            padding-bottom: 10px;
-            margin-top: 30px;
-            font-size: 22px;
-          }
-          h3 {
-            color: #333;
-            font-size: 18px;
-            margin-top: 25px;
-            margin-bottom: 10px;
-          }
-          .card {
-            background-color: #ffffff;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            page-break-inside: avoid;
-          }
-          .summary-card {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-          }
-          .summary-item {
-            background-color: #ffffff;
-            padding: 15px;
-            border-radius: 6px;
-            border: 1px solid #e0e0e0;
-            text-align: center;
-          }
-          .summary-item strong {
-            display: block;
-            font-size: 20px;
-            color: #005A9C;
-          }
-          .summary-item span {
-            font-size: 14px;
-            color: #555;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-            font-size: 14px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
-          }
-          th, td {
-            border: 1px solid #e0e0e0;
-            padding: 12px 15px;
-            text-align: left;
-          }
-          th {
-            background-color: #005A9C;
-            color: #ffffff;
-            font-weight: bold;
-            text-transform: uppercase;
-            font-size: 12px;
-          }
-          tbody tr:nth-child(even) {
-            background-color: #f8f9fa;
-          }
-          tbody tr:hover {
-            background-color: #e9ecef;
-          }
-          .table-container {
-            overflow-x: auto;
-          }
-          .footer {
-            margin-top: 30px;
-            text-align: center;
-            font-style: italic;
-            color: #888;
-            font-size: 12px;
-          }
-        </style>
       </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <!-- Replace with your actual logo URL -->
-            <img src="https://www.corp-visuels.com/fr/wp-content/uploads/2018/01/logo-la-poste-2012.png" alt="Logo">
-            <h1>Rapport de Synthèse de la Qualité</h1>
-            <span>(Focus sur les Mauvaises Notes)</span>
-          </div>
-
-          <p>Bonjour,</p>
-          <p>Veuillez trouver ci-dessous les synthèses de la qualité par dépôt pour la période sélectionnée, en se concentrant sur les entités avec au moins une mauvaise note.</p>
-          
-          ${depotSections}
-
-          ${unassignedDrivers.length > 0 ? `
-            <div class="card">
-              <h2>Livreurs sans Transporteur Assigné</h2>
-              <p>La performance de ces livreurs est incluse dans les totaux des dépôts mais ne peut être affectée à un transporteur. Veuillez vérifier leur nommage.</p>
-              <div class="table-container">
-                <table>
-                  <thead><tr><th>Nom du Livreur</th><th>Dépôt(s) d'apparition</th></tr></thead>
-                  <tbody>
-                    ${unassignedDrivers.map(s => `
-                      <tr><td>${s.driver}</td><td>${s.depots}</td></tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ` : ''}
-
-          <div class="footer">
-            <p>Cordialement,</p>
-            <p>L'équipe Analyse de Données</p>
-            <p>&copy; ${new Date().getFullYear()} Votre Entreprise. Tous droits réservés.</p>
-          </div>
-        </div>
+      <body style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f7f6;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="padding: 20px 0;">
+              <table align="center" border="0" cellpadding="0" cellspacing="0" width="800" style="max-width: 800px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                <!-- Header -->
+                <tr>
+                  <td style="text-align: center; padding: 20px; border-bottom: 2px solid #005A9C;">
+                    <img src="https://www.corp-visuels.com/fr/wp-content/uploads/2018/01/logo-la-poste-2012.png" alt="Logo" style="max-width: 150px; margin-bottom: 10px;">
+                    <h1 style="color: #00338D; font-size: 26px; margin: 0;">Rapport de Synthèse de la Qualité</h1>
+                    <span style="font-size: 16px; color: #555;">(Focus sur les Mauvaises Notes)</span>
+                  </td>
+                </tr>
+                <!-- Content -->
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333;">Bonjour,</p>
+                    <p style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333;">Veuillez trouver ci-dessous les synthèses de la qualité par dépôt pour la période sélectionnée, en se concentrant sur les entités avec au moins une mauvaise note.</p>
+                    
+                    ${depotSections}
+                    ${unassignedDriversSection}
+                  </td>
+                </tr>
+                <!-- Footer -->
+                <tr>
+                  <td style="padding: 30px; text-align: center; font-style: italic; color: #888; font-size: 12px;">
+                    <p style="margin: 0;">Cordialement,</p>
+                    <p style="margin: 5px 0;">L'équipe Analyse de Données</p>
+                    <p style="margin: 0;">&copy; ${new Date().getFullYear()} Votre Entreprise. Tous droits réservés.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </body>
     </html>
   `;
