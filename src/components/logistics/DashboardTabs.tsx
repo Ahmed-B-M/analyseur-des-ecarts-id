@@ -31,6 +31,9 @@ import CommentCategorizationView from './CommentCategorizationView';
 import { categorizeComment } from '@/lib/comment-categorization';
 import EmailGenerator from './EmailGenerator';
 import DeliveryVolumeChart from './DeliveryVolumeChart';
+import { GlobalKpiSection } from './dashboard/GlobalKpiSection';
+import { QualityImpactSection } from './dashboard/QualityImpactSection';
+import { WorkloadAnalysisSection } from './dashboard/WorkloadAnalysisSection';
 
 
 interface DashboardTabsProps {
@@ -169,7 +172,7 @@ export default function DashboardTabs({
                     />
                 </div>
                 <GlobalCommentView 
-                    data={filteredData} 
+                    data={filteredData}
                     processedActions={existingSuivis || []} 
                     categorizedComments={[...(savedCategorizedComments || []), ...uncategorizedCommentsForSummary]} 
                 />
@@ -223,6 +226,16 @@ export default function DashboardTabs({
                 <DetailedDataView data={filteredData} />
             </TabsContent>
             <TabsContent value="rdp" className="mt-6 space-y-6">
+                <GlobalKpiSection
+                    generalKpis={analysisData.generalKpis}
+                    discrepancyKpis={analysisData.discrepancyKpis}
+                />
+                <QualityImpactSection qualityKpis={analysisData.qualityKpis} />
+                <WorkloadAnalysisSection
+                    workloadByHour={analysisData.workloadByHour}
+                    avgWorkload={analysisData.avgWorkload}
+                    avgWorkloadByDriverBySlot={analysisData.avgWorkloadByDriverBySlot}
+                />
                 <DeliveryVolumeChart data={filteredData} />
                 <HotZonesChart data={analysisData.postalCodeStats} />
                 <DepotAnalysisTable data={analysisData.depotStats} />

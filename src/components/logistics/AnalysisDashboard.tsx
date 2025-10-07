@@ -58,7 +58,6 @@ export default function AnalysisDashboard({ analysisData, onFilterAndSwitch }: A
       <TemporalAnalysisSection
         performanceByDay={analysisData.performanceByDayOfWeek}
         performanceBySlot={analysisData.performanceByTimeSlot}
-        delayHistogram={analysisData.delayHistogram}
       />
 
       {/* Section 5: Analyses Géographiques & par Entrepôt */}
