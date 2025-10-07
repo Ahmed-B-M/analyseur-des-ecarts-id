@@ -42,8 +42,15 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
   // This is the source of truth for categories.
   const commentsMap = useMemo(() => {
-    return new Map(allCommentsForSummary.map(c => [c.id, c.category]));
+    const sanitizedMap = new Map<string, CommentCategory>();
+    allCommentsForSummary.forEach(c => {
+        // Sanitize ID the same way as when saving/querying
+        const sanitizedId = c.id.replace(/[^a-zA-Z0-9-]/g, '_');
+        sanitizedMap.set(sanitizedId, c.category);
+    });
+    return sanitizedMap;
   }, [allCommentsForSummary]);
+
 
   // Enrich negative ratings data with the correct category from the source of truth.
   const negativeRatingsData = useMemo(() => {
@@ -51,11 +58,13 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
       .filter(d => d.notation != null && d.notation <= 3)
       .map(item => {
         const commentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
-        // Use the map to get the definitive category. Fallback to automatic categorization only if not found.
-        const category = commentsMap.get(commentId) || (item.commentaire ? categorizeComment(item.commentaire) : 'Autre');
+        const sanitizedId = commentId.replace(/[^a-zA-Z0-9-]/g, '_');
+        
+        const definitiveCategory = commentsMap.get(sanitizedId);
+
         return {
           ...item,
-          category: category,
+          category: definitiveCategory || (item.commentaire ? categorizeComment(item.commentaire) : 'Autre'),
         };
       });
   }, [data, commentsMap]);
@@ -161,21 +170,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
 
  const summaryByDriver = useMemo(() => {
-    const allDataGrouped = allDataWithNotes.reduce((acc, curr) => {
-        const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
-        const driver = curr.livreur || 'Inconnu';
-        const key = `${depot}|${carrier}|${driver}`;
-
-        if (!acc[key]) {
-            acc[key] = { totalRatingValue: 0, ratedTasksCount: 0 };
-        }
-        acc[key].ratedTasksCount++;
-        acc[key].totalRatingValue += curr.notation!;
-        return acc;
-    }, {} as Record<string, { totalRatingValue: number; ratedTasksCount: number }>);
-
-    const groupedByDriver = negativeRatingsData.reduce((acc, curr) => {
+    // 1. Group tasks with negative ratings by driver
+    const tasksByDriver = negativeRatingsData.reduce((acc, curr) => {
         const driver = curr.livreur || 'Inconnu';
         if (!acc[driver]) {
             acc[driver] = [];
@@ -184,49 +180,48 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         return acc;
     }, {} as Record<string, typeof negativeRatingsData>);
 
-    return Object.entries(groupedByDriver)
-        .map(([driver, driverTasks]) => {
-            if (driverTasks.length === 0) return null;
+    // 2. Process each driver's tasks
+    return Object.entries(tasksByDriver).map(([driver, tasks]) => {
+        const depot = getNomDepot(tasks[0].entrepot);
+        const carrier = getCarrierFromDriverName(driver) || 'Inconnu';
+        
+        const allDriverTasks = allDataWithNotes.filter(d => d.livreur === driver);
+        const totalRatings = allDriverTasks.length;
+        const totalRatingValue = allDriverTasks.reduce((sum, task) => sum + task.notation!, 0);
 
-            const depot = getNomDepot(driverTasks[0].entrepot);
-            const carrier = getCarrierFromDriverName(driver) || 'Inconnu';
-            const key = `${depot}|${carrier}|${driver}`;
-            const allStats = allDataGrouped[key] || { totalRatingValue: 0, ratedTasksCount: 0 };
-
-            const categoryCounts: Record<string, number> = {};
-            // Iterate over the driver's tasks to correctly aggregate categories
-            for (const item of driverTasks) {
-                // We use item.category which comes from the reliable negativeRatingsData list
+        const categoryCounts: Record<string, number> = {};
+        for (const item of tasks) {
+             if (item.commentaire) { // Use 'commentaire' which is the correct field
                 const category = item.category || 'Autre';
                 categoryCounts[category] = (categoryCounts[category] || 0) + 1;
             }
+        }
+        
+        const categorySummary = Object.entries(categoryCounts)
+            .sort(([, countA], [, countB]) => countB - countA)
+            .map(([cat, count]) => `${count} ${cat}`)
+            .join(', ') || 'N/A';
 
-            const categorySummary = Object.entries(categoryCounts)
-                .sort(([, countA], [, countB]) => countB - countA)
-                .map(([cat, count]) => `${count} ${cat}`)
-                .join(', ');
-
-            return {
-                depot,
-                carrier,
-                driver,
-                totalRatings: allStats.ratedTasksCount,
-                negativeRatingsCount: driverTasks.length,
-                averageRating: allStats.ratedTasksCount > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
-                categorySummary: categorySummary || 'N/A',
-            };
-        })
-        .filter(item => item !== null)
-        .sort((a, b) => {
-            if (!a || !b) return 0;
-            if (a.depot < b.depot) return -1;
-            if (a.depot > b.depot) return 1;
-            if (a.carrier < b.carrier) return -1;
-            if (a.carrier > b.carrier) return 1;
-            if (a.driver < b.driver) return -1;
-            if (a.driver > b.driver) return 1;
-            return 0;
-        });
+        return {
+            depot,
+            carrier,
+            driver,
+            totalRatings: totalRatings,
+            negativeRatingsCount: tasks.length,
+            averageRating: totalRatings > 0 ? (totalRatingValue / totalRatings).toFixed(2) : 'N/A',
+            categorySummary: categorySummary,
+        };
+    })
+    .sort((a, b) => {
+        if (!a || !b) return 0;
+        if (a.depot < b.depot) return -1;
+        if (a.depot > b.depot) return 1;
+        if (a.carrier < b.carrier) return -1;
+        if (a.carrier > b.carrier) return 1;
+        if (a.driver < b.driver) return -1;
+        if (a.driver > b.driver) return 1;
+        return 0;
+    });
 }, [negativeRatingsData, allDataWithNotes]);
 
   
