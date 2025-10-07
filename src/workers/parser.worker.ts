@@ -243,54 +243,66 @@ self.addEventListener('message', async (event: MessageEvent) => {
   try {
     const { tourneesFiles, tachesFiles } = event.data;
 
-    let allTournees: any[] = [];
+    // Process tournees
+    const allTourneesMap = new Map<string, any>();
     for (const file of tourneesFiles) {
         const buffer = await file.arrayBuffer();
         const wb = XLSX.read(buffer, { type: 'buffer' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-        allTournees.push(...normalizeData(json, 'tournees'));
+        const normalizedTournees = normalizeData(json, 'tournees');
+        for (const t of normalizedTournees) {
+            const key = `${t.date}|${t.entrepot}|${t.nom}`;
+            if (!allTourneesMap.has(key)) {
+                allTourneesMap.set(key, t);
+            }
+        }
     }
 
-    // Deduplicate tournees
-    allTournees = Array.from(new Map(allTournees.map(t => [`${t.date}|${t.entrepot}|${t.nom}`, t])).values());
-
-    if (allTournees.length === 0) {
+    if (allTourneesMap.size === 0) {
         throw new Error("Aucune donnée de tournée valide n'a pu être lue dans les fichiers fournis.");
     }
     
     const tourneeStartTimes = new Map<string, number>();
-    const tournees: Tournee[] = allTournees.map((t: any) => {
-      const uniqueId = `${t.nom}|${t.date}|${t.entrepot}`;
-      const startTime = t.heureDepartReelle || t.demarre || t.heureDepartPrevue;
-      tourneeStartTimes.set(uniqueId, startTime);
-      return {
-        ...t,
-        uniqueId: uniqueId,
-        heureDepartReelle: startTime
-      };
-    });
+    const tournees: Tournee[] = [];
+    for (const t of allTourneesMap.values()) {
+        const uniqueId = `${t.nom}|${t.date}|${t.entrepot}`;
+        const startTime = t.heureDepartReelle || t.demarre || t.heureDepartPrevue;
+        tourneeStartTimes.set(uniqueId, startTime);
+        tournees.push({
+            ...t,
+            uniqueId: uniqueId,
+            heureDepartReelle: startTime
+        });
+    }
     
-    let allTaches: any[] = [];
+    // Process taches
+    const allTachesMap = new Map<string, any>();
     for (const file of tachesFiles) {
         const buffer = await file.arrayBuffer();
         const wb = XLSX.read(buffer, { type: 'buffer' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-        allTaches.push(...normalizeData(json, 'taches', tourneeStartTimes));
+        const normalizedTaches = normalizeData(json, 'taches', tourneeStartTimes);
+        for (const t of normalizedTaches) {
+             const key = `${t.date}|${t.nomTournee}|${t.livreur}|${t.heureCloture}`;
+             if (!allTachesMap.has(key)) {
+                 allTachesMap.set(key, t);
+             }
+        }
     }
-    
-    // Deduplicate taches
-    allTaches = Array.from(new Map(allTaches.map(t => [`${t.date}|${t.nomTournee}|${t.livreur}|${t.heureCloture}`, t])).values());
 
-    if (allTaches.length === 0) {
+    if (allTachesMap.size === 0) {
         throw new Error("Aucune donnée de tâche valide n'a pu être lue dans les fichiers fournis.");
     }
     
-    const taches: Tache[] = allTaches.map((t: any) => ({
-      ...t,
-      tourneeUniqueId: `${t.nomTournee}|${t.date}|${t.entrepot}`
-    }));
+    const taches: Tache[] = [];
+    for (const t of allTachesMap.values()) {
+        taches.push({
+            ...t,
+            tourneeUniqueId: `${t.nomTournee}|${t.date}|${t.entrepot}`
+        });
+    }
     
     self.postMessage({ type: 'success', data: { tournees, taches } });
 
