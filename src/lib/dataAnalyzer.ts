@@ -555,20 +555,32 @@ function calculateGlobalSummary(uniqueTournees: Tournee[], predictedPunctualityR
     const totals = uniqueTournees.reduce((acc, tour) => {
         acc.dureePrevue += tour.dureePrevue || 0;
         acc.dureeReelleCalculee += tour.dureeReelleCalculee || 0;
-        acc.poidsPrevu += tour.poidsPrevu || 0;
+        acc.capacitePoids += tour.capacitePoids || 0;
         acc.poidsReel += tour.poidsReel || 0;
         return acc;
-    }, { dureePrevue: 0, dureeReelleCalculee: 0, poidsPrevu: 0, poidsReel: 0 });
+    }, { dureePrevue: 0, dureeReelleCalculee: 0, capacitePoids: 0, poidsReel: 0 });
+
+    const totalOverweight = uniqueTournees.reduce((sum, tour) => {
+        if (tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids) {
+            return sum + (tour.poidsReel - tour.capacitePoids);
+        }
+        return sum;
+    }, 0);
+
+    const totalCapacityOfOverweightTours = uniqueTournees
+        .filter(tour => tour.capacitePoids > 0 && tour.poidsReel > tour.capacitePoids)
+        .reduce((sum, tour) => sum + tour.capacitePoids, 0);
 
     return {
         punctualityRatePlanned: predictedPunctualityRate,
         punctualityRateRealized: punctualityRate,
         avgDurationDiscrepancyPerTour: uniqueTournees.length > 0 ? (totals.dureeReelleCalculee - totals.dureePrevue) / uniqueTournees.length : 0,
-        avgWeightDiscrepancyPerTour: uniqueTournees.length > 0 ? (totals.poidsReel - totals.poidsPrevu) / uniqueTournees.length : 0,
-        weightOverrunPercentage: totals.poidsPrevu > 0 ? ((totals.poidsReel - totals.poidsPrevu) / totals.poidsPrevu) * 100 : 0,
+        avgWeightDiscrepancyPerTour: uniqueTournees.length > 0 ? (totals.poidsReel - totals.capacitePoids) / uniqueTournees.length : 0,
+        weightOverrunPercentage: totalCapacityOfOverweightTours > 0 ? (totalOverweight / totalCapacityOfOverweightTours) * 100 : 0,
         durationOverrunPercentage: totals.dureePrevue > 0 ? ((totals.dureeReelleCalculee - totals.dureePrevue) / totals.dureePrevue) * 100 : 0,
     };
 }
+
 
 function calculateDepotStats (data: MergedData[], toleranceSeconds: number, lateTourTolerance: number): AnalysisData['depotStats'] {
     const depotNames = [...new Set(data.map(item => getNomDepot(item.tournee?.entrepot)).filter(Boolean) as string[])];
