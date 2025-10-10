@@ -51,7 +51,7 @@ interface QualityEmailGeneratorProps {
   summaryByCarrier: CarrierSummary[];
   summaryByDriver: DriverSummary[];
   unassignedDrivers: UnassignedDriver[];
-  allCommentsForSummary: { id: string, comment: string, category: CommentCategory }[];
+  allCommentsForSummary: { id: string, comment: string, category: CommentCategory, depot: string }[];
 }
 
 const generateQualityEmailBody = (
@@ -63,55 +63,6 @@ const generateQualityEmailBody = (
 ) => {
   const depots = summaryByDepot.map(s => s.depot);
 
-  // --- Start: Global Category Summary Calculation ---
-  const categoryCounts: Record<CommentCategory, number> = commentCategories.reduce((acc, cat) => {
-    acc[cat] = 0;
-    return acc;
-  }, {} as Record<CommentCategory, number>);
-
-  let totalCategorizedComments = 0;
-  allCommentsForSummary.forEach(comment => {
-    if (comment.category && categoryCounts.hasOwnProperty(comment.category)) {
-      categoryCounts[comment.category]++;
-      totalCategorizedComments++;
-    }
-  });
-
-  const categoryPercentages = commentCategories.map(category => {
-    const count = categoryCounts[category];
-    return {
-      category,
-      count,
-      percentage: totalCategorizedComments > 0 ? (count / totalCategorizedComments) * 100 : 0
-    };
-  }).filter(item => item.count > 0).sort((a, b) => b.percentage - a.percentage);
-
-
-  const globalCategorySummaryTable = categoryPercentages.length > 0 ? `
-    <div style="background-color: #ffffff; padding: 20px 0; margin-bottom: 25px; border-bottom: 1px solid #e0e0e0;">
-      <h2 style="color: #00338D; padding-bottom: 10px; margin-top: 0; font-size: 22px;">Répartition des Catégories de Commentaires</h2>
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse; border-spacing: 0; width: 100%; font-size: 14px;">
-        <thead>
-          <tr>
-            <th style="padding: 12px 15px; text-align: left; background-color: #005A9C; color: #ffffff; font-weight: bold; text-transform: uppercase; font-size: 12px; border-style: none;">Catégorie</th>
-            <th style="padding: 12px 15px; text-align: left; background-color: #005A9C; color: #ffffff; font-weight: bold; text-transform: uppercase; font-size: 12px; border-style: none;">Pourcentage</th>
-            <th style="padding: 12px 15px; text-align: left; background-color: #005A9C; color: #ffffff; font-weight: bold; text-transform: uppercase; font-size: 12px; border-style: none;">Nombre</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${categoryPercentages.map((item, index) => `
-            <tr>
-              <td style="padding: 12px 15px; background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; border-style: none; border-top: 1px solid #dddddd;">${item.category}</td>
-              <td style="padding: 12px 15px; background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; border-style: none; border-top: 1px solid #dddddd;">${item.percentage.toFixed(2)}%</td>
-              <td style="padding: 12px 15px; background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; border-style: none; border-top: 1px solid #dddddd;">${item.count}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  ` : '';
-  // --- End: Global Category Summary Calculation ---
-
   let depotSections = '';
 
   for (const depot of depots) {
@@ -121,6 +72,55 @@ const generateQualityEmailBody = (
 
     if (depotSummary && depotSummary.negativeRatingsCount > 0) {
       
+      // --- Start: Depot-specific Category Summary Calculation ---
+      const commentsForDepot = allCommentsForSummary.filter(c => c.depot === depot);
+      const categoryCounts: Record<CommentCategory, number> = commentCategories.reduce((acc, cat) => {
+        acc[cat] = 0;
+        return acc;
+      }, {} as Record<CommentCategory, number>);
+
+      let totalCategorizedComments = 0;
+      commentsForDepot.forEach(comment => {
+        if (comment.category && categoryCounts.hasOwnProperty(comment.category)) {
+          categoryCounts[comment.category]++;
+          totalCategorizedComments++;
+        }
+      });
+
+      const categoryPercentages = commentCategories.map(category => {
+        const count = categoryCounts[category];
+        return {
+          category,
+          count,
+          percentage: totalCategorizedComments > 0 ? (count / totalCategorizedComments) * 100 : 0
+        };
+      }).filter(item => item.count > 0).sort((a, b) => b.percentage - a.percentage);
+
+      const depotCategorySummaryTable = categoryPercentages.length > 0 ? `
+        <div style="background-color: #ffffff; padding: 20px 0; margin-bottom: 25px;">
+          <h3 style="color: #333; font-size: 18px; margin-top: 0; margin-bottom: 10px;">Répartition des Catégories (${totalCategorizedComments} commentaires)</h3>
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse; border-spacing: 0; width: 100%; font-size: 14px;">
+            <thead>
+              <tr>
+                <th style="padding: 12px 15px; text-align: left; background-color: #f1f1f1; color: #333; font-weight: bold; font-size: 12px; border-style: none;">Catégorie</th>
+                <th style="padding: 12px 15px; text-align: left; background-color: #f1f1f1; color: #333; font-weight: bold; font-size: 12px; border-style: none;">Pourcentage</th>
+                <th style="padding: 12px 15px; text-align: left; background-color: #f1f1f1; color: #333; font-weight: bold; font-size: 12px; border-style: none;">Nombre</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${categoryPercentages.map((item, index) => `
+                <tr>
+                  <td style="padding: 10px 15px; background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; border-style: none; border-top: 1px solid #dddddd;">${item.category}</td>
+                  <td style="padding: 10px 15px; background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; border-style: none; border-top: 1px solid #dddddd;">${item.percentage.toFixed(2)}%</td>
+                  <td style="padding: 10px 15px; background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; border-style: none; border-top: 1px solid #dddddd;">${item.count}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : '';
+      // --- End: Depot-specific Category Summary Calculation ---
+
       const summaryCard = `
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px;">
           <tr>
@@ -212,6 +212,7 @@ const generateQualityEmailBody = (
       depotSections += `
         <div style="background-color: #ffffff; padding: 20px 0; margin-bottom: 25px; border-bottom: 1px solid #e0e0e0;">
           <h2 style="color: #00338D; padding-bottom: 10px; margin-top: 0; font-size: 22px;">${depot}</h2>
+          ${depotCategorySummaryTable}
           ${summaryCard}
           ${carrierTable}
           ${driverTable}
@@ -270,7 +271,6 @@ const generateQualityEmailBody = (
                     <p style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333;">Bonjour,</p>
                     <p style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333;">Veuillez trouver ci-dessous les synthèses de la qualité par dépôt pour la période sélectionnée, en se concentrant sur les entités avec au moins une mauvaise note.</p>
                     
-                    ${globalCategorySummaryTable}
                     ${depotSections}
                     ${unassignedDriversSection}
                   </td>

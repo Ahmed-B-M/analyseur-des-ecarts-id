@@ -34,7 +34,10 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     const uniqueComments = new Map<string, any>();
     allCategorized.forEach(comment => {
         if(!uniqueComments.has(comment.id)) {
-            uniqueComments.set(comment.id, comment);
+            uniqueComments.set(comment.id, {
+              ...comment,
+              depot: getNomDepot(comment.entrepot) // Add depot here
+            });
         }
     });
     return Array.from(uniqueComments.values());
@@ -270,7 +273,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
       </div>
 
       <GlobalCommentView 
-        data={data}
         processedActions={processedActions}
         categorizedComments={allCommentsForSummary}
       />
