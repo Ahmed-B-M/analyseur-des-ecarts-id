@@ -169,6 +169,7 @@ export default function DashboardTabs({
                 id: `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`,
                 comment: item.commentaire!,
                 category: categorizeComment(item.commentaire!),
+                date: item.date,
             }));
     }, [filteredData, savedCategorizedComments, isLoadingCategories]);
 
@@ -176,9 +177,21 @@ export default function DashboardTabs({
         const validDates = new Set(filteredData.map(d => d.date));
         const filteredProcessed = (existingSuivis || []).filter(action => validDates.has(action.date));
         const filteredCategorized = (savedCategorizedComments || []).filter(comment => validDates.has(comment.date));
+        
+        const allRelevantComments = [...filteredCategorized];
+        
+        const uncategorizedFiltered = uncategorizedCommentsForSummary.filter(c => c.date && validDates.has(c.date));
+        const categorizedIds = new Set(allRelevantComments.map(c => c.id));
+
+        uncategorizedFiltered.forEach(c => {
+            if (!categorizedIds.has(c.id)) {
+                allRelevantComments.push(c as CategorizedComment);
+            }
+        });
+
         return {
             processedActions: filteredProcessed,
-            categorizedComments: [...filteredCategorized, ...uncategorizedCommentsForSummary.filter(c => 'date' in c && validDates.has(c.date as string))]
+            categorizedComments: allRelevantComments,
         }
     }, [filteredData, existingSuivis, savedCategorizedComments, uncategorizedCommentsForSummary]);
 
@@ -225,9 +238,8 @@ export default function DashboardTabs({
                     />
                 </div>
                 <GlobalCommentView 
-                    data={filteredData}
-                    processedActions={existingSuivis || []} 
-                    categorizedComments={[...(savedCategorizedComments || []), ...uncategorizedCommentsForSummary]} 
+                    processedActions={filteredCommentsForEmail.processedActions} 
+                    categorizedComments={filteredCommentsForEmail.categorizedComments} 
                 />
                 <HotZonesChart data={analysisData.postalCodeStats} />
                 <DepotAnalysisTable data={analysisData.warehouseStats} />
@@ -270,8 +282,8 @@ export default function DashboardTabs({
             <TabsContent value="quality" className="mt-6">
                 <QualitySummary 
                     data={filteredData} 
-                    processedActions={existingSuivis || []} 
-                    savedCategorizedComments={savedCategorizedComments || []} 
+                    processedActions={filteredCommentsForEmail.processedActions} 
+                    savedCategorizedComments={filteredCommentsForEmail.categorizedComments}
                     uncategorizedCommentsForSummary={uncategorizedCommentsForSummary}
                 />
             </TabsContent>
