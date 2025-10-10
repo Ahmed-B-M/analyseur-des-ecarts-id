@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MergedData, SuiviCommentaire } from '@/lib/types';
 import { useMemo } from 'react';
 import { getCarrierFromDriverName } from '@/lib/utils';
-import { CommentCategory, categorizeComment } from '@/lib/comment-categorization';
+import { CommentCategory, categorizeComment, commentCategories } from '@/lib/comment-categorization';
 import GlobalCommentView from './GlobalCommentView';
 import { CategorizedComment } from './CommentCategorizationTable';
 import QualityEmailGenerator from './QualityEmailGenerator';
