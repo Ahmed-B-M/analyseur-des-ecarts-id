@@ -265,6 +265,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
           summaryByCarrier={summaryByCarrier}
           summaryByDriver={summaryByDriver}
           unassignedDrivers={unassignedDrivers}
+          allCommentsForSummary={allCommentsForSummary}
         />
       </div>
 
