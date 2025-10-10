@@ -28,8 +28,20 @@ export function getCarrierFromDriverName(driverName: string): string | null {
     const potentialCarrier = driverName.substring(4).split(' ')[0];
     return potentialCarrier || "STT";
   }
-
+  
+  const prefix = driverName.charAt(0);
   const suffix = driverName.slice(-1);
+
+  if (prefix === '4' || suffix === '4') {
+    return "YEL'IN";
+  }
+  if (prefix === '1' || suffix === '1') {
+    return "TLN";
+  }
+  if (prefix === '9' || suffix === '9') {
+    return "MH";
+  }
+
 
   switch (suffix) {
     case '3':
