@@ -11,16 +11,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { getCarrierFromDriverName, getNomDepot } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const ITEMS_PER_PAGE = 25;
 
 type NpsCategory = 'Promoter' | 'Passive' | 'Detractor';
 
 const getNpsCategory = (note: number | null): NpsCategory | null => {
-    if (note === null) return null;
+    if (note === null || note === undefined) return null;
     if (note >= 9) return 'Promoter';
     if (note >= 7) return 'Passive';
     return 'Detractor';
+};
+
+const calculateNps = (notes: (number | null | undefined)[]) => {
+    const validNotes = notes.filter(n => n !== null && n !== undefined) as number[];
+    if (validNotes.length === 0) {
+        return { nps: 0, promoters: 0, passives: 0, detractors: 0, total: 0 };
+    }
+    const promoters = validNotes.filter(n => n >= 9).length;
+    const detractors = validNotes.filter(n => n <= 6).length;
+    const total = validNotes.length;
+    const promoterPercent = (promoters / total) * 100;
+    const detractorPercent = (detractors / total) * 100;
+    const nps = Math.round(promoterPercent - detractorPercent);
+    return { 
+        nps, 
+        promoters, 
+        passives: total - promoters - detractors, 
+        detractors, 
+        total 
+    };
 };
 
 export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
@@ -29,8 +50,41 @@ export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
   const [sortConfig, setSortConfig] = useState<{ key: keyof MergedData | 'depot' | 'carrier' | 'npsCategory'; direction: 'asc' | 'desc' } | null>({ key: 'noteRecommandation', direction: 'asc' });
 
   const verbatimsData = useMemo(() => {
-    return data.filter(item => item.verbatimData);
+    return data.filter(item => item.verbatimData && item.verbatimData.noteRecommandation !== null);
   }, [data]);
+
+  const npsSummary = useMemo(() => {
+    const allNotes = verbatimsData.map(d => d.verbatimData?.noteRecommandation);
+    
+    const byDepot = verbatimsData.reduce((acc, item) => {
+        const depot = getNomDepot(item.entrepot);
+        if (!acc[depot]) acc[depot] = [];
+        acc[depot].push(item.verbatimData?.noteRecommandation);
+        return acc;
+    }, {} as Record<string, number[]>);
+
+    const byCarrier = verbatimsData.reduce((acc, item) => {
+        const carrier = getCarrierFromDriverName(item.livreur) || 'Inconnu';
+        if (!acc[carrier]) acc[carrier] = [];
+        acc[carrier].push(item.verbatimData?.noteRecommandation);
+        return acc;
+    }, {} as Record<string, number[]>);
+
+    const byDriver = verbatimsData.reduce((acc, item) => {
+        const driver = item.livreur || 'Inconnu';
+        if (!acc[driver]) acc[driver] = [];
+        acc[driver].push(item.verbatimData?.noteRecommandation);
+        return acc;
+    }, {} as Record<string, number[]>);
+
+    return {
+        global: calculateNps(allNotes),
+        byDepot: Object.entries(byDepot).map(([name, notes]) => ({ name, ...calculateNps(notes) })).sort((a,b) => b.nps - a.nps),
+        byCarrier: Object.entries(byCarrier).map(([name, notes]) => ({ name, ...calculateNps(notes) })).sort((a,b) => b.nps - a.nps),
+        byDriver: Object.entries(byDriver).map(([name, notes]) => ({ name, ...calculateNps(notes) })).sort((a,b) => b.nps - a.nps),
+    };
+
+  }, [verbatimsData]);
 
 
   const filteredData = useMemo(() => {
@@ -112,90 +166,166 @@ export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Analyse NPS &amp; Verbatims</CardTitle>
-        <CardDescription>
-          Consultez les notes NPS et les verbatims clients associés aux livraisons.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Input
-          placeholder="Rechercher par N° commande, livreur, dépôt, transporteur, verbatim..."
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setCurrentPage(1);
-          }}
-          className="max-w-md"
-        />
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead onClick={() => handleSort('idTache')} className="cursor-pointer">N° Commande {renderSortIcon('idTache')}</TableHead>
-                <TableHead onClick={() => handleSort('depot')} className="cursor-pointer">Dépôt {renderSortIcon('depot')}</TableHead>
-                <TableHead onClick={() => handleSort('carrier')} className="cursor-pointer">Transporteur {renderSortIcon('carrier')}</TableHead>
-                <TableHead onClick={() => handleSort('livreur')} className="cursor-pointer">Livreur {renderSortIcon('livreur')}</TableHead>
-                <TableHead onClick={() => handleSort('noteRecommandation')} className="cursor-pointer">Note NPS {renderSortIcon('noteRecommandation')}</TableHead>
-                <TableHead onClick={() => handleSort('npsCategory')} className="cursor-pointer">Catégorie NPS {renderSortIcon('npsCategory')}</TableHead>
-                <TableHead onClick={() => handleSort('verbatim')} className="cursor-pointer">Verbatim {renderSortIcon('verbatim')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedData.length > 0 ? paginatedData.map((item) => {
-                const npsCategory = getNpsCategory(item.verbatimData?.noteRecommandation ?? null);
-                return (
-                    <TableRow key={`${item.idTache}-${item.livreur}`}>
-                        <TableCell>{item.idTache}</TableCell>
-                        <TableCell>{getNomDepot(item.entrepot)}</TableCell>
-                        <TableCell>{getCarrierFromDriverName(item.livreur) || 'N/A'}</TableCell>
-                        <TableCell>{item.livreur}</TableCell>
-                        <TableCell>{item.verbatimData?.noteRecommandation}</TableCell>
-                        <TableCell>
-                            {npsCategory && (
-                                <Badge className={cn({
-                                    'bg-green-600 hover:bg-green-700': npsCategory === 'Promoter',
-                                    'bg-yellow-500 hover:bg-yellow-600': npsCategory === 'Passive',
-                                    'bg-red-600 hover:bg-red-700': npsCategory === 'Detractor',
-                                })}>
-                                    {npsCategory}
-                                </Badge>
-                            )}
-                        </TableCell>
-                        <TableCell className="max-w-md whitespace-pre-wrap">{item.verbatimData?.verbatim}</TableCell>
-                    </TableRow>
-                )
-              }) : (
-                  <TableRow><TableCell colSpan={7} className="text-center h-24">Aucune donnée de verbatim à afficher. Veuillez charger un fichier de verbatims.</TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        {totalPages > 1 && <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Page {currentPage} sur {totalPages} ({sortedData.length} résultats)
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" /> Précédent
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Suivant <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>}
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+        <Card>
+            <CardHeader>
+                <CardTitle>Synthèse Net Promoter Score (NPS)</CardTitle>
+                <CardDescription>
+                    Score global et ventilation par dépôt, transporteur et livreur pour la période et les filtres sélectionnés.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex justify-center items-center gap-8 p-6 bg-muted rounded-lg">
+                    <div className="text-center">
+                        <p className="text-sm text-muted-foreground">NPS Global</p>
+                        <p className={cn("text-6xl font-bold", npsSummary.global.nps > 0 ? 'text-green-600' : 'text-red-600')}>{npsSummary.global.nps}</p>
+                    </div>
+                    <div className="text-sm space-y-1">
+                        <p>Total des réponses : <strong>{npsSummary.global.total}</strong></p>
+                        <p>Promoteurs (9-10) : <strong className="text-green-600">{npsSummary.global.promoters}</strong></p>
+                        <p>Passifs (7-8) : <strong className="text-yellow-600">{npsSummary.global.passives}</strong></p>
+                        <p>Détracteurs (0-6) : <strong className="text-red-600">{npsSummary.global.detractors}</strong></p>
+                    </div>
+                </div>
+
+                <Tabs defaultValue="depot">
+                    <TabsList>
+                        <TabsTrigger value="depot">Par Dépôt</TabsTrigger>
+                        <TabsTrigger value="carrier">Par Transporteur</TabsTrigger>
+                        <TabsTrigger value="driver">Par Livreur</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="depot" className="mt-4">
+                        <div className="max-h-80 overflow-y-auto border rounded-md">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow><TableHead>Dépôt</TableHead><TableHead>NPS</TableHead><TableHead>Total Réponses</TableHead></TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {npsSummary.byDepot.map(s => (
+                                        <TableRow key={s.name}><TableCell>{s.name}</TableCell><TableCell>{s.nps}</TableCell><TableCell>{s.total}</TableCell></TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="carrier" className="mt-4">
+                        <div className="max-h-80 overflow-y-auto border rounded-md">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow><TableHead>Transporteur</TableHead><TableHead>NPS</TableHead><TableHead>Total Réponses</TableHead></TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {npsSummary.byCarrier.map(s => (
+                                        <TableRow key={s.name}><TableCell>{s.name}</TableCell><TableCell>{s.nps}</TableCell><TableCell>{s.total}</TableCell></TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="driver" className="mt-4">
+                        <div className="max-h-80 overflow-y-auto border rounded-md">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow><TableHead>Livreur</TableHead><TableHead>NPS</TableHead><TableHead>Total Réponses</TableHead></TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {npsSummary.byDriver.map(s => (
+                                        <TableRow key={s.name}><TableCell>{s.name}</TableCell><TableCell>{s.nps}</TableCell><TableCell>{s.total}</TableCell></TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </TabsContent>
+                </Tabs>
+            </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Détail des Verbatims Clients</CardTitle>
+            <CardDescription>
+              Consultez les notes NPS et les verbatims clients associés aux livraisons.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input
+              placeholder="Rechercher par N° commande, livreur, dépôt, transporteur, verbatim..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="max-w-md"
+            />
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead onClick={() => handleSort('idTache')} className="cursor-pointer">N° Commande {renderSortIcon('idTache')}</TableHead>
+                    <TableHead onClick={() => handleSort('depot')} className="cursor-pointer">Dépôt {renderSortIcon('depot')}</TableHead>
+                    <TableHead onClick={() => handleSort('carrier')} className="cursor-pointer">Transporteur {renderSortIcon('carrier')}</TableHead>
+                    <TableHead onClick={() => handleSort('livreur')} className="cursor-pointer">Livreur {renderSortIcon('livreur')}</TableHead>
+                    <TableHead onClick={() => handleSort('noteRecommandation')} className="cursor-pointer">Note NPS {renderSortIcon('noteRecommandation')}</TableHead>
+                    <TableHead onClick={() => handleSort('npsCategory')} className="cursor-pointer">Catégorie NPS {renderSortIcon('npsCategory')}</TableHead>
+                    <TableHead onClick={() => handleSort('verbatim')} className="cursor-pointer">Verbatim {renderSortIcon('verbatim')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedData.length > 0 ? paginatedData.map((item) => {
+                    const npsCategory = getNpsCategory(item.verbatimData?.noteRecommandation ?? null);
+                    return (
+                        <TableRow key={`${item.idTache}-${item.livreur}`}>
+                            <TableCell>{item.idTache}</TableCell>
+                            <TableCell>{getNomDepot(item.entrepot)}</TableCell>
+                            <TableCell>{getCarrierFromDriverName(item.livreur) || 'N/A'}</TableCell>
+                            <TableCell>{item.livreur}</TableCell>
+                            <TableCell>{item.verbatimData?.noteRecommandation}</TableCell>
+                            <TableCell>
+                                {npsCategory && (
+                                    <Badge className={cn({
+                                        'bg-green-600 hover:bg-green-700 text-white': npsCategory === 'Promoter',
+                                        'bg-yellow-500 hover:bg-yellow-600 text-white': npsCategory === 'Passive',
+                                        'bg-red-600 hover:bg-red-700 text-white': npsCategory === 'Detractor',
+                                    })}>
+                                        {npsCategory}
+                                    </Badge>
+                                )}
+                            </TableCell>
+                            <TableCell className="max-w-md whitespace-pre-wrap">{item.verbatimData?.verbatim}</TableCell>
+                        </TableRow>
+                    )
+                  }) : (
+                      <TableRow><TableCell colSpan={7} className="text-center h-24">Aucune donnée de verbatim à afficher. Veuillez charger un fichier de verbatims.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            {totalPages > 1 && <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Page {currentPage} sur {totalPages} ({sortedData.length} résultats)
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" /> Précédent
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Suivant <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>}
+          </CardContent>
+        </Card>
+    </div>
   );
 }
+
