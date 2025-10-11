@@ -29,6 +29,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
       const search = searchTerm.toLowerCase();
       return (
         item.nomTournee?.toLowerCase().includes(search) ||
+        item.idTache?.toLowerCase().includes(search) ||
         item.livreur?.toLowerCase().includes(search) ||
         item.ville?.toLowerCase().includes(search) ||
         item.codePostal?.toLowerCase().includes(search) ||
@@ -97,7 +98,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
   return (
     <div className="space-y-4">
       <Input
-        placeholder="Rechercher par tournée, livreur, ville, date..."
+        placeholder="Rechercher par tournée, N° commande, livreur, ville, date..."
         value={searchTerm}
         onChange={(e) => {
           setSearchTerm(e.target.value);
@@ -111,6 +112,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
             <TableRow>
               <TableHead onClick={() => handleSort('date')} className="cursor-pointer">Date {renderSortIcon('date')}</TableHead>
               <TableHead onClick={() => handleSort('nomTournee')} className="cursor-pointer">Tournée {renderSortIcon('nomTournee')}</TableHead>
+              <TableHead onClick={() => handleSort('idTache')} className="cursor-pointer">N° Commande {renderSortIcon('idTache')}</TableHead>
               <TableHead onClick={() => handleSort('entrepot')} className="cursor-pointer">Entrepôt {renderSortIcon('entrepot')}</TableHead>
               <TableHead onClick={() => handleSort('livreur')} className="cursor-pointer">Livreur {renderSortIcon('livreur')}</TableHead>
               <TableHead onClick={() => handleSort('ville')} className="cursor-pointer">Ville {renderSortIcon('ville')}</TableHead>
@@ -132,6 +134,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
               <TableRow key={`${item.tourneeUniqueId}-${item.sequence}-${index}`}>
                 <TableCell>{item.date}</TableCell>
                 <TableCell>{item.nomTournee}</TableCell>
+                <TableCell>{item.idTache}</TableCell>
                 <TableCell>{item.entrepot}</TableCell>
                 <TableCell>{item.livreur}</TableCell>
                 <TableCell>{item.ville}, {item.codePostal}</TableCell>
@@ -147,7 +150,7 @@ export default function DetailedDataView({ data }: { data: MergedData[] }) {
               </TableRow>
               )
             }) : (
-                <TableRow><TableCell colSpan={10} className="text-center h-24">Aucune donnée à afficher.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center h-24">Aucune donnée à afficher.</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
