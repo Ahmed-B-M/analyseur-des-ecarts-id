@@ -40,23 +40,15 @@ function MultiSelect({
   placeholder = 'Select options',
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
-  const [inputValue, setInputValue] = React.useState('');
 
   const handleSelect = (value: string) => {
-    const isSelected = selected.includes(value);
-    if (isSelected) {
-      onChange(selected.filter((v) => v !== value));
-    } else {
-      onChange([...selected, value]);
-    }
+    onChange(
+        selected.includes(value)
+        ? selected.filter((v) => v !== value)
+        : [...selected, value]
+    );
   };
 
-  const filteredOptions = React.useMemo(() => {
-    if (!inputValue) return options;
-    return options.filter((option) =>
-      option.label.toLowerCase().includes(inputValue.toLowerCase())
-    );
-  }, [options, inputValue]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -82,7 +74,7 @@ function MultiSelect({
                     className="mr-1"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onChange(selected.filter((v) => v !== value));
+                      handleSelect(value);
                     }}
                   >
                     {option ? option.label : value}
@@ -97,20 +89,20 @@ function MultiSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-        <Command shouldFilter={false}>
+        <Command>
           <CommandInput
             placeholder="Rechercher..."
-            value={inputValue}
-            onValueChange={setInputValue}
           />
           <CommandList>
             <CommandEmpty>Aucun résultat.</CommandEmpty>
             <CommandGroup>
-              {filteredOptions.map((option) => (
+              {options.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}
-                  onSelect={handleSelect}
+                  onSelect={() => {
+                    handleSelect(option.value)
+                  }}
                   >
                   <Check
                     className={cn(
