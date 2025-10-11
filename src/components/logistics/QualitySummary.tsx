@@ -28,7 +28,7 @@ interface QualitySummaryProps {
 }
 
 const calculateNps = (notes: (number | null | undefined)[]) => {
-    const validNotes = notes.filter(n => n !== null && n !== undefined) as number[];
+    const validNotes = notes.filter((n): n is number => n !== null && n !== undefined);
     if (validNotes.length === 0) {
         return { nps: 0, promoters: 0, passives: 0, detractors: 0, total: 0, promoterPercent: '0.0', detractorPercent: '0.0', passivePercent: '0.0' };
     }
@@ -57,7 +57,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     const allCategorized = [...savedCategorizedComments, ...uncategorizedCommentsForSummary];
     const uniqueComments = new Map<string, any>();
     allCategorized.forEach(comment => {
-        if(!uniqueComments.has(comment.id)) {
+        if(!uniqueComments.has(comment.id) && comment.entrepot) {
             uniqueComments.set(comment.id, {
               ...comment,
               depot: getNomDepot(comment.entrepot)
@@ -113,8 +113,10 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         if (!acc[depot]) {
             acc[depot] = { totalRatingValue: 0, ratedTasksCount: 0 };
         }
-        acc[depot].ratedTasksCount++;
-        acc[depot].totalRatingValue += curr.notation!;
+        if(curr.notation !== null) {
+          acc[depot].ratedTasksCount++;
+          acc[depot].totalRatingValue += curr.notation;
+        }
         return acc;
     }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
     
@@ -138,7 +140,9 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     const npsByDepot = verbatimsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
         if (!acc[depot]) acc[depot] = [];
-        acc[depot].push(curr.verbatimData?.noteRecommandation);
+        if (curr.verbatimData?.noteRecommandation !== null && curr.verbatimData?.noteRecommandation !== undefined) {
+          acc[depot].push(curr.verbatimData.noteRecommandation);
+        }
         return acc;
     }, {} as Record<string, number[]>);
 
@@ -165,13 +169,15 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
   const summaryByCarrier = useMemo(() => {
     const allDataGrouped = allDataWithNotes.reduce((acc, curr) => {
       const depot = getNomDepot(curr.entrepot);
-      const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+      const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
       const key = `${depot}|${carrier}`;
       if (!acc[key]) {
         acc[key] = { totalRatingValue: 0, ratedTasksCount: 0 };
       }
+      if (curr.notation !== null) {
         acc[key].ratedTasksCount++;
-        acc[key].totalRatingValue += curr.notation!;
+        acc[key].totalRatingValue += curr.notation;
+      }
       return acc;
     }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
 
@@ -179,7 +185,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
     const commentCounts = allCommentsInData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
         const key = `${depot}|${carrier}`;
         acc[key] = (acc[key] || 0) + 1;
         return acc;
@@ -187,7 +193,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     
     const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
         const key = `${depot}|${carrier}`;
 
         if (!acc[key]) {
@@ -199,10 +205,12 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
     const npsByCarrier = verbatimsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
         const key = `${depot}|${carrier}`;
         if (!acc[key]) acc[key] = [];
-        acc[key].push(curr.verbatimData?.noteRecommandation);
+        if (curr.verbatimData?.noteRecommandation !== null && curr.verbatimData?.noteRecommandation !== undefined) {
+            acc[key].push(curr.verbatimData.noteRecommandation);
+        }
         return acc;
     }, {} as Record<string, number[]>);
     
@@ -238,12 +246,12 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     }, {} as Record<string, typeof negativeRatingsData>);
 
     return Object.entries(tasksByDriver).map(([driver, tasks]) => {
-        const depot = getNomDepot(tasks[0].entrepot);
+        const depot = tasks.length > 0 ? getNomDepot(tasks[0].entrepot) : 'Inconnu';
         const carrier = getCarrierFromDriverName(driver) || 'Inconnu';
         
         const allDriverTasks = allDataWithNotes.filter(d => d.livreur === driver);
         const totalRatings = allDriverTasks.length;
-        const totalRatingValue = allDriverTasks.reduce((sum, task) => sum + task.notation!, 0);
+        const totalRatingValue = allDriverTasks.reduce((sum, task) => sum + (task.notation ?? 0), 0);
 
         const categoryCounts: Record<string, number> = {};
         for (const item of tasks) {
