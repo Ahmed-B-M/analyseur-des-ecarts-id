@@ -76,7 +76,7 @@ function MultiSelect({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
         <Command>
           <CommandInput placeholder="Rechercher..." />
           <CommandList>
