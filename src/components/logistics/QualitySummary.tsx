@@ -207,7 +207,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     }, {} as Record<string, number[]>);
     
     return Object.keys(allDataGrouped).map(key => {
-      const negativeStats = grouped[key] || { depot: key.split('|')[0], carrier: key.split('|')[1], negativeRatingsCount: 0 };
+      const [depot, carrier] = key.split('|');
+      const negativeStats = grouped[key] || { depot, carrier, negativeRatingsCount: 0 };
       const allStats = allDataGrouped[key];
       const carrierNps = calculateNps(npsByCarrier[key] || []);
       return {
@@ -218,8 +219,11 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         nps: carrierNps.nps,
       }
     })
-    .filter(item => item.negativeRatingsCount > 0)
-    .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
+    .sort((a, b) => {
+        if (a.depot < b.depot) return -1;
+        if (a.depot > b.depot) return 1;
+        return a.carrier.localeCompare(b.carrier);
+    });
   }, [negativeRatingsData, allDataWithNotes, data, verbatimsData]);
 
 
