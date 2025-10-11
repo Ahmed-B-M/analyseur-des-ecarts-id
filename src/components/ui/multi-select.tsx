@@ -1,23 +1,19 @@
 
 'use client';
+
+import * as React from 'react';
+import { X } from 'lucide-react';
+
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { Check, X } from 'lucide-react';
-import * as React from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface MultiSelectProps {
   id?: string;
@@ -31,8 +27,7 @@ export interface MultiSelectProps {
   placeholder?: string;
 }
 
-function MultiSelect({
-  id,
+export function MultiSelect({
   options,
   selected,
   onChange,
@@ -40,15 +35,18 @@ function MultiSelect({
   placeholder = 'Select options',
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
+  const [inputValue, setInputValue] = React.useState('');
 
   const handleSelect = (value: string) => {
-    onChange(
-        selected.includes(value)
-        ? selected.filter((v) => v !== value)
-        : [...selected, value]
-    );
+    const newSelected = selected.includes(value)
+      ? selected.filter((v) => v !== value)
+      : [...selected, value];
+    onChange(newSelected);
   };
 
+  const filteredOptions = options.filter((option) =>
+    option.label.toLowerCase().includes(inputValue.toLowerCase())
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -57,13 +55,10 @@ function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn(
-            'w-full justify-between h-auto min-h-10',
-            className
-          )}
+          className={cn('w-full justify-between h-auto min-h-10', className)}
           onClick={() => setOpen(!open)}
         >
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex flex-wrap gap-1">
             {selected.length > 0 ? (
               selected.map((value) => {
                 const option = options.find((opt) => opt.value === value);
@@ -88,39 +83,41 @@ function MultiSelect({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-        <Command>
-          <CommandInput
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] p-0"
+        onEscapeKeyDown={() => setOpen(false)}
+      >
+        <div className="p-2">
+          <Input
+            autoFocus
             placeholder="Rechercher..."
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
           />
-          <CommandList>
-            <CommandEmpty>Aucun résultat.</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
+        </div>
+        <ScrollArea className="max-h-64">
+          <div className="p-2">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => (
+                <div
                   key={option.value}
-                  value={option.value}
-                  onSelect={() => {
-                    handleSelect(option.value)
-                  }}
-                  >
-                  <Check
-                    className={cn(
-                      'mr-2 h-4 w-4',
-                      selected.includes(option.value)
-                        ? 'opacity-100'
-                        : 'opacity-0'
-                    )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+                  className="flex cursor-pointer items-center justify-between rounded-md p-2 hover:bg-accent"
+                  onClick={() => handleSelect(option.value)}
+                >
+                  <span>{option.label}</span>
+                  {selected.includes(option.value) && (
+                    <X className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="p-2 text-center text-sm text-muted-foreground">
+                Aucun résultat.
+              </div>
+            )}
+          </div>
+        </ScrollArea>
       </PopoverContent>
     </Popover>
   );
 }
-
-export { MultiSelect };

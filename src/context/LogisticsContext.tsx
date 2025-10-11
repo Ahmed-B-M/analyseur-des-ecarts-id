@@ -73,27 +73,33 @@ function logisticsReducer(state: State, action: Action): State {
 
         const verbatimMap = new Map(verbatims.map(v => [v.idTache, v]));
 
-        // Merge and enrich data for immediate analysis
-        const tourneeMap = new Map(tournees.map((t: any) => [t.uniqueId, t]));
-        const mergedData: MergedData[] = taches.map((tache: any, index: number) => ({
-            ...tache,
-            ordre: index + 1,
-            tournee: tourneeMap.get(tache.tourneeUniqueId) || null,
-            depot: getNomDepot(tache.entrepot),
-            verbatimData: verbatimMap.get(tache.idTache) || null,
+        // Enrich tournees with carrier information first
+        const enrichedTournees = tournees.map(t => ({
+            ...t,
+            carrier: getCarrierFromDriverName(t.livreur)
         }));
 
-        const enrichedData = mergedData.map(item => ({
-            ...item,
-            carrier: item.tournee ? getCarrierFromDriverName(item.tournee.livreur) : null
-        }));
+        const tourneeMap = new Map(enrichedTournees.map((t: any) => [t.uniqueId, t]));
+        
+        const mergedData: MergedData[] = taches.map((tache: any, index: number) => {
+            const tourneeData = tourneeMap.get(tache.tourneeUniqueId) || null;
+            return {
+                ...tache,
+                ordre: index + 1,
+                tournee: tourneeData,
+                depot: getNomDepot(tache.entrepot),
+                warehouse: tache.entrepot,
+                carrier: tourneeData ? tourneeData.carrier : null,
+                verbatimData: verbatimMap.get(tache.idTache) || null,
+            };
+        });
 
-        const initialAnalysis = analyzeData(enrichedData, state.filters);
+        const initialAnalysis = analyzeData(mergedData, state.filters);
         return { 
             ...state, 
             isLoading: false, 
-            rawData: enrichedData, 
-            filteredData: enrichedData,
+            rawData: mergedData, 
+            filteredData: mergedData,
             analysisData: initialAnalysis,
             error: null 
         };
@@ -204,8 +210,8 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
               }
             }
 
-            if (internalState.filters.depots && internalState.filters.depots.length > 0 && !internalState.filters.depots.includes(getNomDepot(item.tournee.entrepot))) return false;
-            if (internalState.filters.warehouses && internalState.filters.warehouses.length > 0 && !internalState.filters.warehouses.includes(item.tournee.entrepot)) return false;
+            if (internalState.filters.depots && internalState.filters.depots.length > 0 && !internalState.filters.depots.includes(item.depot)) return false;
+            if (internalState.filters.warehouses && internalState.filters.warehouses.length > 0 && !internalState.filters.warehouses.includes(item.warehouse)) return false;
             if (internalState.filters.carriers && internalState.filters.carriers.length > 0 && (!item.carrier || !internalState.filters.carriers.includes(item.carrier))) return false;
 
             if (internalState.filters.city && item.ville !== internalState.filters.city) return false;

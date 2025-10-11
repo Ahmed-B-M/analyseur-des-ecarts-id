@@ -9,6 +9,7 @@ import { Logo } from '@/components/logistics/Logo';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DashboardTabs from './DashboardTabs';
+import { MergedData } from '@/lib/types';
 
 
 export default function Dashboard() {
@@ -38,17 +39,23 @@ export default function Dashboard() {
     setFilters({...state.filters, ...filter, selectedDate: undefined, dateRange: undefined});
     setActiveTab('data');
   }, [setFilters, state.filters]);
-
-  const carriers = useMemo(() => {
-    if (!rawData) return [];
-    const carrierSet = new Set<string>();
-    rawData.forEach(item => {
-      if (item.carrier) {
-        carrierSet.add(item.carrier);
+  
+  const getUniqueValues = (data: MergedData[] | null, key: string) => {
+    if (!data) return [];
+    const valueSet = new Set<string>();
+    data.forEach(item => {
+      const value = item[key as keyof MergedData];
+      if (typeof value === 'string' && value) {
+        valueSet.add(value);
       }
     });
-    return Array.from(carrierSet).sort();
-  }, [rawData]);
+    return Array.from(valueSet).sort();
+  }
+
+  const depots = useMemo(() => getUniqueValues(rawData, 'depot'), [rawData]);
+  const warehouses = useMemo(() => getUniqueValues(rawData, 'warehouse'), [rawData]);
+  const cities = useMemo(() => getUniqueValues(rawData, 'city'), [rawData]);
+  const carriers = useMemo(() => getUniqueValues(rawData, 'carrier'), [rawData]);
   
 
   return (
@@ -108,6 +115,7 @@ export default function Dashboard() {
                 <div className="md:col-span-2 flex items-center gap-2 text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                     <AlertCircle className="h-5 w-5" />
                     <p><strong>Erreur :</strong> {state.error}</p>
+
                 </div>
                 )}
             </div>
@@ -127,9 +135,9 @@ export default function Dashboard() {
             <FilterBar 
               filters={state.filters} 
               setFilters={setFilters} 
-              depots={analysisData.depots}
-              warehouses={analysisData.warehouses}
-              cities={analysisData.cities}
+              depots={depots}
+              warehouses={warehouses}
+              cities={cities}
               carriers={carriers}
               allData={rawData}
             />
@@ -137,7 +145,7 @@ export default function Dashboard() {
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               analysisData={analysisData}
-              filteredData={filteredData}
+              filteredData={filteredData || []}
               rawData={rawData}
               filters={state.filters}
               setFilters={setFilters}

@@ -80,8 +80,10 @@ export type VerbatimData = {
 };
 
 export type MergedData = Tache & { 
-  tournee: Tournee | null 
+  tournee: Tournee | null;
   verbatimData?: VerbatimData | null;
+  depot: string;
+  warehouse: string;
 };
 
 
@@ -299,6 +301,7 @@ export type CustomerPromiseData = {
 export type ActualSlotDistribution = {
     warehouse: string;
     slot: string;
+
     count: number;
     percentage: string;
 };
