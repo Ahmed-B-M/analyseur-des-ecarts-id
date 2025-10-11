@@ -276,16 +276,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             categorySummary: categorySummary || '',
         };
     })
-    .sort((a, b) => {
-        if (!a || !b) return 0;
-        if (a.depot < b.depot) return -1;
-        if (a.depot > b.depot) return 1;
-        if (a.carrier < b.carrier) return -1;
-        if (a.carrier > b.carrier) return 1;
-        if (a.driver < b.driver) return -1;
-        if (a.driver > b.driver) return 1;
-        return 0;
-    });
+    .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
 }, [negativeRatingsData, allDataWithNotes]);
 
   
