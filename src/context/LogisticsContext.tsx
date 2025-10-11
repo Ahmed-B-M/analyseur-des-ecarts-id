@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useReducer, ReactNode, Dispatch, useEffect, useState, useMemo } from 'react';
-import type { AnalysisData, MergedData } from '@/lib/types';
+import type { AnalysisData, MergedData, VerbatimData } from '@/lib/types';
 import { analyzeData } from '@/lib/dataAnalyzer';
 import { DateRange } from 'react-day-picker';
 import { getNomDepot } from '@/lib/config-depots';
@@ -13,6 +13,7 @@ import { toast } from '@/hooks/use-toast';
 type State = {
   tourneesFiles: File[];
   tachesFiles: File[];
+  verbatimsFile: File[];
   isLoading: boolean;
   isSaving: boolean;
   error: string | null;
@@ -23,10 +24,10 @@ type State = {
 };
 
 type Action =
-  | { type: 'ADD_FILES'; fileType: 'tournees' | 'taches'; files: File[] }
-  | { type: 'REMOVE_FILE'; fileType: 'tournees' | 'taches'; fileName: string }
+  | { type: 'ADD_FILES'; fileType: 'tournees' | 'taches' | 'verbatims'; files: File[] }
+  | { type: 'REMOVE_FILE'; fileType: 'tournees' | 'taches' | 'verbatims'; fileName: string }
   | { type: 'START_PROCESSING' }
-  | { type: 'PROCESSING_SUCCESS'; data: { tournees: any[], taches: any[] } }
+  | { type: 'PROCESSING_SUCCESS'; data: { tournees: any[], taches: any[], verbatims: VerbatimData[] } }
   | { type: 'PROCESSING_ERROR'; error: string }
   | { type: 'SET_FILTERS'; filters: Record<string, any> }
   | { type: 'RESET' };
@@ -35,6 +36,7 @@ type Action =
 const initialState: State = {
   tourneesFiles: [],
   tachesFiles: [],
+  verbatimsFile: [],
   isLoading: false,
   isSaving: false,
   error: null,
@@ -54,17 +56,26 @@ const initialState: State = {
 function logisticsReducer(state: State, action: Action): State {
   switch (action.type) {
     case 'ADD_FILES':
-      const fileKey = action.fileType === 'tournees' ? 'tourneesFiles' : 'tachesFiles';
+      const fileKey = action.fileType === 'tournees' ? 'tourneesFiles' : action.fileType === 'taches' ? 'tachesFiles' : 'verbatimsFile';
+      const isSingleFile = action.fileType === 'verbatims';
+
       const existingFiles = new Set(state[fileKey].map(f => f.name));
       const newFiles = action.files.filter(f => !existingFiles.has(f.name));
+      
+      if (isSingleFile) {
+        return { ...state, [fileKey]: newFiles.length > 0 ? [newFiles[0]] : state[fileKey] };
+      }
       return { ...state, [fileKey]: [...state[fileKey], ...newFiles] };
+
     case 'REMOVE_FILE':
-      const filesKey = action.fileType === 'tournees' ? 'tourneesFiles' : 'tachesFiles';
+      const filesKey = action.fileType === 'tournees' ? 'tourneesFiles' : action.fileType === 'taches' ? 'tachesFiles' : 'verbatimsFile';
       return { ...state, [filesKey]: state[filesKey].filter(f => f.name !== action.fileName) };
     case 'START_PROCESSING':
       return { ...state, isLoading: true, error: null };
     case 'PROCESSING_SUCCESS':
-        const { tournees, taches } = action.data;
+        const { tournees, taches, verbatims } = action.data;
+
+        const verbatimMap = new Map(verbatims.map(v => [v.idTache, v]));
 
         // Merge and enrich data for immediate analysis
         const tourneeMap = new Map(tournees.map((t: any) => [t.uniqueId, t]));
@@ -73,6 +84,7 @@ function logisticsReducer(state: State, action: Action): State {
             ordre: index + 1,
             tournee: tourneeMap.get(tache.tourneeUniqueId) || null,
             depot: getNomDepot(tache.entrepot),
+            verbatimData: verbatimMap.get(tache.idTache) || null,
         }));
 
         const enrichedData = mergedData.map(item => ({
@@ -140,10 +152,11 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
     if (internalState.isLoading && worker && internalState.tourneesFiles.length > 0 && internalState.tachesFiles.length > 0) {
       worker.postMessage({
         tourneesFiles: internalState.tourneesFiles,
-        tachesFiles: internalState.tachesFiles
+        tachesFiles: internalState.tachesFiles,
+        verbatimsFile: internalState.verbatimsFile.length > 0 ? internalState.verbatimsFile[0] : null,
       });
     }
-  }, [internalState.isLoading, internalState.tourneesFiles, internalState.tachesFiles, worker]);
+  }, [internalState.isLoading, internalState.tourneesFiles, internalState.tachesFiles, internalState.verbatimsFile, worker]);
 
   const state = useMemo(() => {
       if (!internalState.rawData) {

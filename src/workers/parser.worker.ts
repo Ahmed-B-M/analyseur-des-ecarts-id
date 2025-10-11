@@ -1,7 +1,7 @@
 
 import { processAndAnalyzeData } from '../lib/data-provider';
 import * as XLSX from 'xlsx';
-import type { Tournee, Tache, MergedData } from '../lib/types';
+import type { Tournee, Tache, MergedData, VerbatimData } from '../lib/types';
 import { getNomDepot } from '../lib/config-depots';
 
 
@@ -32,7 +32,7 @@ const headerAliases: Record<string, Record<string, string[]>> = {
   taches: {
     nomTournee: ['Tournée', 'tournée', 'tournee'],
     date: ['Date', 'date', 'jour'],
-    idTache: ['ID de la tâche'],
+    idTache: ['ID de la tâche', 'num_commande'],
     entrepot: ['Entrepôt', 'entrepot'],
     livreur: ['Livreur', 'livreur'],
     sequence: ['Séquence', 'séquence'],
@@ -53,9 +53,20 @@ const headerAliases: Record<string, Record<string, string[]>> = {
     notation: ['Notez votre livraison'],
     commentaire: ["Qu'avez vous pensé de la livraison de votre commande?"],
   },
+  verbatims: {
+    idTache: ['Num_commande'],
+    dateRetrait: ['DATE_RETRAIT'],
+    noteRecommandation: ['NOTE_RECOMMANDATION'],
+    pcCommandeComplete: ['PC_commande_complete'],
+    pcQualitePdtsFrais: ['PC_qualite_pdts_frais'],
+    pcRespectDLC: ['PC_respect_DLC'],
+    pcSoinProduits: ['PC_soin_produits'],
+    verbatim: ['VERBATIM'],
+    mag: ['MAG']
+  }
 };
 
-function findHeader(header: string, fileType: 'tournees' | 'taches'): string | null {
+function findHeader(header: string, fileType: 'tournees' | 'taches' | 'verbatims'): string | null {
     if (!header) return null;
     const lowerHeader = header.toLowerCase().trim();
     for (const key in headerAliases[fileType]) {
@@ -115,7 +126,7 @@ function parseDate(value: any): string {
 }
 
 
-function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeStartTimes?: Map<string, number>): any[] {
+function normalizeData(data: any[][], fileType: 'tournees' | 'taches' | 'verbatims', tourneeStartTimes?: Map<string, number>): any[] {
   if (data.length < 2) return [];
 
   const headers = data[0].map(h => String(h).trim());
@@ -135,7 +146,8 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
 
   const mandatoryHeaders = {
     tournees: ['nom', 'date', 'entrepot'],
-    taches: ['nomTournee', 'date', 'entrepot']
+    taches: ['nomTournee', 'date', 'entrepot', 'idTache'],
+    verbatims: ['idTache']
   };
 
   const missingMandatoryHeaders = mandatoryHeaders[fileType].filter(h => !foundHeaders.has(h));
@@ -151,13 +163,16 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
       'distancePrevue', 'distanceReelle', 'dureePrevue', 'dureeReelle',
       'capaciteBacs', 'bacsPrevus', 'capacitePoids', 'poidsPrevu', 'poids',
       'sequence', 'items', 'tempsServiceReel', 'retard', 'notation',
-      'tempsPreparationLivreur', 'tempsService', 'tempsParcours'
+      'tempsPreparationLivreur', 'tempsService', 'tempsParcours',
+      'noteRecommandation'
   ];
   const timeKeys = [
       'heureDepartReelle', 'heureFinReelle', 'heureDepartPrevue', 'heureFinPrevue',
       'heureDebutCreneau', 'heureFinCreneau', 'heureArriveeApprox', 'heureCloture', 'heureArriveeReelle',
       'demarre', 'termine'
   ];
+  const dateKeys = ['date', 'dateRetrait'];
+
 
   const normalized = [];
   for (let i = 1; i < data.length; i++) {
@@ -184,14 +199,18 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
       const key = headerMap[colIndex];
       let value = row[colIndex];
       
-      const isOptionalNullable = ['notation', 'commentaire', 'livreur', 'completedBy', 'idTache'].includes(key);
+      const isOptionalNullable = [
+        'notation', 'commentaire', 'livreur', 'completedBy', 'idTache',
+        'noteRecommandation', 'pcCommandeComplete', 'pcQualitePdtsFrais', 
+        'pcRespectDLC', 'pcSoinProduits', 'verbatim', 'mag'
+      ].includes(key);
 
       if (value === null || value === undefined || String(value).toLowerCase().trim() === 'null' || String(value).trim() === '') {
         newRow[key] = isOptionalNullable ? null : 0;
         continue;
       }
 
-      if (key === 'date') {
+      if (dateKeys.includes(key)) {
           newRow[key] = parseDate(value);
       } else if (timeKeys.includes(key)) {
           newRow[key] = parseTime(value);
@@ -242,7 +261,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches', tourneeSt
 
 self.addEventListener('message', async (event: MessageEvent) => {
   try {
-    const { tourneesFiles, tachesFiles } = event.data;
+    const { tourneesFiles, tachesFiles, verbatimsFile } = event.data;
 
     // Process tournees
     const allTourneesMap = new Map<string, any>();
@@ -286,7 +305,7 @@ self.addEventListener('message', async (event: MessageEvent) => {
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
         const normalizedTaches = normalizeData(json, 'taches', tourneeStartTimes);
         for (const t of normalizedTaches) {
-             const key = `${t.date}|${t.nomTournee}|${t.livreur}|${t.heureCloture}`;
+             const key = t.idTache;
              if (!allTachesMap.has(key)) {
                  allTachesMap.set(key, t);
              }
@@ -304,8 +323,18 @@ self.addEventListener('message', async (event: MessageEvent) => {
             tourneeUniqueId: `${t.nomTournee}|${t.date}|${t.entrepot}`
         });
     }
+
+    // Process verbatims (optional)
+    let verbatims: VerbatimData[] = [];
+    if (verbatimsFile) {
+        const buffer = await verbatimsFile.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: 'buffer' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+        verbatims = normalizeData(json, 'verbatims');
+    }
     
-    self.postMessage({ type: 'success', data: { tournees, taches } });
+    self.postMessage({ type: 'success', data: { tournees, taches, verbatims } });
 
   } catch (error: any) {
     self.postMessage({ type: 'error', error: `Erreur lors du traitement des fichiers: ${error.message}` });

@@ -67,7 +67,23 @@ export type Tache = {
   carrier?: string | null;
 };
 
-export type MergedData = Tache & { tournee: Tournee | null };
+export type VerbatimData = {
+  idTache: string; // Num_commande
+  dateRetrait: string;
+  noteRecommandation: number | null;
+  pcCommandeComplete: string | null;
+  pcQualitePdtsFrais: string | null;
+  pcRespectDLC: string | null;
+  pcSoinProduits: string | null;
+  verbatim: string | null;
+  mag: string | null;
+};
+
+export type MergedData = Tache & { 
+  tournee: Tournee | null 
+  verbatimData?: VerbatimData | null;
+};
+
 
 export type Kpi = {
   title: string;

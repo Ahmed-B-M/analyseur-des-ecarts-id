@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck, MessageSquare, ClipboardCheck, FileText, Tags, Mail } from 'lucide-react';
+import { BarChart2, Calendar, List, LayoutDashboard, TrendingUp, MessageCircleWarning, FileSpreadsheet, StarOff, Settings, ShieldCheck, MessageSquare, ClipboardCheck, FileText, Tags, Mail, HeartPulse } from 'lucide-react';
 import AnalysisDashboard from './AnalysisDashboard';
 import DetailedDataView from './DetailedDataView';
 import ComparisonView from './ComparisonView';
@@ -37,6 +37,7 @@ import { WorkloadAnalysisSection } from './dashboard/WorkloadAnalysisSection';
 import { getWeek, startOfWeek, endOfWeek, parseISO, isWithinInterval } from 'date-fns';
 import { analyzeData } from '@/lib/dataAnalyzer';
 import { DateRange } from 'react-day-picker';
+import NpsAnalysisView from './NpsAnalysisView';
 
 
 interface DashboardTabsProps {
@@ -174,7 +175,9 @@ export default function DashboardTabs({
     }, [filteredData, savedCategorizedComments, isLoadingCategories]);
 
     const filteredCommentsForEmail = useMemo(() => {
+        if (!filteredData) return { processedActions: [], categorizedComments: [] };
         const validDates = new Set(filteredData.map(d => d.date));
+        
         const filteredProcessed = (existingSuivis || []).filter(action => validDates.has(action.date));
         const filteredCategorized = (savedCategorizedComments || []).filter(comment => validDates.has(comment.date));
         
@@ -213,6 +216,7 @@ export default function DashboardTabs({
                     <TabsTrigger value="quality"><ShieldCheck className="w-4 h-4 mr-2" />Synthèse Qualité</TabsTrigger>
                 </TabsList>
                  <TabsList>
+                    <TabsTrigger value="nps"><HeartPulse className="w-4 h-4 mr-2" />Analyse NPS &amp; Verbatims</TabsTrigger>
                     <TabsTrigger value="commentProcessing">
                         <MessageSquare className="w-4 h-4 mr-2" />
                         Traitement Avis
@@ -226,6 +230,9 @@ export default function DashboardTabs({
                 </TabsList>
             </div>
 
+            <TabsContent value="nps" className="mt-6">
+                <NpsAnalysisView data={filteredData} />
+            </TabsContent>
              <TabsContent value="actionFollowUp" className="mt-6">
                 <ActionFollowUpView />
             </TabsContent>

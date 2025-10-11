@@ -13,14 +13,14 @@ import DashboardTabs from './DashboardTabs';
 
 export default function Dashboard() {
   const { state, dispatch } = useLogistics();
-  const { analysisData, rawData, filteredData, tourneesFiles, tachesFiles } = state;
+  const { analysisData, rawData, filteredData, tourneesFiles, tachesFiles, verbatimsFile } = state;
   const [activeTab, setActiveTab] = useState('dashboard');
 
-  const handleSetFiles = (fileType: 'tournees' | 'taches', files: File[]) => {
+  const handleSetFiles = (fileType: 'tournees' | 'taches' | 'verbatims', files: File[]) => {
     dispatch({ type: 'ADD_FILES', fileType, files });
   };
   
-  const handleRemoveFile = (fileType: 'tournees' | 'taches', fileName: string) => {
+  const handleRemoveFile = (fileType: 'tournees' | 'taches' | 'verbatims', fileName: string) => {
     dispatch({ type: 'REMOVE_FILE', fileType, fileName });
   };
 
@@ -70,8 +70,8 @@ export default function Dashboard() {
       </header>
       <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
         {!rawData && (
-          <div className="max-w-4xl mx-auto space-y-8">
-            <div className="grid md:grid-cols-2 gap-8 h-64">
+          <div className="max-w-6xl mx-auto space-y-8">
+            <div className="grid md:grid-cols-3 gap-8 h-64">
                 <FileUpload
                 title="1. Fichiers Tournées"
                 onFilesSelect={(files) => handleSetFiles('tournees', files)}
@@ -83,6 +83,12 @@ export default function Dashboard() {
                 onFilesSelect={(files) => handleSetFiles('taches', files)}
                 onFileRemove={(fileName) => handleRemoveFile('taches', fileName)}
                 files={state.tachesFiles}
+                />
+                <FileUpload
+                title="3. Fichier Verbatims (Optionnel)"
+                onFilesSelect={(files) => handleSetFiles('verbatims', files)}
+                onFileRemove={(fileName) => handleRemoveFile('verbatims', fileName)}
+                files={state.verbatimsFile}
                 />
             </div>
              <div className="flex flex-col items-center gap-4">
