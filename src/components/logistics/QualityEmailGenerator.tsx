@@ -46,12 +46,24 @@ interface UnassignedDriver {
     depots: string;
 }
 
+interface NpsSummary {
+    nps: number;
+    promoters: number;
+    passives: number;
+    detractors: number;
+    total: number;
+    promoterPercent: string;
+    detractorPercent: string;
+    passivePercent: string;
+}
+
 interface QualityEmailGeneratorProps {
   summaryByDepot: Summary[];
   summaryByCarrier: CarrierSummary[];
   summaryByDriver: DriverSummary[];
   unassignedDrivers: UnassignedDriver[];
   allCommentsForSummary: { id: string, comment: string, category: CommentCategory, depot: string }[];
+  npsSummary: NpsSummary;
 }
 
 const generateQualityEmailBody = (
@@ -59,9 +71,36 @@ const generateQualityEmailBody = (
     summaryByCarrier: CarrierSummary[],
     summaryByDriver: DriverSummary[],
     unassignedDrivers: UnassignedDriver[],
-    allCommentsForSummary: QualityEmailGeneratorProps['allCommentsForSummary']
+    allCommentsForSummary: QualityEmailGeneratorProps['allCommentsForSummary'],
+    npsSummary: NpsSummary
 ) => {
   const depots = summaryByDepot.map(s => s.depot);
+
+  let npsSection = '';
+  if (npsSummary && npsSummary.total > 0) {
+      npsSection = `
+        <div style="background-color: #ffffff; padding: 20px 0; margin-bottom: 25px;">
+            <h2 style="color: #00338D; padding-bottom: 10px; margin-top: 0; font-size: 22px;">Synthèse Net Promoter Score (NPS)</h2>
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse; border-spacing: 0; font-size: 14px;">
+                <tr>
+                    <td style="padding: 15px; text-align: center; border: 1px solid #ddd; border-radius: 8px;">
+                        <span style="font-size: 14px; color: #555;">NPS Global</span>
+                        <br>
+                        <strong style="font-size: 48px; color: ${npsSummary.nps > 0 ? '#28a745' : '#dc3545'}; line-height: 1.2;">${npsSummary.nps}</strong>
+                    </td>
+                    <td style="padding-left: 20px;">
+                        <table role="presentation" border="0" cellpadding="5" cellspacing="0" width="100%">
+                            <tr><td style="font-size: 14px; color: #555;">Total des réponses:</td><td style="font-size: 14px; color: #333; font-weight: bold;">${npsSummary.total}</td></tr>
+                            <tr><td style="font-size: 14px; color: #28a745;">Promoteurs (9-10):</td><td style="font-size: 14px; color: #333; font-weight: bold;">${npsSummary.promoters} (${npsSummary.promoterPercent}%)</td></tr>
+                            <tr><td style="font-size: 14px; color: #ffc107;">Passifs (7-8):</td><td style="font-size: 14px; color: #333; font-weight: bold;">${npsSummary.passives} (${npsSummary.passivePercent}%)</td></tr>
+                            <tr><td style="font-size: 14px; color: #dc3545;">Détracteurs (0-6):</td><td style="font-size: 14px; color: #333; font-weight: bold;">${npsSummary.detractors} (${npsSummary.detractorPercent}%)</td></tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
+      `;
+  }
 
   let depotSections = '';
 
@@ -262,7 +301,7 @@ const generateQualityEmailBody = (
                   <td style="text-align: center; padding: 20px; border-bottom: 2px solid #005A9C;">
                     <img src="https://www.corp-visuels.com/fr/wp-content/uploads/2018/01/logo-la-poste-2012.png" alt="Logo" style="max-width: 150px; margin-bottom: 10px;">
                     <h1 style="color: #00338D; font-size: 26px; margin: 0;">Rapport de Synthèse de la Qualité</h1>
-                    <span style="font-size: 16px; color: #555;">(Focus sur les Mauvaises Notes)</span>
+                    <span style="font-size: 16px; color: #555;">(Focus sur les Mauvaises Notes & NPS)</span>
                   </td>
                 </tr>
                 <!-- Content -->
@@ -271,6 +310,7 @@ const generateQualityEmailBody = (
                     <p style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333;">Bonjour,</p>
                     <p style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333;">Veuillez trouver ci-dessous les synthèses de la qualité par dépôt pour la période sélectionnée, en se concentrant sur les entités avec au moins une mauvaise note.</p>
                     
+                    ${npsSection}
                     ${depotSections}
                     ${unassignedDriversSection}
                   </td>
@@ -293,11 +333,11 @@ const generateQualityEmailBody = (
   return body;
 };
 
-const QualityEmailGenerator = ({ summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary }: QualityEmailGeneratorProps) => {
+const QualityEmailGenerator = ({ summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary, npsSummary }: QualityEmailGeneratorProps) => {
 
   const handleSendEmail = () => {
-    const subject = "Rapport de Synthèse de la Qualité (Focus sur les Mauvaises Notes)";
-    const body = generateQualityEmailBody(summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary);
+    const subject = "Rapport de Synthèse de la Qualité (Focus sur les Mauvaises Notes & NPS)";
+    const body = generateQualityEmailBody(summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary, npsSummary);
     
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
@@ -316,7 +356,7 @@ const QualityEmailGenerator = ({ summaryByDepot, summaryByCarrier, summaryByDriv
         </DialogHeader>
         <div 
           className="max-h-[70vh] overflow-y-auto p-4 border rounded-md"
-          dangerouslySetInnerHTML={{ __html: generateQualityEmailBody(summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary) }}
+          dangerouslySetInnerHTML={{ __html: generateQualityEmailBody(summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary, npsSummary) }}
         />
         <DialogFooter>
           <Button onClick={handleSendEmail}>Envoyer l'Email</Button>

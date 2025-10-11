@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MergedData, SuiviCommentaire } from '@/lib/types';
 import { useMemo } from 'react';
-import { getCarrierFromDriverName } from '@/lib/utils';
+import { getCarrierFromDriverName, cn } from '@/lib/utils';
 import { CommentCategory, categorizeComment, commentCategories } from '@/lib/comment-categorization';
 import GlobalCommentView from './GlobalCommentView';
 import { CategorizedComment } from './CommentCategorizationTable';
@@ -26,6 +26,30 @@ interface QualitySummaryProps {
     savedCategorizedComments: CategorizedComment[];
     uncategorizedCommentsForSummary: any[];
 }
+
+const calculateNps = (notes: (number | null | undefined)[]) => {
+    const validNotes = notes.filter(n => n !== null && n !== undefined) as number[];
+    if (validNotes.length === 0) {
+        return { nps: 0, promoters: 0, passives: 0, detractors: 0, total: 0, promoterPercent: '0.0', detractorPercent: '0.0', passivePercent: '0.0' };
+    }
+    const promoters = validNotes.filter(n => n >= 9).length;
+    const detractors = validNotes.filter(n => n <= 6).length;
+    const total = validNotes.length;
+    const promoterPercent = (promoters / total) * 100;
+    const detractorPercent = (detractors / total) * 100;
+    const passivePercent = 100 - promoterPercent - detractorPercent;
+    const nps = Math.round(promoterPercent - detractorPercent);
+    return { 
+        nps, 
+        promoters, 
+        passives: total - promoters - detractors, 
+        detractors, 
+        total,
+        promoterPercent: promoterPercent.toFixed(1),
+        detractorPercent: detractorPercent.toFixed(1),
+        passivePercent: passivePercent.toFixed(1)
+    };
+};
 
 const QualitySummary = ({ data, processedActions, savedCategorizedComments, uncategorizedCommentsForSummary }: QualitySummaryProps) => {
 
@@ -75,6 +99,15 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
   const allDataWithNotes = useMemo(() => {
     return data.filter(d => d.notation != null);
   }, [data]);
+  
+  const verbatimsData = useMemo(() => {
+    return data.filter(item => item.verbatimData && item.verbatimData.noteRecommandation !== null);
+  }, [data]);
+
+  const npsSummary = useMemo(() => {
+    const allNotes = verbatimsData.map(d => d.verbatimData?.noteRecommandation);
+    return calculateNps(allNotes);
+  }, [verbatimsData]);
 
 
   const summaryByDepot = useMemo(() => {
@@ -269,8 +302,31 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
           summaryByDriver={summaryByDriver}
           unassignedDrivers={unassignedDrivers}
           allCommentsForSummary={allCommentsForSummary}
+          npsSummary={npsSummary}
         />
       </div>
+
+        {npsSummary.total > 0 && (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Synthèse Net Promoter Score (NPS)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                     <div className="flex justify-around items-center gap-8 p-4 bg-muted rounded-lg">
+                        <div className="text-center">
+                            <p className="text-sm text-muted-foreground">NPS Global</p>
+                            <p className={cn("text-5xl font-bold", npsSummary.nps > 0 ? 'text-green-600' : 'text-red-600')}>{npsSummary.nps}</p>
+                        </div>
+                        <div className="text-sm space-y-1">
+                            <p>Total des réponses : <strong>{npsSummary.total}</strong></p>
+                            <p>Promoteurs (9-10) : <strong className="text-green-600">{npsSummary.promoters} ({npsSummary.promoterPercent}%)</strong></p>
+                            <p>Passifs (7-8) : <strong className="text-yellow-600">{npsSummary.passives} ({npsSummary.passivePercent}%)</strong></p>
+                            <p>Détracteurs (0-6) : <strong className="text-red-600">{npsSummary.detractors} ({npsSummary.detractorPercent}%)</strong></p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        )}
 
       <GlobalCommentView 
         processedActions={processedActions}
