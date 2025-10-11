@@ -20,6 +20,7 @@ interface Summary {
   negativeRatingsCount: number;
   averageRating: string;
   commentCount: number;
+  nps: number;
 }
 
 interface CarrierSummary {
@@ -29,6 +30,7 @@ interface CarrierSummary {
     averageRating: string;
     negativeRatingsCount: number;
     commentCount: number;
+    nps: number;
 }
 
 interface DriverSummary {
@@ -66,6 +68,21 @@ interface QualityEmailGeneratorProps {
   npsSummary: NpsSummary;
 }
 
+const getRatingColor = (rating: string) => {
+    const numericRating = parseFloat(rating);
+    if (isNaN(numericRating)) return '#333'; // Default color
+    if (numericRating < 4.71) return '#dc3545'; // Red
+    if (numericRating < 4.8) return '#ffc107'; // Yellow
+    return '#28a745'; // Green
+};
+
+const getNpsColor = (nps: number) => {
+    if (nps < 60) return '#dc3545'; // Red
+    if (nps < 70) return '#ffc107'; // Yellow
+    return '#28a745'; // Green
+};
+
+
 const generateQualityEmailBody = (
     summaryByDepot: Summary[],
     summaryByCarrier: CarrierSummary[],
@@ -86,7 +103,7 @@ const generateQualityEmailBody = (
                     <td style="padding: 15px; text-align: center; border: 1px solid #ddd; border-radius: 8px;">
                         <span style="font-size: 14px; color: #555;">NPS Global</span>
                         <br>
-                        <strong style="font-size: 48px; color: ${npsSummary.nps > 0 ? '#28a745' : '#dc3545'}; line-height: 1.2;">${npsSummary.nps}</strong>
+                        <strong style="font-size: 48px; color: ${npsSummary.nps >= 50 ? '#28a745' : npsSummary.nps >= 0 ? '#ffc107' : '#dc3545'}; line-height: 1.2;">${npsSummary.nps}</strong>
                     </td>
                     <td style="padding-left: 20px;">
                         <table role="presentation" border="0" cellpadding="5" cellspacing="0" width="100%">
@@ -111,7 +128,6 @@ const generateQualityEmailBody = (
 
     if (depotSummary && depotSummary.negativeRatingsCount > 0) {
       
-      // --- Start: Depot-specific Category Summary Calculation ---
       const commentsForDepot = allCommentsForSummary.filter(c => c.depot === depot);
       const categoryCounts: Record<CommentCategory, number> = commentCategories.reduce((acc, cat) => {
         acc[cat] = 0;
@@ -158,8 +174,7 @@ const generateQualityEmailBody = (
           </table>
         </div>
       ` : '';
-      // --- End: Depot-specific Category Summary Calculation ---
-
+     
       const summaryCard = `
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px;">
           <tr>
@@ -167,19 +182,24 @@ const generateQualityEmailBody = (
               <table role="presentation" border="0" cellpadding="5" cellspacing="0" width="100%">
                 <tr>
                   <td align="center" style="padding: 10px;">
-                    <strong style="font-size: 20px; color: #005A9C; line-height: 1.2;">${depotSummary?.totalRatings ?? 0}</strong>
+                    <strong style="font-size: 20px; color: ${getNpsColor(depotSummary?.nps ?? 0)}; line-height: 1.2;">${depotSummary?.nps ?? 'N/A'}</strong>
                     <br>
-                    <span style="font-size: 14px; color: #555;">Total des notes</span>
+                    <span style="font-size: 14px; color: #555;">NPS</span>
+                  </td>
+                  <td align="center" style="padding: 10px;">
+                    <strong style="font-size: 20px; color: ${getRatingColor(depotSummary?.averageRating ?? '0')}; line-height: 1.2;">${depotSummary?.averageRating ?? 'N/A'}</strong>
+                    <br>
+                    <span style="font-size: 14px; color: #555;">Note moyenne</span>
                   </td>
                   <td align="center" style="padding: 10px;">
                     <strong style="font-size: 20px; color: #005A9C; line-height: 1.2;">${depotSummary?.negativeRatingsCount ?? 0}</strong>
                     <br>
                     <span style="font-size: 14px; color: #555;">Mauvaises notes (≤ 3)</span>
                   </td>
-                  <td align="center" style="padding: 10px;">
-                    <strong style="font-size: 20px; color: #005A9C; line-height: 1.2;">${depotSummary?.averageRating ?? 'N/A'}</strong>
+                   <td align="center" style="padding: 10px;">
+                    <strong style="font-size: 20px; color: #005A9C; line-height: 1.2;">${depotSummary?.totalRatings ?? 0}</strong>
                     <br>
-                    <span style="font-size: 14px; color: #555;">Note moyenne</span>
+                    <span style="font-size: 14px; color: #555;">Total des notes</span>
                   </td>
                   <td align="center" style="padding: 10px;">
                     <strong style="font-size: 20px; color: #005A9C; line-height: 1.2;">${depotSummary?.commentCount ?? 0}</strong>
@@ -197,15 +217,15 @@ const generateQualityEmailBody = (
       const thStyles = `padding: 12px 15px; text-align: left; background-color: #005A9C; color: #ffffff; font-weight: bold; text-transform: uppercase; font-size: 12px; border-style: none;`;
       const tdStyles = (index: number) => `padding: 12px 15px; background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; border-style: none; border-top: 1px solid #dddddd;`;
 
-
       const carrierTable = carriersForDepot.length > 0 ? `
         <h3 style="color: #333; font-size: 18px; margin-top: 25px; margin-bottom: 10px;">Détail par Transporteur</h3>
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="${tableStyles}">
           <thead>
             <tr>
               <th style="${thStyles}">Transporteur (Total Notes)</th>
-              <th style="${thStyles}">Nb. Mauvaises Notes</th>
+              <th style="${thStyles}">NPS</th>
               <th style="${thStyles}">Note Moyenne</th>
+              <th style="${thStyles}">Nb. Mauvaises Notes</th>
               <th style="${thStyles}">Nb. Commentaires</th>
             </tr>
           </thead>
@@ -213,8 +233,9 @@ const generateQualityEmailBody = (
             ${carriersForDepot.map((s, index) => `
               <tr>
                 <td style="${tdStyles(index)}">${s.carrier} (${s.totalRatings})</td>
+                <td style="font-weight:bold; color: ${getNpsColor(s.nps)}; ${tdStyles(index)}">${s.nps}</td>
+                <td style="font-weight:bold; color: ${getRatingColor(s.averageRating)}; ${tdStyles(index)}">${s.averageRating}</td>
                 <td style="${tdStyles(index)}">${s.negativeRatingsCount}</td>
-                <td style="${tdStyles(index)}">${s.averageRating}</td>
                 <td style="${tdStyles(index)}">${s.commentCount}</td>
               </tr>
             `).join('')}
@@ -229,8 +250,8 @@ const generateQualityEmailBody = (
             <tr>
               <th style="${thStyles}">Transporteur</th>
               <th style="${thStyles}">Livreur (Total Notes)</th>
-              <th style="${thStyles}">Nb. Mauvaises Notes</th>
               <th style="${thStyles}">Note Moyenne</th>
+              <th style="${thStyles}">Nb. Mauvaises Notes</th>
               <th style="${thStyles}">Catégories de Commentaires</th>
             </tr>
           </thead>
@@ -239,8 +260,8 @@ const generateQualityEmailBody = (
               <tr>
                 <td style="${tdStyles(index)}">${s.carrier}</td>
                 <td style="${tdStyles(index)}">${s.driver} (${s.totalRatings})</td>
+                <td style="font-weight:bold; color: ${getRatingColor(s.averageRating)}; ${tdStyles(index)}">${s.averageRating}</td>
                 <td style="${tdStyles(index)}">${s.negativeRatingsCount}</td>
-                <td style="${tdStyles(index)}">${s.averageRating}</td>
                 <td style="${tdStyles(index)}">${s.categorySummary}</td>
               </tr>
             `).join('')}
@@ -299,7 +320,6 @@ const generateQualityEmailBody = (
                 <!-- Header -->
                 <tr>
                   <td style="text-align: center; padding: 20px; border-bottom: 2px solid #005A9C;">
-                    <img src="https://www.corp-visuels.com/fr/wp-content/uploads/2018/01/logo-la-poste-2012.png" alt="Logo" style="max-width: 150px; margin-bottom: 10px;">
                     <h1 style="color: #00338D; font-size: 26px; margin: 0;">Rapport de Synthèse de la Qualité</h1>
                     <span style="font-size: 16px; color: #555;">(Focus sur les Mauvaises Notes & NPS)</span>
                   </td>
@@ -320,7 +340,6 @@ const generateQualityEmailBody = (
                   <td style="padding: 30px; text-align: center; font-style: italic; color: #888; font-size: 12px;">
                     <p style="margin: 0;">Cordialement,</p>
                     <p style="margin: 5px 0;">L'équipe Analyse de Données</p>
-                    <p style="margin: 0;">&copy; ${new Date().getFullYear()} Votre Entreprise. Tous droits réservés.</p>
                   </td>
                 </tr>
               </table>
