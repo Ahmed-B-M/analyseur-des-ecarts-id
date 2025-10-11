@@ -204,8 +204,10 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
               }
             }
 
-            if (internalState.filters.depot && getNomDepot(item.tournee.entrepot) !== internalState.filters.depot) return false;
-            if (internalState.filters.entrepot && item.tournee.entrepot !== internalState.filters.entrepot) return false;
+            if (internalState.filters.depots && internalState.filters.depots.length > 0 && !internalState.filters.depots.includes(getNomDepot(item.tournee.entrepot))) return false;
+            if (internalState.filters.warehouses && internalState.filters.warehouses.length > 0 && !internalState.filters.warehouses.includes(item.tournee.entrepot)) return false;
+            if (internalState.filters.carriers && internalState.filters.carriers.length > 0 && (!item.carrier || !internalState.filters.carriers.includes(item.carrier))) return false;
+
             if (internalState.filters.city && item.ville !== internalState.filters.city) return false;
             if (internalState.filters.codePostal && item.codePostal !== internalState.filters.codePostal) return false;
             if (internalState.filters.heure && new Date(item.heureCloture * 1000).getUTCHours() !== parseInt(internalState.filters.heure)) return false;
@@ -217,9 +219,6 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
                 if(madSet.has(madKey)) return false;
             }
             
-            // Carrier filter
-            if (internalState.filters.carrier && item.carrier !== internalState.filters.carrier) return false;
-
             // Driver name filter
             if (internalState.filters.driverName) {
                 const driverName = item.tournee.livreur.toLowerCase();

@@ -1,13 +1,6 @@
 
 'use client';
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +14,14 @@ import { Button } from '../ui/button';
 import MadDelayManager from './MadDelayManager';
 import { useState } from 'react';
 import { MergedData } from '@/lib/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { MultiSelect } from '../ui/multi-select';
 
 interface FilterBarProps {
   filters: Record<string, any>;
@@ -47,7 +48,7 @@ export default function FilterBar({
 
   const handleFilterChange = (key: string, value: any) => {
     const newFilters = { ...filters };
-    if (value === ALL_ITEMS_VALUE || value === '' || value === undefined) {
+    if (value === ALL_ITEMS_VALUE || (Array.isArray(value) && value.length === 0) || value === '' || value === undefined) {
         delete newFilters[key];
     } else {
         newFilters[key] = value;
@@ -83,13 +84,14 @@ export default function FilterBar({
 
   const activeFilters = Object.keys(filters).filter(key => 
     !['punctualityThreshold', 'madDelays', 'lateTourTolerance', 'driverNameFilterType'].includes(key) && 
-    filters[key] !== undefined && filters[key] !== null && filters[key] !== false && filters[key] !== ''
+    filters[key] !== undefined && filters[key] !== null && filters[key] !== false && filters[key] !== '' && (!Array.isArray(filters[key]) || filters[key].length > 0)
   );
   
   const getFilterLabel = (key: string) => {
       switch(key) {
-          case 'depot': return 'Dépôt';
-          case 'entrepot': return 'Entrepôt';
+          case 'depots': return 'Dépôts';
+          case 'warehouses': return 'Entrepôts';
+          case 'carriers': return 'Transporteurs';
           case 'selectedDate': return 'Date';
           case 'dateRange': return 'Période';
           case 'city': return 'Ville';
@@ -98,7 +100,6 @@ export default function FilterBar({
           case 'tours100Mobile': return '100% Mobile';
           case 'excludeMadDelays': return 'Exclure MAD';
           case 'topPostalCodes': return 'Top Codes Postaux';
-          case 'carrier': return 'Transporteur';
           case 'driverName': return 'Nom du livreur';
           default: return key;
       }
@@ -135,6 +136,9 @@ export default function FilterBar({
       if (key === 'driverName') {
         return `${filters.driverNameFilterType === 'suffix' ? 'Suffixe' : 'Préfixe'}: ${value}`;
       }
+       if (Array.isArray(value)) {
+        return value.join(', ');
+      }
       return value;
   }
 
@@ -146,59 +150,40 @@ export default function FilterBar({
           <DateRangePicker 
             onDateChange={(range) => handleFilterChange('dateRange', range)}
             date={filters.dateRange}
-            disabled={!!filters.selectedDate}
           />
         </div>
         <div>
-          <Label htmlFor="depot-select">Dépôt</Label>
-          <Select
-            value={filters.depot || ALL_ITEMS_VALUE}
-            onValueChange={(value) => handleFilterChange('depot', value)}
-          >
-            <SelectTrigger id="depot-select">
-              <SelectValue placeholder="Tous les dépôts" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_ITEMS_VALUE}>Tous les dépôts</SelectItem>
-              {depots.map(depot => (
-                <SelectItem key={depot} value={depot}>{depot}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="depot-select">Dépôt(s)</Label>
+          <MultiSelect
+            id="depot-select"
+            options={depots.map(d => ({ label: d, value: d }))}
+            selected={filters.depots || []}
+            onChange={(selected) => handleFilterChange('depots', selected)}
+            placeholder="Tous les dépôts"
+            className="w-full"
+          />
         </div>
         <div>
-          <Label htmlFor="warehouse-select">Entrepôt</Label>
-           <Select
-            value={filters.entrepot || ALL_ITEMS_VALUE}
-            onValueChange={(value) => handleFilterChange('entrepot', value)}
-          >
-            <SelectTrigger id="warehouse-select">
-              <SelectValue placeholder="Tous les entrepôts" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_ITEMS_VALUE}>Tous les entrepôts</SelectItem>
-              {warehouses.map(warehouse => (
-                <SelectItem key={warehouse} value={warehouse}>{warehouse}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="warehouse-select">Entrepôt(s)</Label>
+           <MultiSelect
+            id="warehouse-select"
+            options={warehouses.map(w => ({ label: w, value: w }))}
+            selected={filters.warehouses || []}
+            onChange={(selected) => handleFilterChange('warehouses', selected)}
+            placeholder="Tous les entrepôts"
+            className="w-full"
+          />
         </div>
          <div>
-          <Label htmlFor="carrier-select">Transporteur</Label>
-           <Select
-            value={filters.carrier || ALL_ITEMS_VALUE}
-            onValueChange={(value) => handleFilterChange('carrier', value)}
-          >
-            <SelectTrigger id="carrier-select">
-              <SelectValue placeholder="Tous les transporteurs" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_ITEMS_VALUE}>Tous les transporteurs</SelectItem>
-              {carriers.map(carrier => (
-                <SelectItem key={carrier} value={carrier}>{carrier}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="carrier-select">Transporteur(s)</Label>
+           <MultiSelect
+            id="carrier-select"
+            options={carriers.map(c => ({ label: c, value: c }))}
+            selected={filters.carriers || []}
+            onChange={(selected) => handleFilterChange('carriers', selected)}
+            placeholder="Tous les transporteurs"
+            className="w-full"
+          />
         </div>
         <div>
           <Label htmlFor="city-select">Ville</Label>
