@@ -49,7 +49,6 @@ function MultiSelect({
     } else {
       onChange([...selected, value]);
     }
-    setInputValue(''); // Reset input after selection
   };
 
   const filteredOptions = React.useMemo(() => {
