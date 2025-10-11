@@ -40,6 +40,24 @@ function MultiSelect({
   placeholder = 'Select options',
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
+  const [inputValue, setInputValue] = React.useState('');
+
+  const handleSelect = (value: string) => {
+    const isSelected = selected.includes(value);
+    if (isSelected) {
+      onChange(selected.filter((v) => v !== value));
+    } else {
+      onChange([...selected, value]);
+    }
+    setInputValue(''); // Reset input after selection
+  };
+
+  const filteredOptions = React.useMemo(() => {
+    if (!inputValue) return options;
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(inputValue.toLowerCase())
+    );
+  }, [options, inputValue]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -48,7 +66,10 @@ function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn('w-full justify-between h-auto min-h-10', className)}
+          className={cn(
+            'w-full justify-between h-auto min-h-10',
+            className
+          )}
           onClick={() => setOpen(!open)}
         >
           <div className="flex gap-1 flex-wrap">
@@ -77,25 +98,21 @@ function MultiSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-        <Command>
-          <CommandInput placeholder="Rechercher..." />
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Rechercher..."
+            value={inputValue}
+            onValueChange={setInputValue}
+          />
           <CommandList>
             <CommandEmpty>Aucun résultat.</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}
-                  onSelect={(currentValue) => {
-                    const isSelected = selected.includes(currentValue);
-                    if (isSelected) {
-                      onChange(selected.filter((v) => v !== currentValue));
-                    } else {
-                      onChange([...selected, currentValue]);
-                    }
-                    setOpen(true);
-                  }}
-                >
+                  onSelect={handleSelect}
+                  >
                   <Check
                     className={cn(
                       'mr-2 h-4 w-4',
