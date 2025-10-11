@@ -57,14 +57,10 @@ function logisticsReducer(state: State, action: Action): State {
   switch (action.type) {
     case 'ADD_FILES':
       const fileKey = action.fileType === 'tournees' ? 'tourneesFiles' : action.fileType === 'taches' ? 'tachesFiles' : 'verbatimsFile';
-      const isSingleFile = action.fileType === 'verbatims';
-
+      
       const existingFiles = new Set(state[fileKey].map(f => f.name));
       const newFiles = action.files.filter(f => !existingFiles.has(f.name));
       
-      if (isSingleFile) {
-        return { ...state, [fileKey]: newFiles.length > 0 ? [newFiles[0]] : state[fileKey] };
-      }
       return { ...state, [fileKey]: [...state[fileKey], ...newFiles] };
 
     case 'REMOVE_FILE':
@@ -153,7 +149,7 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
       worker.postMessage({
         tourneesFiles: internalState.tourneesFiles,
         tachesFiles: internalState.tachesFiles,
-        verbatimsFile: internalState.verbatimsFile.length > 0 ? internalState.verbatimsFile[0] : null,
+        verbatimsFiles: internalState.verbatimsFile, // Pass the array of verbatim files
       });
     }
   }, [internalState.isLoading, internalState.tourneesFiles, internalState.tachesFiles, internalState.verbatimsFile, worker]);

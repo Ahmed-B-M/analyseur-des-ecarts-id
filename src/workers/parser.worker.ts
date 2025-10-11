@@ -261,7 +261,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches' | 'verbati
 
 self.addEventListener('message', async (event: MessageEvent) => {
   try {
-    const { tourneesFiles, tachesFiles, verbatimsFile } = event.data;
+    const { tourneesFiles, tachesFiles, verbatimsFiles } = event.data;
 
     // Process tournees
     const allTourneesMap = new Map<string, any>();
@@ -325,14 +325,22 @@ self.addEventListener('message', async (event: MessageEvent) => {
     }
 
     // Process verbatims (optional)
-    let verbatims: VerbatimData[] = [];
-    if (verbatimsFile) {
-        const buffer = await verbatimsFile.arrayBuffer();
-        const wb = XLSX.read(buffer, { type: 'buffer' });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-        verbatims = normalizeData(json, 'verbatims');
+    let allVerbatimsMap = new Map<string, any>();
+    if (verbatimsFiles && verbatimsFiles.length > 0) {
+        for (const file of verbatimsFiles) {
+            const buffer = await file.arrayBuffer();
+            const wb = XLSX.read(buffer, { type: 'buffer' });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+            const normalizedVerbatims = normalizeData(json, 'verbatims');
+            for (const v of normalizedVerbatims) {
+                if (!allVerbatimsMap.has(v.idTache)) {
+                    allVerbatimsMap.set(v.idTache, v);
+                }
+            }
+        }
     }
+    const verbatims = Array.from(allVerbatimsMap.values());
     
     self.postMessage({ type: 'success', data: { tournees, taches, verbatims } });
 
