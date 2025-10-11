@@ -40,6 +40,7 @@ export type Tache = {
   tourneeUniqueId: string;
   nomTournee: string;
   date: string; // YYY3-MM-DD
+  idTache: string;
   entrepot: string;
   livreur?: string;
   sequence?: number;
