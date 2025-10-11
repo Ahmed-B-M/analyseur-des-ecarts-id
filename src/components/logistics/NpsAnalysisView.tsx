@@ -15,13 +15,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const ITEMS_PER_PAGE = 25;
 
-type NpsCategory = 'Promoter' | 'Passive' | 'Detractor';
+type NpsCategory = 'Promoteur' | 'Passif' | 'Détracteur';
 
 const getNpsCategory = (note: number | null): NpsCategory | null => {
     if (note === null || note === undefined) return null;
-    if (note >= 9) return 'Promoter';
-    if (note >= 7) return 'Passive';
-    return 'Detractor';
+    if (note >= 9) return 'Promoteur';
+    if (note >= 7) return 'Passif';
+    return 'Détracteur';
 };
 
 const calculateNps = (notes: (number | null | undefined)[]) => {
@@ -283,9 +283,9 @@ export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
                             <TableCell>
                                 {npsCategory && (
                                     <Badge className={cn({
-                                        'bg-green-600 hover:bg-green-700 text-white': npsCategory === 'Promoter',
-                                        'bg-yellow-500 hover:bg-yellow-600 text-white': npsCategory === 'Passive',
-                                        'bg-red-600 hover:bg-red-700 text-white': npsCategory === 'Detractor',
+                                        'bg-green-600 hover:bg-green-700 text-white': npsCategory === 'Promoteur',
+                                        'bg-yellow-500 hover:bg-yellow-600 text-white': npsCategory === 'Passif',
+                                        'bg-red-600 hover:bg-red-700 text-white': npsCategory === 'Détracteur',
                                     })}>
                                         {npsCategory}
                                     </Badge>
