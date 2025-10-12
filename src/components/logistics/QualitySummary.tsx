@@ -19,6 +19,10 @@ import GlobalCommentView from './GlobalCommentView';
 import { CategorizedComment } from './CommentCategorizationTable';
 import QualityEmailGenerator from './QualityEmailGenerator';
 import { getNomDepot } from '@/lib/config-depots';
+import { useLogistics } from '@/context/LogisticsContext';
+import { format, parseISO } from 'date-fns';
+import { fr } from 'date-fns/locale';
+
 
 interface QualitySummaryProps {
     data: MergedData[];
@@ -52,6 +56,30 @@ const calculateNps = (notes: (number | null | undefined)[]) => {
 };
 
 const QualitySummary = ({ data, processedActions, savedCategorizedComments, uncategorizedCommentsForSummary }: QualitySummaryProps) => {
+  const { state } = useLogistics();
+  const { filters, rawData } = state;
+
+  const dateRangeString = useMemo(() => {
+    if (filters.dateRange) {
+        const { from, to } = filters.dateRange;
+        if (from && to) {
+            return `du ${format(from, 'd MMMM yyyy', { locale: fr })} au ${format(to, 'd MMMM yyyy', { locale: fr })}`;
+        } else if (from) {
+            return `depuis le ${format(from, 'd MMMM yyyy', { locale: fr })}`;
+        } else if (to) {
+            return `jusqu'au ${format(to, 'd MMMM yyyy', { locale: fr })}`;
+        }
+    }
+    if (rawData && rawData.length > 0) {
+        const dates = rawData.map(d => parseISO(d.date)).filter(d => !isNaN(d.getTime()));
+        if (dates.length > 0) {
+            const minDate = new Date(Math.min.apply(null, dates as any));
+            const maxDate = new Date(Math.max.apply(null, dates as any));
+            return `du ${format(minDate, 'd MMMM yyyy', { locale: fr })} au ${format(maxDate, 'd MMMM yyyy', { locale: fr })}`;
+        }
+    }
+    return 'période sélectionnée';
+  }, [filters.dateRange, rawData]);
 
   const allCommentsForSummary = useMemo(() => {
     const allCategorized = [...savedCategorizedComments, ...uncategorizedCommentsForSummary];
@@ -356,6 +384,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
           unassignedDrivers={unassignedDrivers}
           allCommentsForSummary={allCommentsForSummary}
           npsSummary={npsSummary}
+          dateRangeString={dateRangeString}
+          selectedDepots={filters.depots || []}
         />
       </div>
 

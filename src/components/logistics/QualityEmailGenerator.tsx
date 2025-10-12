@@ -73,6 +73,8 @@ interface QualityEmailGeneratorProps {
   unassignedDrivers: UnassignedDriver[];
   allCommentsForSummary: { id: string, comment: string, category: CommentCategory, depot: string }[];
   npsSummary: NpsSummary;
+  dateRangeString: string;
+  selectedDepots: string[];
 }
 
 const getRatingColor = (rating: string) => {
@@ -102,9 +104,16 @@ const generateQualityEmailBody = (
     summaryByDriver: DriverSummary[],
     unassignedDrivers: UnassignedDriver[],
     allCommentsForSummary: QualityEmailGeneratorProps['allCommentsForSummary'],
-    npsSummary: NpsSummary
+    npsSummary: NpsSummary,
+    dateRangeString: string,
+    selectedDepots: string[]
 ) => {
   const depots = summaryByDepot.map(s => s.depot);
+  
+  const depotsString = selectedDepots.length > 0 ? selectedDepots.join(', ') : 'tous dépôts';
+
+  const title = `Rapport Qualité - ${depotsString} - ${dateRangeString}`;
+  const introSentence = `Veuillez trouver ci-dessous les synthèses de la qualité pour ${depotsString} pour la période ${dateRangeString}, en se concentrant sur les entités avec au moins une mauvaise note.`;
 
   let npsSection = '';
   if (npsSummary && npsSummary.total > 0) {
@@ -346,7 +355,7 @@ const generateQualityEmailBody = (
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Rapport de Synthèse de la Qualité</title>
+        <title>${title}</title>
         <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
       </head>
       <body style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f7f6;">
@@ -368,7 +377,7 @@ const generateQualityEmailBody = (
                       <tr>
                         <td>
                           <p style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333;">Bonjour,</p>
-                          <p style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333;">Veuillez trouver ci-dessous les synthèses de la qualité par dépôt pour la période sélectionnée, en se concentrant sur les entités avec au moins une mauvaise note.</p>
+                          <p style="font-family: 'Roboto', Arial, sans-serif; line-height: 1.6; color: #333;">${introSentence}</p>
                         </td>
                       </tr>
                       ${npsSection}
@@ -391,16 +400,17 @@ const generateQualityEmailBody = (
       </body>
     </html>
   `;
-  return body;
+  return {body, subject: title};
 };
 
-const QualityEmailGenerator = ({ summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary, npsSummary }: QualityEmailGeneratorProps) => {
+const QualityEmailGenerator = ({ summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary, npsSummary, dateRangeString, selectedDepots }: QualityEmailGeneratorProps) => {
+
+  const { body: emailBody, subject: emailSubject } = useMemo(() => {
+    return generateQualityEmailBody(summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary, npsSummary, dateRangeString, selectedDepots);
+  }, [summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary, npsSummary, dateRangeString, selectedDepots]);
 
   const handleSendEmail = () => {
-    const subject = "Rapport de Synthèse de la Qualité (Focus sur les Mauvaises Notes & NPS)";
-    const body = generateQualityEmailBody(summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary, npsSummary);
-    
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
   };
 
   return (
@@ -417,7 +427,7 @@ const QualityEmailGenerator = ({ summaryByDepot, summaryByCarrier, summaryByDriv
         </DialogHeader>
         <div 
           className="max-h-[70vh] overflow-y-auto p-4 border rounded-md"
-          dangerouslySetInnerHTML={{ __html: generateQualityEmailBody(summaryByDepot, summaryByCarrier, summaryByDriver, unassignedDrivers, allCommentsForSummary, npsSummary) }}
+          dangerouslySetInnerHTML={{ __html: emailBody }}
         />
         <DialogFooter>
           <Button onClick={handleSendEmail}>Envoyer l'Email</Button>
