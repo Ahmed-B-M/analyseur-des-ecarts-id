@@ -22,6 +22,7 @@ interface Summary {
   commentCount: number;
   nps: number;
   punctuality: number;
+  npsTotal: number;
 }
 
 interface CarrierSummary {
@@ -33,6 +34,7 @@ interface CarrierSummary {
     commentCount: number;
     nps: number;
     punctuality: number;
+    npsTotal: number;
 }
 
 interface DriverSummary {
@@ -45,6 +47,7 @@ interface DriverSummary {
     categorySummary: { name: string; count: number; isAttitude: boolean }[];
     nps: number;
     punctuality: number;
+    npsTotal: number;
 }
 
 interface UnassignedDriver {
@@ -190,7 +193,7 @@ const generateQualityEmailBody = (
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px;">
           <tr>
             <td align="center" style="padding: 10px;">
-              <strong style="font-family: 'Roboto', Arial, sans-serif; font-size: 24px; color: ${getNpsColor(depotSummary?.nps ?? 0)}; line-height: 1.2;">${depotSummary?.nps ?? 'N/A'}</strong>
+              <strong style="font-family: 'Roboto', Arial, sans-serif; font-size: 24px; color: ${getNpsColor(depotSummary?.nps ?? 0)}; line-height: 1.2;">${depotSummary?.npsTotal ? depotSummary?.nps : 'N/A'}</strong>
               <br><span style="font-family: 'Roboto', Arial, sans-serif; font-size: 14px; color: #555;">NPS</span>
             </td>
              <td align="center" style="padding: 10px;">
@@ -237,7 +240,7 @@ const generateQualityEmailBody = (
             ${carriersForDepot.map((s, index) => `
               <tr>
                 <td style="${tdStyles(index)}">${s.carrier} (${s.totalRatings})</td>
-                <td style="font-weight:bold; color: ${getNpsColor(s.nps)}; ${tdStyles(index)}">${s.nps}</td>
+                <td style="font-weight:bold; color: ${getNpsColor(s.nps)}; ${tdStyles(index)}">${s.npsTotal ? s.nps : 'N/A'}</td>
                 <td style="font-weight:bold; color: ${getPunctualityColor(s.punctuality)}; ${tdStyles(index)}">${s.punctuality.toFixed(1)}%</td>
                 <td style="font-weight:bold; color: ${getRatingColor(s.averageRating)}; ${tdStyles(index)}">${s.averageRating}</td>
                 <td style="${tdStyles(index)}">${s.negativeRatingsCount}</td>
@@ -267,7 +270,7 @@ const generateQualityEmailBody = (
               <tr>
                 <td style="${tdStyles(index)}">${s.carrier}</td>
                 <td style="${tdStyles(index)}">${s.driver} (${s.totalRatings})</td>
-                <td style="font-weight:bold; color: ${getNpsColor(s.nps)}; ${tdStyles(index)}">${s.nps}</td>
+                <td style="font-weight:bold; color: ${getNpsColor(s.nps)}; ${tdStyles(index)}">${s.npsTotal ? s.nps : 'N/A'}</td>
                 <td style="font-weight:bold; color: ${getPunctualityColor(s.punctuality)}; ${tdStyles(index)}">${s.punctuality.toFixed(1)}%</td>
                 <td style="font-weight:bold; color: ${getRatingColor(s.averageRating)}; ${tdStyles(index)}">${s.averageRating}</td>
                 <td style="${tdStyles(index)}">${s.negativeRatingsCount}</td>

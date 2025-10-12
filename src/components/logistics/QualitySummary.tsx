@@ -164,7 +164,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
           averageRating: (depotAllStats?.ratedTasksCount || 0) > 0 ? (depotAllStats.totalRatingValue / depotAllStats.ratedTasksCount).toFixed(2) : 'N/A',
           commentCount: commentCounts[depot] || 0,
           nps: depotNps.nps,
-          punctuality: (depotAllStats?.totalTasks || 0) > 0 ? (depotAllStats.onTimeTasks / depotAllStats.totalTasks) * 100 : 0
+          punctuality: (depotAllStats?.totalTasks || 0) > 0 ? (depotAllStats.onTimeTasks / depotAllStats.totalTasks) * 100 : 0,
+          npsTotal: depotNps.total,
         }
       })
       .filter(item => item.negativeRatingsCount > 0)
@@ -175,7 +176,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
   const summaryByCarrier = useMemo(() => {
     const allDataGrouped = data.reduce((acc, curr) => {
       const depot = getNomDepot(curr.entrepot);
-      const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+      const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
       const key = `${depot}|${carrier}`;
       if (!acc[key]) {
         acc[key] = { totalRatingValue: 0, ratedTasksCount: 0, totalTasks: 0, onTimeTasks: 0 };
@@ -195,7 +196,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
     const commentCounts = allCommentsInData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
         const key = `${depot}|${carrier}`;
         acc[key] = (acc[key] || 0) + 1;
         return acc;
@@ -203,7 +204,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     
     const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
         const key = `${depot}|${carrier}`;
 
         if (!acc[key]) {
@@ -215,7 +216,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
     const npsByCarrier = verbatimsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
         const key = `${depot}|${carrier}`;
         if (!acc[key]) acc[key] = [];
         if (curr.verbatimData?.noteRecommandation !== null && curr.verbatimData?.noteRecommandation !== undefined) {
@@ -235,7 +236,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         averageRating: (allStats?.ratedTasksCount || 0) > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
         commentCount: commentCounts[key] || 0,
         nps: carrierNps.nps,
-        punctuality: (allStats?.totalTasks || 0) > 0 ? (allStats.onTimeTasks / allStats.totalTasks) * 100 : 0
+        punctuality: (allStats?.totalTasks || 0) > 0 ? (allStats.onTimeTasks / allStats.totalTasks) * 100 : 0,
+        npsTotal: carrierNps.total,
       }
     })
     .sort((a, b) => {
@@ -304,7 +306,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             averageRating: ratedTasks.length > 0 ? (totalRatingValue / ratedTasks.length).toFixed(2) : 'N/A',
             categorySummary,
             nps: driverNps.nps,
-            punctuality: totalTasks > 0 ? (onTimeTasks / totalTasks) * 100 : 0
+            punctuality: totalTasks > 0 ? (onTimeTasks / totalTasks) * 100 : 0,
+            npsTotal: driverNps.total,
         };
     })
     .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
@@ -398,8 +401,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
               <Table>
                 <TableHeader><TableRow><TableHead>Dépôt (Total Notes)</TableHead><TableHead>NPS</TableHead><TableHead>Ponctualité</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (sur toutes les notes)</TableHead><TableHead>Nb. Commentaires Associés</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {summaryByDepot.map(({ depot, totalRatings, negativeRatingsCount, averageRating, commentCount, nps, punctuality }) => (
-                    <TableRow key={depot}><TableCell>{depot} ({totalRatings})</TableCell><TableCell>{nps}</TableCell><TableCell>{punctuality.toFixed(1)}%</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
+                  {summaryByDepot.map(({ depot, totalRatings, negativeRatingsCount, averageRating, commentCount, nps, punctuality, npsTotal }) => (
+                    <TableRow key={depot}><TableCell>{depot} ({totalRatings})</TableCell><TableCell>{npsTotal ? nps : 'N/A'}</TableCell><TableCell>{punctuality.toFixed(1)}%</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
                   ))}
                 </TableBody>
               </Table>
@@ -408,8 +411,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
               <Table>
                 <TableHeader><TableRow><TableHead>Dépôt</TableHead><TableHead>Transporteur (Total Notes)</TableHead><TableHead>NPS</TableHead><TableHead>Ponctualité</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (sur toutes les notes)</TableHead><TableHead>Nb. Commentaires Associés</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {summaryByCarrier.map(({ depot, carrier, totalRatings, negativeRatingsCount, averageRating, commentCount, nps, punctuality }, index) => (
-                    <TableRow key={index}><TableCell>{depot}</TableCell><TableCell>{carrier} ({totalRatings})</TableCell><TableCell>{nps}</TableCell><TableCell>{punctuality.toFixed(1)}%</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
+                  {summaryByCarrier.map(({ depot, carrier, totalRatings, negativeRatingsCount, averageRating, commentCount, nps, punctuality, npsTotal }, index) => (
+                    <TableRow key={index}><TableCell>{depot}</TableCell><TableCell>{carrier} ({totalRatings})</TableCell><TableCell>{npsTotal ? nps : 'N/A'}</TableCell><TableCell>{punctuality.toFixed(1)}%</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
                   ))}
                 </TableBody>
               </Table>
@@ -429,12 +432,12 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summaryByDriver.map(({ depot, carrier, driver, totalRatings, negativeRatingsCount, averageRating, categorySummary, nps, punctuality }, index) => (
+                  {summaryByDriver.map(({ depot, carrier, driver, totalRatings, negativeRatingsCount, averageRating, categorySummary, nps, punctuality, npsTotal }, index) => (
                     <TableRow key={index}>
                       <TableCell>{depot}</TableCell>
                       <TableCell>{carrier}</TableCell>
                       <TableCell>{driver} ({totalRatings})</TableCell>
-                      <TableCell>{nps}</TableCell>
+                      <TableCell>{npsTotal ? nps : 'N/A'}</TableCell>
                       <TableCell>{punctuality.toFixed(1)}%</TableCell>
                       <TableCell>{negativeRatingsCount}</TableCell>
                       <TableCell>{averageRating}</TableCell>
