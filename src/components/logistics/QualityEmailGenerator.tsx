@@ -21,6 +21,7 @@ interface Summary {
   averageRating: string;
   commentCount: number;
   nps: number;
+  punctuality: number;
 }
 
 interface CarrierSummary {
@@ -31,6 +32,7 @@ interface CarrierSummary {
     negativeRatingsCount: number;
     commentCount: number;
     nps: number;
+    punctuality: number;
 }
 
 interface DriverSummary {
@@ -40,8 +42,9 @@ interface DriverSummary {
     totalRatings: number;
     averageRating: string;
     negativeRatingsCount: number;
-    categorySummary: string;
+    categorySummary: { name: string; count: number; isAttitude: boolean }[];
     nps: number;
+    punctuality: number;
 }
 
 interface UnassignedDriver {
@@ -80,6 +83,12 @@ const getRatingColor = (rating: string) => {
 const getNpsColor = (nps: number) => {
     if (nps < 60) return '#dc3545'; // Red
     if (nps < 70) return '#ffc107'; // Yellow
+    return '#28a745'; // Green
+};
+
+const getPunctualityColor = (punctuality: number) => {
+    if (punctuality < 91) return '#dc3545'; // Red
+    if (punctuality < 95) return '#ffc107'; // Yellow
     return '#28a745'; // Green
 };
 
@@ -184,6 +193,10 @@ const generateQualityEmailBody = (
               <strong style="font-family: 'Roboto', Arial, sans-serif; font-size: 24px; color: ${getNpsColor(depotSummary?.nps ?? 0)}; line-height: 1.2;">${depotSummary?.nps ?? 'N/A'}</strong>
               <br><span style="font-family: 'Roboto', Arial, sans-serif; font-size: 14px; color: #555;">NPS</span>
             </td>
+             <td align="center" style="padding: 10px;">
+              <strong style="font-family: 'Roboto', Arial, sans-serif; font-size: 24px; color: ${getPunctualityColor(depotSummary?.punctuality ?? 100)}; line-height: 1.2;">${depotSummary?.punctuality.toFixed(1) ?? 'N/A'}%</strong>
+              <br><span style="font-family: 'Roboto', Arial, sans-serif; font-size: 14px; color: #555;">Ponctualité</span>
+            </td>
             <td align="center" style="padding: 10px;">
               <strong style="font-family: 'Roboto', Arial, sans-serif; font-size: 24px; color: ${getRatingColor(depotSummary?.averageRating ?? '0')}; line-height: 1.2;">${depotSummary?.averageRating ?? 'N/A'}</strong>
               <br><span style="font-family: 'Roboto', Arial, sans-serif; font-size: 14px; color: #555;">Note moyenne</span>
@@ -214,6 +227,7 @@ const generateQualityEmailBody = (
             <tr>
               <th style="${thStyles}">Transporteur (Total Notes)</th>
               <th style="${thStyles}">NPS</th>
+              <th style="${thStyles}">Ponctualité</th>
               <th style="${thStyles}">Note Moyenne</th>
               <th style="${thStyles}">Nb. Mauvaises Notes</th>
               <th style="${thStyles}">Nb. Commentaires</th>
@@ -224,6 +238,7 @@ const generateQualityEmailBody = (
               <tr>
                 <td style="${tdStyles(index)}">${s.carrier} (${s.totalRatings})</td>
                 <td style="font-weight:bold; color: ${getNpsColor(s.nps)}; ${tdStyles(index)}">${s.nps}</td>
+                <td style="font-weight:bold; color: ${getPunctualityColor(s.punctuality)}; ${tdStyles(index)}">${s.punctuality.toFixed(1)}%</td>
                 <td style="font-weight:bold; color: ${getRatingColor(s.averageRating)}; ${tdStyles(index)}">${s.averageRating}</td>
                 <td style="${tdStyles(index)}">${s.negativeRatingsCount}</td>
                 <td style="${tdStyles(index)}">${s.commentCount}</td>
@@ -241,6 +256,7 @@ const generateQualityEmailBody = (
               <th style="${thStyles}">Transporteur</th>
               <th style="${thStyles}">Livreur (Total Notes)</th>
               <th style="${thStyles}">NPS</th>
+              <th style="${thStyles}">Ponctualité</th>
               <th style="${thStyles}">Note Moyenne</th>
               <th style="${thStyles}">Nb. Mauvaises Notes</th>
               <th style="${thStyles}">Catégories de Commentaires</th>
@@ -252,9 +268,14 @@ const generateQualityEmailBody = (
                 <td style="${tdStyles(index)}">${s.carrier}</td>
                 <td style="${tdStyles(index)}">${s.driver} (${s.totalRatings})</td>
                 <td style="font-weight:bold; color: ${getNpsColor(s.nps)}; ${tdStyles(index)}">${s.nps}</td>
+                <td style="font-weight:bold; color: ${getPunctualityColor(s.punctuality)}; ${tdStyles(index)}">${s.punctuality.toFixed(1)}%</td>
                 <td style="font-weight:bold; color: ${getRatingColor(s.averageRating)}; ${tdStyles(index)}">${s.averageRating}</td>
                 <td style="${tdStyles(index)}">${s.negativeRatingsCount}</td>
-                <td style="${tdStyles(index)}">${s.categorySummary}</td>
+                <td style="${tdStyles(index)}">
+                    ${s.categorySummary.map(c => `
+                        <span style="color: ${c.isAttitude ? '#dc3545' : 'inherit'}">${c.count} ${c.name}</span>
+                    `).join(', ')}
+                </td>
               </tr>
             `).join('')}
           </tbody>

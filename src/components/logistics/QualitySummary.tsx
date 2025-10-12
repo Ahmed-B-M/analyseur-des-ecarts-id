@@ -57,10 +57,11 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     const allCategorized = [...savedCategorizedComments, ...uncategorizedCommentsForSummary];
     const uniqueComments = new Map<string, any>();
     allCategorized.forEach(comment => {
-        if(!uniqueComments.has(comment.id) && comment.entrepot) {
+        const depot = comment.entrepot ? getNomDepot(comment.entrepot) : 'Inconnu';
+        if(!uniqueComments.has(comment.id)) {
             uniqueComments.set(comment.id, {
               ...comment,
-              depot: getNomDepot(comment.entrepot)
+              depot,
             });
         }
     });
@@ -108,17 +109,21 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
 
   const summaryByDepot = useMemo(() => {
-    const allDataGrouped = allDataWithNotes.reduce((acc, curr) => {
+    const allDataGrouped = data.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
         if (!acc[depot]) {
-            acc[depot] = { totalRatingValue: 0, ratedTasksCount: 0 };
+            acc[depot] = { totalRatingValue: 0, ratedTasksCount: 0, totalTasks: 0, onTimeTasks: 0 };
         }
-        if(curr.notation !== null) {
+        acc[depot].totalTasks++;
+        if (curr.retardStatus === 'onTime') {
+            acc[depot].onTimeTasks++;
+        }
+        if(curr.notation !== null && curr.notation !== undefined) {
           acc[depot].ratedTasksCount++;
           acc[depot].totalRatingValue += curr.notation;
         }
         return acc;
-    }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
+    }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number, totalTasks: number, onTimeTasks: number }>);
     
     const allCommentsInData = data.filter(d => d.commentaire);
     
@@ -159,33 +164,38 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
           averageRating: (depotAllStats?.ratedTasksCount || 0) > 0 ? (depotAllStats.totalRatingValue / depotAllStats.ratedTasksCount).toFixed(2) : 'N/A',
           commentCount: commentCounts[depot] || 0,
           nps: depotNps.nps,
+          punctuality: (depotAllStats?.totalTasks || 0) > 0 ? (depotAllStats.onTimeTasks / depotAllStats.totalTasks) * 100 : 0
         }
       })
       .filter(item => item.negativeRatingsCount > 0)
       .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-  }, [negativeRatingsData, allDataWithNotes, data, verbatimsData]);
+  }, [negativeRatingsData, data, verbatimsData]);
 
 
   const summaryByCarrier = useMemo(() => {
-    const allDataGrouped = allDataWithNotes.reduce((acc, curr) => {
+    const allDataGrouped = data.reduce((acc, curr) => {
       const depot = getNomDepot(curr.entrepot);
-      const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
+      const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
       const key = `${depot}|${carrier}`;
       if (!acc[key]) {
-        acc[key] = { totalRatingValue: 0, ratedTasksCount: 0 };
+        acc[key] = { totalRatingValue: 0, ratedTasksCount: 0, totalTasks: 0, onTimeTasks: 0 };
       }
-      if (curr.notation !== null) {
+      acc[key].totalTasks++;
+      if (curr.retardStatus === 'onTime') {
+        acc[key].onTimeTasks++;
+      }
+      if (curr.notation !== null && curr.notation !== undefined) {
         acc[key].ratedTasksCount++;
         acc[key].totalRatingValue += curr.notation;
       }
       return acc;
-    }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number }>);
+    }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number, totalTasks: number, onTimeTasks: number }>);
 
     const allCommentsInData = data.filter(d => d.commentaire);
 
     const commentCounts = allCommentsInData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
         const key = `${depot}|${carrier}`;
         acc[key] = (acc[key] || 0) + 1;
         return acc;
@@ -193,7 +203,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     
     const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
         const key = `${depot}|${carrier}`;
 
         if (!acc[key]) {
@@ -205,7 +215,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
     const npsByCarrier = verbatimsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
         const key = `${depot}|${carrier}`;
         if (!acc[key]) acc[key] = [];
         if (curr.verbatimData?.noteRecommandation !== null && curr.verbatimData?.noteRecommandation !== undefined) {
@@ -225,6 +235,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         averageRating: (allStats?.ratedTasksCount || 0) > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
         commentCount: commentCounts[key] || 0,
         nps: carrierNps.nps,
+        punctuality: (allStats?.totalTasks || 0) > 0 ? (allStats.onTimeTasks / allStats.totalTasks) * 100 : 0
       }
     })
     .sort((a, b) => {
@@ -232,12 +243,13 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         if (a.depot > b.depot) return 1;
         return a.carrier.localeCompare(b.carrier);
     });
-  }, [negativeRatingsData, allDataWithNotes, data, verbatimsData]);
+  }, [negativeRatingsData, data, verbatimsData]);
 
 
  const summaryByDriver = useMemo(() => {
     const tasksByDriver = negativeRatingsData.reduce((acc, curr) => {
-        const driver = curr.livreur || 'Inconnu';
+        const driver = curr.livreur;
+        if (!driver) return acc;
         if (!acc[driver]) {
             acc[driver] = [];
         }
@@ -246,7 +258,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     }, {} as Record<string, typeof negativeRatingsData>);
     
     const npsByDriver = verbatimsData.reduce((acc, curr) => {
-        const driver = curr.livreur || 'Inconnu';
+        const driver = curr.livreur;
+        if (!driver) return acc;
         if (!acc[driver]) acc[driver] = [];
         if (curr.verbatimData?.noteRecommandation !== null && curr.verbatimData?.noteRecommandation !== undefined) {
             acc[driver].push(curr.verbatimData.noteRecommandation);
@@ -258,22 +271,27 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         const depot = tasks.length > 0 ? getNomDepot(tasks[0].entrepot) : 'Inconnu';
         const carrier = getCarrierFromDriverName(driver) || 'Inconnu';
         
-        const allDriverTasks = allDataWithNotes.filter(d => d.livreur === driver);
-        const totalRatings = allDriverTasks.length;
-        const totalRatingValue = allDriverTasks.reduce((sum, task) => sum + (task.notation ?? 0), 0);
+        const allDriverTasks = data.filter(d => d.livreur === driver);
+        const totalTasks = allDriverTasks.length;
+        const onTimeTasks = allDriverTasks.filter(t => t.retardStatus === 'onTime').length;
+        const ratedTasks = allDriverTasks.filter(d => d.notation != null);
+        const totalRatingValue = ratedTasks.reduce((sum, task) => sum + (task.notation ?? 0), 0);
 
-        const categoryCounts: Record<string, number> = {};
+        const categoryCounts: Record<string, { count: number, isAttitude: boolean }> = {};
         for (const item of tasks) {
              if (item.commentaire) { 
                 const category = item.category || 'Autre';
-                categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+                const isAttitude = category.toLowerCase().includes('attitude') || category.toLowerCase().includes('amabilité');
+                if (!categoryCounts[category]) {
+                  categoryCounts[category] = { count: 0, isAttitude };
+                }
+                categoryCounts[category].count++;
             }
         }
         
         const categorySummary = Object.entries(categoryCounts)
-            .sort(([, countA], [, countB]) => countB - countA)
-            .map(([cat, count]) => `${count} ${cat}`)
-            .join(', ');
+            .sort(([, a], [, b]) => b.count - a.count)
+            .map(([cat, {count, isAttitude}]) => ({ name: cat, count, isAttitude }));
             
         const driverNps = calculateNps(npsByDriver[driver] || []);
 
@@ -281,21 +299,22 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             depot,
             carrier,
             driver,
-            totalRatings: totalRatings,
+            totalRatings: ratedTasks.length,
             negativeRatingsCount: tasks.length,
-            averageRating: totalRatings > 0 ? (totalRatingValue / totalRatings).toFixed(2) : 'N/A',
-            categorySummary: categorySummary || '',
+            averageRating: ratedTasks.length > 0 ? (totalRatingValue / ratedTasks.length).toFixed(2) : 'N/A',
+            categorySummary,
             nps: driverNps.nps,
+            punctuality: totalTasks > 0 ? (onTimeTasks / totalTasks) * 100 : 0
         };
     })
     .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-}, [negativeRatingsData, allDataWithNotes, verbatimsData]);
+}, [negativeRatingsData, data, verbatimsData]);
 
   
   const unassignedDrivers = useMemo(() => {
     const drivers = negativeRatingsData.reduce((acc, curr) => {
-      const driverName = curr.livreur || 'Inconnu';
-      if (driverName !== 'Inconnu' && !getCarrierFromDriverName(driverName)) {
+      const driverName = curr.livreur;
+      if (driverName && driverName !== 'Inconnu' && !getCarrierFromDriverName(driverName)) {
         const depot = getNomDepot(curr.entrepot);
         if (!acc[driverName]) {
           acc[driverName] = new Set<string>();
@@ -377,20 +396,20 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             </TabsList>
             <TabsContent value="depot">
               <Table>
-                <TableHeader><TableRow><TableHead>Dépôt (Total Notes)</TableHead><TableHead>NPS</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (sur toutes les notes)</TableHead><TableHead>Nb. Commentaires Associés</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Dépôt (Total Notes)</TableHead><TableHead>NPS</TableHead><TableHead>Ponctualité</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (sur toutes les notes)</TableHead><TableHead>Nb. Commentaires Associés</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {summaryByDepot.map(({ depot, totalRatings, negativeRatingsCount, averageRating, commentCount, nps }) => (
-                    <TableRow key={depot}><TableCell>{depot} ({totalRatings})</TableCell><TableCell>{nps}</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
+                  {summaryByDepot.map(({ depot, totalRatings, negativeRatingsCount, averageRating, commentCount, nps, punctuality }) => (
+                    <TableRow key={depot}><TableCell>{depot} ({totalRatings})</TableCell><TableCell>{nps}</TableCell><TableCell>{punctuality.toFixed(1)}%</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
                   ))}
                 </TableBody>
               </Table>
             </TabsContent>
             <TabsContent value="carrier">
               <Table>
-                <TableHeader><TableRow><TableHead>Dépôt</TableHead><TableHead>Transporteur (Total Notes)</TableHead><TableHead>NPS</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (sur toutes les notes)</TableHead><TableHead>Nb. Commentaires Associés</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Dépôt</TableHead><TableHead>Transporteur (Total Notes)</TableHead><TableHead>NPS</TableHead><TableHead>Ponctualité</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (sur toutes les notes)</TableHead><TableHead>Nb. Commentaires Associés</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {summaryByCarrier.map(({ depot, carrier, totalRatings, negativeRatingsCount, averageRating, commentCount, nps }, index) => (
-                    <TableRow key={index}><TableCell>{depot}</TableCell><TableCell>{carrier} ({totalRatings})</TableCell><TableCell>{nps}</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
+                  {summaryByCarrier.map(({ depot, carrier, totalRatings, negativeRatingsCount, averageRating, commentCount, nps, punctuality }, index) => (
+                    <TableRow key={index}><TableCell>{depot}</TableCell><TableCell>{carrier} ({totalRatings})</TableCell><TableCell>{nps}</TableCell><TableCell>{punctuality.toFixed(1)}%</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
                   ))}
                 </TableBody>
               </Table>
@@ -403,21 +422,25 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
                     <TableHead>Transporteur</TableHead>
                     <TableHead>Livreur (Total Notes)</TableHead>
                     <TableHead>NPS</TableHead>
+                    <TableHead>Ponctualité</TableHead>
                     <TableHead>Nb. Mauvaises Notes</TableHead>
                     <TableHead>Note Moyenne (sur toutes les notes)</TableHead>
                     <TableHead>Catégories de Commentaires</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summaryByDriver.map(({ depot, carrier, driver, totalRatings, negativeRatingsCount, averageRating, categorySummary, nps }, index) => (
+                  {summaryByDriver.map(({ depot, carrier, driver, totalRatings, negativeRatingsCount, averageRating, categorySummary, nps, punctuality }, index) => (
                     <TableRow key={index}>
                       <TableCell>{depot}</TableCell>
                       <TableCell>{carrier}</TableCell>
                       <TableCell>{driver} ({totalRatings})</TableCell>
                       <TableCell>{nps}</TableCell>
+                      <TableCell>{punctuality.toFixed(1)}%</TableCell>
                       <TableCell>{negativeRatingsCount}</TableCell>
                       <TableCell>{averageRating}</TableCell>
-                      <TableCell>{categorySummary}</TableCell>
+                      <TableCell>
+                        {categorySummary.map(c => c.name).join(', ')}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
