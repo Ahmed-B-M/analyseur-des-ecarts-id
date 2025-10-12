@@ -244,6 +244,15 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         acc[driver].push(curr);
         return acc;
     }, {} as Record<string, typeof negativeRatingsData>);
+    
+    const npsByDriver = verbatimsData.reduce((acc, curr) => {
+        const driver = curr.livreur || 'Inconnu';
+        if (!acc[driver]) acc[driver] = [];
+        if (curr.verbatimData?.noteRecommandation !== null && curr.verbatimData?.noteRecommandation !== undefined) {
+            acc[driver].push(curr.verbatimData.noteRecommandation);
+        }
+        return acc;
+    }, {} as Record<string, number[]>);
 
     return Object.entries(tasksByDriver).map(([driver, tasks]) => {
         const depot = tasks.length > 0 ? getNomDepot(tasks[0].entrepot) : 'Inconnu';
@@ -265,6 +274,8 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             .sort(([, countA], [, countB]) => countB - countA)
             .map(([cat, count]) => `${count} ${cat}`)
             .join(', ');
+            
+        const driverNps = calculateNps(npsByDriver[driver] || []);
 
         return {
             depot,
@@ -274,10 +285,11 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             negativeRatingsCount: tasks.length,
             averageRating: totalRatings > 0 ? (totalRatingValue / totalRatings).toFixed(2) : 'N/A',
             categorySummary: categorySummary || '',
+            nps: driverNps.nps,
         };
     })
     .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-}, [negativeRatingsData, allDataWithNotes]);
+}, [negativeRatingsData, allDataWithNotes, verbatimsData]);
 
   
   const unassignedDrivers = useMemo(() => {
@@ -390,17 +402,19 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
                     <TableHead>Dépôt</TableHead>
                     <TableHead>Transporteur</TableHead>
                     <TableHead>Livreur (Total Notes)</TableHead>
+                    <TableHead>NPS</TableHead>
                     <TableHead>Nb. Mauvaises Notes</TableHead>
                     <TableHead>Note Moyenne (sur toutes les notes)</TableHead>
                     <TableHead>Catégories de Commentaires</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {summaryByDriver.map(({ depot, carrier, driver, totalRatings, negativeRatingsCount, averageRating, categorySummary }, index) => (
+                  {summaryByDriver.map(({ depot, carrier, driver, totalRatings, negativeRatingsCount, averageRating, categorySummary, nps }, index) => (
                     <TableRow key={index}>
                       <TableCell>{depot}</TableCell>
                       <TableCell>{carrier}</TableCell>
                       <TableCell>{driver} ({totalRatings})</TableCell>
+                      <TableCell>{nps}</TableCell>
                       <TableCell>{negativeRatingsCount}</TableCell>
                       <TableCell>{averageRating}</TableCell>
                       <TableCell>{categorySummary}</TableCell>

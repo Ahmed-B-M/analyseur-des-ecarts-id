@@ -41,6 +41,7 @@ interface DriverSummary {
     averageRating: string;
     negativeRatingsCount: number;
     categorySummary: string;
+    nps: number;
 }
 
 interface UnassignedDriver {
@@ -239,6 +240,7 @@ const generateQualityEmailBody = (
             <tr>
               <th style="${thStyles}">Transporteur</th>
               <th style="${thStyles}">Livreur (Total Notes)</th>
+              <th style="${thStyles}">NPS</th>
               <th style="${thStyles}">Note Moyenne</th>
               <th style="${thStyles}">Nb. Mauvaises Notes</th>
               <th style="${thStyles}">Catégories de Commentaires</th>
@@ -249,6 +251,7 @@ const generateQualityEmailBody = (
               <tr>
                 <td style="${tdStyles(index)}">${s.carrier}</td>
                 <td style="${tdStyles(index)}">${s.driver} (${s.totalRatings})</td>
+                <td style="font-weight:bold; color: ${getNpsColor(s.nps)}; ${tdStyles(index)}">${s.nps}</td>
                 <td style="font-weight:bold; color: ${getRatingColor(s.averageRating)}; ${tdStyles(index)}">${s.averageRating}</td>
                 <td style="${tdStyles(index)}">${s.negativeRatingsCount}</td>
                 <td style="${tdStyles(index)}">${s.categorySummary}</td>
