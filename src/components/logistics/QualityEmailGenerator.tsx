@@ -167,22 +167,24 @@ const generateQualityEmailBody = (
           percentage: totalCategorizedComments > 0 ? (categoryCounts[category] / totalCategorizedComments) * 100 : 0
       })).filter(item => item.count > 0).sort((a, b) => b.percentage - a.percentage);
 
-      const depotCategorySummaryTable = categoryPercentages.length > 0 ? `
+      const depotCategorySummaryGraph = categoryPercentages.length > 0 ? `
         <h3 style="font-family: 'Roboto', Arial, sans-serif; color: #333; font-size: 18px; margin-top: 20px; margin-bottom: 10px;">Répartition des Catégories (${totalCategorizedComments} commentaires)</h3>
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 14px; border-collapse: collapse;">
-          <thead>
-            <tr>
-              <th style="font-family: 'Roboto', Arial, sans-serif; padding: 10px; text-align: left; background-color: #f2f2f2; border-bottom: 2px solid #ddd;">Catégorie</th>
-              <th style="font-family: 'Roboto', Arial, sans-serif; padding: 10px; text-align: left; background-color: #f2f2f2; border-bottom: 2px solid #ddd;">Pourcentage</th>
-              <th style="font-family: 'Roboto', Arial, sans-serif; padding: 10px; text-align: left; background-color: #f2f2f2; border-bottom: 2px solid #ddd;">Nombre</th>
-            </tr>
-          </thead>
           <tbody>
-            ${categoryPercentages.map((item, index) => `
-              <tr style="background-color: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'};">
-                <td style="font-family: 'Roboto', Arial, sans-serif; padding: 10px; border-top: 1px solid #ddd;">${item.category}</td>
-                <td style="font-family: 'Roboto', Arial, sans-serif; padding: 10px; border-top: 1px solid #ddd;">${item.percentage.toFixed(1)}%</td>
-                <td style="font-family: 'Roboto', Arial, sans-serif; padding: 10px; border-top: 1px solid #ddd;">${item.count}</td>
+            ${categoryPercentages.map((item) => `
+              <tr>
+                <td style="font-family: 'Roboto', Arial, sans-serif; padding: 8px 0; width: 150px; white-space: nowrap; color: #333;">${item.category}</td>
+                <td style="font-family: 'Roboto', Arial, sans-serif; padding: 8px 0; width: 100%;">
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td width="${item.percentage.toFixed(1)}%" style="background-color: #005A9C; height: 20px; border-radius: 3px;"></td>
+                      <td width="${(100 - item.percentage).toFixed(1)}%"></td>
+                    </tr>
+                  </table>
+                </td>
+                <td style="font-family: 'Roboto', Arial, sans-serif; padding: 8px 0 8px 10px; text-align: right; white-space: nowrap; font-weight: bold; color: #333;">
+                  ${item.percentage.toFixed(1)}% <span style="font-weight: normal; color: #777;">(${item.count})</span>
+                </td>
               </tr>
             `).join('')}
           </tbody>
@@ -294,7 +296,7 @@ const generateQualityEmailBody = (
                 <td style="padding: 20px;">
                   <h2 style="font-family: 'Roboto', Arial, sans-serif; color: #00338D; padding-bottom: 10px; margin-top: 0; font-size: 22px; border-bottom: 1px solid #eee;">${depot}</h2>
                   ${summaryCard}
-                  ${depotCategorySummaryTable}
+                  ${depotCategorySummaryGraph}
                   ${carrierTable}
                   ${driverTable}
                 </td>
