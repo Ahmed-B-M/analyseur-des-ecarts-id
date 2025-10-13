@@ -1,7 +1,7 @@
 
 
 "use client";
-
+import React, { useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -13,7 +13,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MergedData, SuiviCommentaire } from '@/lib/types';
-import { useMemo } from 'react';
 import { getCarrierFromDriverName, cn } from '@/lib/utils';
 import { CommentCategory, categorizeComment, commentCategories } from '@/lib/comment-categorization';
 import GlobalCommentView from './GlobalCommentView';
@@ -204,9 +203,17 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
 
   const summaryByCarrier = useMemo(() => {
+    const carrierFilter = filters.carriers && filters.carriers.length > 0;
+
     const allDataGrouped = data.reduce((acc, curr) => {
       const depot = getNomDepot(curr.entrepot);
       const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
+      
+      // If carrier filter is active, skip if carrier doesn't match
+      if (carrierFilter && !filters.carriers.includes(carrier)) {
+          return acc;
+      }
+
       const key = `${depot}|${carrier}`;
       if (!acc[key]) {
         acc[key] = { totalRatingValue: 0, ratedTasksCount: 0, totalTasks: 0, onTimeTasks: 0 };
@@ -275,13 +282,21 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         if (a.depot > b.depot) return 1;
         return a.carrier.localeCompare(b.carrier);
     });
-  }, [negativeRatingsData, data, verbatimsData]);
+  }, [negativeRatingsData, data, verbatimsData, filters.carriers]);
 
 
  const summaryByDriver = useMemo(() => {
+    const carrierFilter = filters.carriers && filters.carriers.length > 0;
+
     const tasksByDriver = data.reduce((acc, curr) => {
         const driver = curr.livreur;
         if (!driver) return acc;
+        
+        const carrier = getCarrierFromDriverName(driver) || 'Inconnu';
+        if (carrierFilter && !filters.carriers.includes(carrier)) {
+            return acc;
+        }
+
         if (!acc[driver]) {
             acc[driver] = [];
         }
@@ -337,7 +352,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         };
     })
     .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-}, [data, commentsMap]);
+}, [data, commentsMap, filters.carriers]);
 
   
   const unassignedDrivers = useMemo(() => {
@@ -510,4 +525,5 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 };
 
 export default QualitySummary;
+
 
