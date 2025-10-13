@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import {
@@ -63,6 +64,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     if (filters.dateRange) {
         const { from, to } = filters.dateRange;
         if (from && to) {
+            if(from.getTime() === to.getTime()) return `le ${format(from, 'd MMMM yyyy', { locale: fr })}`;
             return `du ${format(from, 'd MMMM yyyy', { locale: fr })} au ${format(to, 'd MMMM yyyy', { locale: fr })}`;
         } else if (from) {
             return `depuis le ${format(from, 'd MMMM yyyy', { locale: fr })}`;
@@ -204,7 +206,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
   const summaryByCarrier = useMemo(() => {
     const allDataGrouped = data.reduce((acc, curr) => {
       const depot = getNomDepot(curr.entrepot);
-      const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
+      const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
       const key = `${depot}|${carrier}`;
       if (!acc[key]) {
         acc[key] = { totalRatingValue: 0, ratedTasksCount: 0, totalTasks: 0, onTimeTasks: 0 };
@@ -224,7 +226,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
     const commentCounts = allCommentsInData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
         const key = `${depot}|${carrier}`;
         acc[key] = (acc[key] || 0) + 1;
         return acc;
@@ -232,7 +234,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     
     const grouped = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
         const key = `${depot}|${carrier}`;
 
         if (!acc[key]) {
@@ -244,7 +246,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
     const npsByCarrier = verbatimsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
-        const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
+        const carrier = getCarrierFromDriverName(curr.livreur) || 'Inconnu';
         const key = `${depot}|${carrier}`;
         if (!acc[key]) acc[key] = [];
         if (curr.verbatimData?.noteRecommandation !== null && curr.verbatimData?.noteRecommandation !== undefined) {
@@ -472,7 +474,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
                       <TableCell>{negativeRatingsCount}</TableCell>
                       <TableCell>{averageRating}</TableCell>
                       <TableCell>
-                        {categorySummary.map(c => c.name).join(', ')}
+                        {categorySummary.map(c => <span key={c.name} className={cn(c.isAttitude && "text-destructive font-bold")}>{c.count > 1 ? `${c.count} ${c.name}`: c.name}</span>).reduce((prev, curr) => <>{prev}, {curr}</>)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -505,3 +507,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 };
 
 export default QualitySummary;
+
+
+    
