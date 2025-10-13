@@ -279,7 +279,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
 
  const summaryByDriver = useMemo(() => {
-    const tasksByDriver = negativeRatingsData.reduce((acc, curr) => {
+    const tasksByDriver = data.reduce((acc, curr) => {
         const driver = curr.livreur;
         if (!driver) return acc;
         if (!acc[driver]) {
@@ -287,35 +287,26 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         }
         acc[driver].push(curr);
         return acc;
-    }, {} as Record<string, typeof negativeRatingsData>);
-    
-    const npsByDriver = verbatimsData.reduce((acc, curr) => {
-        const driver = curr.livreur;
-        if (!driver) return acc;
-        if (!acc[driver]) acc[driver] = [];
-        if (curr.verbatimData?.noteRecommandation !== null && curr.verbatimData?.noteRecommandation !== undefined) {
-            acc[driver].push(curr.verbatimData.noteRecommandation);
-        }
-        return acc;
-    }, {} as Record<string, number[]>);
+    }, {} as Record<string, MergedData[]>);
 
     return Object.entries(tasksByDriver).map(([driver, tasks]) => {
         const depot = tasks.length > 0 ? getNomDepot(tasks[0].entrepot) : 'Inconnu';
         const carrier = getCarrierFromDriverName(driver) || 'Inconnu';
+
+        const negativeRatingTasks = tasks.filter(t => t.notation != null && t.notation <= 3);
         
-        const allDriverTasks = data.filter(d => d.livreur === driver);
-        const totalTasks = allDriverTasks.length;
-        const onTimeTasks = allDriverTasks.filter(t => t.retardStatus === 'onTime').length;
-        const ratedTasks = allDriverTasks.filter(d => d.notation != null);
+        const ratedTasks = tasks.filter(d => d.notation != null);
         const totalRatingValue = ratedTasks.reduce((sum, task) => sum + (task.notation ?? 0), 0);
 
         const categoryCounts: Record<string, { count: number, isAttitude: boolean }> = {};
-        for (const item of tasks) {
-             if (item.commentaire) { 
-                const category = item.category || 'Autre';
+        for (const item of negativeRatingTasks) {
+            if (item.commentaire) { 
+                const commentId = `${item.nomTournee}|${item.date}|${item.entrepot}-${item.sequence || item.ordre}`;
+                const sanitizedId = commentId.replace(/[^a-zA-Z0-9-]/g, '_');
+                const category = commentsMap.get(sanitizedId) || categorizeComment(item.commentaire);
                 const isAttitude = category.toLowerCase().includes('attitude') || category.toLowerCase().includes('amabilité');
                 if (!categoryCounts[category]) {
-                  categoryCounts[category] = { count: 0, isAttitude };
+                    categoryCounts[category] = { count: 0, isAttitude };
                 }
                 categoryCounts[category].count++;
             }
@@ -323,29 +314,34 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         
         const categorySummary = Object.entries(categoryCounts)
             .sort(([, a], [, b]) => b.count - a.count)
-            .map(([cat, {count, isAttitude}]) => ({ name: cat, count, isAttitude }));
-            
-        const driverNps = calculateNps(npsByDriver[driver] || []);
+            .map(([cat, { count, isAttitude }]) => ({ name: cat, count, isAttitude }));
+
+        const driverNpsNotes = tasks
+            .map(t => t.verbatimData?.noteRecommandation)
+            .filter((n): n is number => n !== null && n !== undefined);
+        const driverNps = calculateNps(driverNpsNotes);
+        
+        const onTimeTasks = tasks.filter(t => t.retardStatus === 'onTime').length;
 
         return {
             depot,
             carrier,
             driver,
             totalRatings: ratedTasks.length,
-            negativeRatingsCount: tasks.length,
+            negativeRatingsCount: negativeRatingTasks.length,
             averageRating: ratedTasks.length > 0 ? (totalRatingValue / ratedTasks.length).toFixed(2) : 'N/A',
             categorySummary,
             nps: driverNps.nps,
-            punctuality: totalTasks > 0 ? (onTimeTasks / totalTasks) * 100 : 0,
+            punctuality: tasks.length > 0 ? (onTimeTasks / tasks.length) * 100 : 0,
             npsTotal: driverNps.total,
         };
     })
     .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-}, [negativeRatingsData, data, verbatimsData]);
+}, [data, commentsMap]);
 
   
   const unassignedDrivers = useMemo(() => {
-    const drivers = negativeRatingsData.reduce((acc, curr) => {
+    const drivers = data.reduce((acc, curr) => {
       const driverName = curr.livreur;
       if (driverName && driverName !== 'Inconnu' && !getCarrierFromDriverName(driverName)) {
         const depot = getNomDepot(curr.entrepot);
@@ -361,7 +357,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
       driver,
       depots: Array.from(depots).join(', '),
     }));
-  }, [negativeRatingsData]);
+  }, [data]);
 
   if (data.length === 0) {
     return (
@@ -475,9 +471,12 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
                       <TableCell>{averageRating}</TableCell>
                       <TableCell>
                         {categorySummary.length > 0 ? (
-                            categorySummary
-                                .map(c => <span key={c.name} className={cn(c.isAttitude && "text-destructive font-bold")}>{c.count > 1 ? `${c.count} ${c.name}`: c.name}</span>)
-                                .reduce((prev, curr) => <>{prev}, {curr}</>)
+                            categorySummary.map((c, i) => (
+                              <React.Fragment key={c.name}>
+                                <span className={cn(c.isAttitude && "text-destructive font-bold")}>{c.count > 1 ? `${c.count} ${c.name}` : c.name}</span>
+                                {i < categorySummary.length - 1 && ', '}
+                              </React.Fragment>
+                            ))
                         ) : null}
                       </TableCell>
                     </TableRow>
@@ -512,5 +511,3 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
 export default QualitySummary;
 
-
-    
