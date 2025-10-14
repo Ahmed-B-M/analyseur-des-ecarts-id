@@ -8,6 +8,7 @@ import { DateRange } from 'react-day-picker';
 import { getNomDepot } from '@/lib/config-depots';
 import { getCarrierFromDriverName } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 // 1. State & Action Types
 type State = {
@@ -29,7 +30,7 @@ type Action =
   | { type: 'REMOVE_FILE'; fileType: 'tournees' | 'taches' | 'verbatims'; fileName: string }
   | { type: 'SET_VERBATIM_DATE'; date?: Date }
   | { type: 'START_PROCESSING' }
-  | { type: 'PROCESSING_SUCCESS'; data: { tournees: any[], taches: any[], verbatims: VerbatimData[] } }
+  | { type: 'PROCESSING_SUCCESS'; data: { tournees: any[], taches: any[], verbatims: VerbatimData[] }; verbatimDate?: Date }
   | { type: 'PROCESSING_ERROR'; error: string }
   | { type: 'SET_FILTERS'; filters: Record<string, any> }
   | { type: 'RESET' };
@@ -90,14 +91,22 @@ function logisticsReducer(state: State, action: Action): State {
         
         const mergedData: MergedData[] = taches.map((tache: any, index: number) => {
             const tourneeData = tourneeMap.get(tache.tourneeUniqueId) || null;
+            const verbatimData = verbatimMap.get(tache.idTache) || null;
+
+            let finalDate = tache.date;
+            if (verbatimData && action.verbatimDate) {
+                finalDate = format(action.verbatimDate, 'yyyy-MM-dd');
+            }
+
             return {
                 ...tache,
+                date: finalDate,
                 ordre: index + 1,
                 tournee: tourneeData,
                 depot: getNomDepot(tache.entrepot),
                 warehouse: tache.entrepot,
                 carrier: tourneeData ? tourneeData.carrier : null,
-                verbatimData: verbatimMap.get(tache.idTache) || null,
+                verbatimData: verbatimData,
             };
         });
 
@@ -141,7 +150,7 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
     newWorker.onmessage = (event) => {
       const { type, data, error } = event.data;
       if (type === 'success') {
-        dispatch({ type: 'PROCESSING_SUCCESS', data });
+        dispatch({ type: 'PROCESSING_SUCCESS', data, verbatimDate: internalState.verbatimDate });
         toast({ title: "Analyse terminée", description: "Les données des fichiers ont été chargées avec succès." });
 
       } else {
@@ -154,7 +163,7 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
     };
 
     return () => newWorker.terminate();
-  }, []);
+  }, [internalState.verbatimDate]); // Add verbatimDate dependency
   
   // This effect is now just for listening to the processing start
   useEffect(() => {
