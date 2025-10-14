@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -12,6 +11,9 @@ import { getCarrierFromDriverName, getNomDepot } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLogistics } from '@/context/LogisticsContext';
+import { DateRange } from 'react-day-picker';
+import { isWithinInterval, parseISO } from 'date-fns';
 
 const ITEMS_PER_PAGE = 25;
 
@@ -45,13 +47,44 @@ const calculateNps = (notes: (number | null | undefined)[]) => {
 };
 
 export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
+  const { state } = useLogistics();
+  const { filters } = state;
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: keyof MergedData | 'depot' | 'carrier' | 'npsCategory' | 'dateRetrait'; direction: 'asc' | 'desc' } | null>({ key: 'noteRecommandation', direction: 'asc' });
 
   const verbatimsData = useMemo(() => {
-    return data.filter(item => item.verbatimData && item.verbatimData.noteRecommandation !== null);
-  }, [data]);
+    // Start with data that has verbatim info
+    let verbatimItems = data.filter(item => item.verbatimData && item.verbatimData.noteRecommandation !== null);
+
+    // Apply date filter based on verbatimData.dateRetrait
+    if (filters.dateRange) {
+        const { from, to } = filters.dateRange as DateRange;
+        verbatimItems = verbatimItems.filter(item => {
+            if (!item.verbatimData?.dateRetrait) return false;
+            try {
+                const verbatimDate = parseISO(item.verbatimData.dateRetrait);
+                if (from && to) {
+                    return isWithinInterval(verbatimDate, { start: from, end: to });
+                } else if (from) {
+                    return verbatimDate >= from;
+                } else if (to) {
+                    return verbatimDate <= to;
+                }
+                return true;
+            } catch (e) {
+                return false;
+            }
+        });
+    } else if (filters.selectedDate) {
+        verbatimItems = verbatimItems.filter(item => {
+            return item.verbatimData?.dateRetrait === filters.selectedDate;
+        });
+    }
+
+    return verbatimItems;
+
+  }, [data, filters.dateRange, filters.selectedDate]);
 
   const npsSummary = useMemo(() => {
     const allNotes = verbatimsData.map(d => d.verbatimData?.noteRecommandation);
