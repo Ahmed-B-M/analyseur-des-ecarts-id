@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useMemo } from 'react';
 import {
@@ -78,6 +77,7 @@ const QualitySummary = ({ data, rawData, processedActions, savedCategorizedComme
         if (dates.length > 0) {
             const minDate = new Date(Math.min.apply(null, dates as any));
             const maxDate = new Date(Math.max.apply(null, dates as any));
+             if(minDate.getTime() === maxDate.getTime()) return `le ${format(minDate, 'd MMMM yyyy', { locale: fr })}`;
             return `du ${format(minDate, 'd MMMM yyyy', { locale: fr })} au ${format(maxDate, 'd MMMM yyyy', { locale: fr })}`;
         }
     }
@@ -276,7 +276,7 @@ const QualitySummary = ({ data, rawData, processedActions, savedCategorizedComme
         return acc;
     }, {} as Record<string, number>);
     
-    const grouped = negativeRatingsData.reduce((acc, curr) => {
+    const groupedNegative = negativeRatingsData.reduce((acc, curr) => {
         const depot = getNomDepot(curr.entrepot);
         const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
         const key = `${depot}|${carrier}`;
@@ -301,7 +301,7 @@ const QualitySummary = ({ data, rawData, processedActions, savedCategorizedComme
     
     return Object.keys(allDataGrouped).map(key => {
       const [depot, carrier] = key.split('|');
-      const negativeStats = grouped[key] || { depot, carrier, negativeRatingsCount: 0 };
+      const negativeStats = groupedNegative[key] || { depot, carrier, negativeRatingsCount: 0 };
       const allStats = allDataGrouped[key];
       const carrierNps = calculateNps(npsByCarrier[key] || []);
       return {
@@ -523,7 +523,7 @@ const QualitySummary = ({ data, rawData, processedActions, savedCategorizedComme
                       <TableCell>{punctuality.toFixed(1)}%</TableCell>
                       <TableCell>{negativeRatingsCount}</TableCell>
                       <TableCell>{averageRating}</TableCell>
-                      <TableCell>
+                       <TableCell>
                          {categorySummary.length > 0 ? (
                             categorySummary.map((c, i) => (
                               <React.Fragment key={c.name}>
@@ -564,6 +564,3 @@ const QualitySummary = ({ data, rawData, processedActions, savedCategorizedComme
 };
 
 export default QualitySummary;
-
-
-
