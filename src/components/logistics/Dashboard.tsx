@@ -6,15 +6,20 @@ import { useLogistics } from '@/context/LogisticsContext';
 import FileUpload from '@/components/logistics/FileUpload';
 import FilterBar from '@/components/logistics/FilterBar';
 import { Logo } from '@/components/logistics/Logo';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DashboardTabs from './DashboardTabs';
 import { MergedData } from '@/lib/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 
 export default function Dashboard() {
   const { state, dispatch } = useLogistics();
-  const { analysisData, rawData, filteredData, tourneesFiles, tachesFiles, verbatimsFile } = state;
+  const { analysisData, rawData, filteredData, tourneesFiles, tachesFiles, verbatimsFile, verbatimDate } = state;
   const [activeTab, setActiveTab] = useState('dashboard');
 
   const handleSetFiles = (fileType: 'tournees' | 'taches' | 'verbatims', files: File[]) => {
@@ -23,6 +28,10 @@ export default function Dashboard() {
   
   const handleRemoveFile = (fileType: 'tournees' | 'taches' | 'verbatims', fileName: string) => {
     dispatch({ type: 'REMOVE_FILE', fileType, fileName });
+  };
+
+  const handleVerbatimDateChange = (date: Date | undefined) => {
+    dispatch({ type: 'SET_VERBATIM_DATE', date });
   };
 
   const handleAnalyse = () => {
@@ -78,7 +87,7 @@ export default function Dashboard() {
       <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
         {!rawData && (
           <div className="max-w-6xl mx-auto space-y-8">
-            <div className="grid md:grid-cols-3 gap-8 h-64">
+            <div className="grid md:grid-cols-3 gap-8">
                 <FileUpload
                 title="1. Fichiers Tournées"
                 onFilesSelect={(files) => handleSetFiles('tournees', files)}
@@ -91,12 +100,38 @@ export default function Dashboard() {
                 onFileRemove={(fileName) => handleRemoveFile('taches', fileName)}
                 files={state.tachesFiles}
                 />
-                <FileUpload
-                title="3. Fichier Verbatims (Optionnel)"
-                onFilesSelect={(files) => handleSetFiles('verbatims', files)}
-                onFileRemove={(fileName) => handleRemoveFile('verbatims', fileName)}
-                files={state.verbatimsFile}
-                />
+                <div className="space-y-2">
+                  <FileUpload
+                  title="3. Fichier Verbatims (Optionnel)"
+                  onFilesSelect={(files) => handleSetFiles('verbatims', files)}
+                  onFileRemove={(fileName) => handleRemoveFile('verbatims', fileName)}
+                  files={state.verbatimsFile}
+                  />
+                   {state.verbatimsFile.length > 0 && (
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !verbatimDate && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {verbatimDate ? format(verbatimDate, "PPP", { locale: fr }) : <span>Date d'affectation (Optionnel)</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={verbatimDate}
+                            onSelect={handleVerbatimDateChange}
+                            initialFocus
+                        />
+                        </PopoverContent>
+                    </Popover>
+                   )}
+                </div>
             </div>
              <div className="flex flex-col items-center gap-4">
                 <Button 

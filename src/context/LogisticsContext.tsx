@@ -14,6 +14,7 @@ type State = {
   tourneesFiles: File[];
   tachesFiles: File[];
   verbatimsFile: File[];
+  verbatimDate?: Date;
   isLoading: boolean;
   isSaving: boolean;
   error: string | null;
@@ -26,6 +27,7 @@ type State = {
 type Action =
   | { type: 'ADD_FILES'; fileType: 'tournees' | 'taches' | 'verbatims'; files: File[] }
   | { type: 'REMOVE_FILE'; fileType: 'tournees' | 'taches' | 'verbatims'; fileName: string }
+  | { type: 'SET_VERBATIM_DATE'; date?: Date }
   | { type: 'START_PROCESSING' }
   | { type: 'PROCESSING_SUCCESS'; data: { tournees: any[], taches: any[], verbatims: VerbatimData[] } }
   | { type: 'PROCESSING_ERROR'; error: string }
@@ -37,6 +39,7 @@ const initialState: State = {
   tourneesFiles: [],
   tachesFiles: [],
   verbatimsFile: [],
+  verbatimDate: undefined,
   isLoading: false,
   isSaving: false,
   error: null,
@@ -66,6 +69,10 @@ function logisticsReducer(state: State, action: Action): State {
     case 'REMOVE_FILE':
       const filesKey = action.fileType === 'tournees' ? 'tourneesFiles' : action.fileType === 'taches' ? 'tachesFiles' : 'verbatimsFile';
       return { ...state, [filesKey]: state[filesKey].filter(f => f.name !== action.fileName) };
+    
+    case 'SET_VERBATIM_DATE':
+        return { ...state, verbatimDate: action.date };
+
     case 'START_PROCESSING':
       return { ...state, isLoading: true, error: null };
     case 'PROCESSING_SUCCESS':
@@ -156,9 +163,10 @@ export function LogisticsProvider({ children }: { children: ReactNode }) {
         tourneesFiles: internalState.tourneesFiles,
         tachesFiles: internalState.tachesFiles,
         verbatimsFiles: internalState.verbatimsFile, // Pass the array of verbatim files
+        verbatimDate: internalState.verbatimDate // Pass the override date
       });
     }
-  }, [internalState.isLoading, internalState.tourneesFiles, internalState.tachesFiles, internalState.verbatimsFile, worker]);
+  }, [internalState.isLoading, internalState.tourneesFiles, internalState.tachesFiles, internalState.verbatimsFile, internalState.verbatimDate, worker]);
 
   const state = useMemo(() => {
       if (!internalState.rawData) {

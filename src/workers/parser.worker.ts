@@ -1,4 +1,5 @@
 
+
 import { processAndAnalyzeData } from '../lib/data-provider';
 import * as XLSX from 'xlsx';
 import type { Tournee, Tache, MergedData, VerbatimData } from '../lib/types';
@@ -126,7 +127,7 @@ function parseDate(value: any): string {
 }
 
 
-function normalizeData(data: any[][], fileType: 'tournees' | 'taches' | 'verbatims', tourneeStartTimes?: Map<string, number>): any[] {
+function normalizeData(data: any[][], fileType: 'tournees' | 'taches' | 'verbatims', options: { tourneeStartTimes?: Map<string, number>, verbatimDate?: Date } = {}): any[] {
   if (data.length < 2) return [];
 
   const headers = data[0].map(h => String(h).trim());
@@ -242,9 +243,9 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches' | 'verbati
              }
         }
         
-        if (tourneeStartTimes) {
+        if (options.tourneeStartTimes) {
             const uniqueId = `${newRow.nomTournee}|${newRow.date}|${newRow.entrepot}`;
-            const tourneeStartTime = tourneeStartTimes.get(uniqueId);
+            const tourneeStartTime = options.tourneeStartTimes.get(uniqueId);
             const twelveHoursInSeconds = 12 * 3600;
 
             if (tourneeStartTime && newRow.heureCloture < tourneeStartTime - twelveHoursInSeconds) {
@@ -252,6 +253,10 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches' | 'verbati
                 newRow.heureArriveeReelle += 24 * 3600;
             }
         }
+    }
+    
+    if (fileType === 'verbatims' && options.verbatimDate) {
+        newRow.dateRetrait = `${options.verbatimDate.getFullYear()}-${String(options.verbatimDate.getMonth() + 1).padStart(2, '0')}-${String(options.verbatimDate.getDate()).padStart(2, '0')}`;
     }
 
     normalized.push(newRow);
@@ -261,7 +266,7 @@ function normalizeData(data: any[][], fileType: 'tournees' | 'taches' | 'verbati
 
 self.addEventListener('message', async (event: MessageEvent) => {
   try {
-    const { tourneesFiles, tachesFiles, verbatimsFiles } = event.data;
+    const { tourneesFiles, tachesFiles, verbatimsFiles, verbatimDate } = event.data;
 
     // Process tournees
     const allTourneesMap = new Map<string, any>();
@@ -303,7 +308,7 @@ self.addEventListener('message', async (event: MessageEvent) => {
         const wb = XLSX.read(buffer, { type: 'buffer' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-        const normalizedTaches = normalizeData(json, 'taches', tourneeStartTimes);
+        const normalizedTaches = normalizeData(json, 'taches', { tourneeStartTimes });
         for (const t of normalizedTaches) {
              const key = t.idTache;
              if (!allTachesMap.has(key)) {
@@ -327,12 +332,13 @@ self.addEventListener('message', async (event: MessageEvent) => {
     // Process verbatims (optional)
     let allVerbatimsMap = new Map<string, any>();
     if (verbatimsFiles && verbatimsFiles.length > 0) {
+        const verbatimDateObj = verbatimDate ? new Date(verbatimDate) : undefined;
         for (const file of verbatimsFiles) {
             const buffer = await file.arrayBuffer();
             const wb = XLSX.read(buffer, { type: 'buffer' });
             const sheet = wb.Sheets[wb.SheetNames[0]];
             const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-            const normalizedVerbatims = normalizeData(json, 'verbatims');
+            const normalizedVerbatims = normalizeData(json, 'verbatims', { verbatimDate: verbatimDateObj });
             for (const v of normalizedVerbatims) {
                 if (!allVerbatimsMap.has(v.idTache)) {
                     allVerbatimsMap.set(v.idTache, v);
