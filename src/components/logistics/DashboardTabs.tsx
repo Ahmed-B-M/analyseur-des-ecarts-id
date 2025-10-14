@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -231,7 +230,7 @@ export default function DashboardTabs({
             </div>
 
             <TabsContent value="nps" className="mt-6">
-                <NpsAnalysisView data={filteredData} />
+                <NpsAnalysisView data={rawData || []} />
             </TabsContent>
              <TabsContent value="actionFollowUp" className="mt-6">
                 <ActionFollowUpView />

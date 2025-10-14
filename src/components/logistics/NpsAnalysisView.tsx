@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLogistics } from '@/context/LogisticsContext';
 import { DateRange } from 'react-day-picker';
-import { isWithinInterval, parseISO } from 'date-fns';
+import { isWithinInterval, parseISO, format } from 'date-fns';
 
 const ITEMS_PER_PAGE = 25;
 
@@ -54,10 +54,9 @@ export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
   const [sortConfig, setSortConfig] = useState<{ key: keyof MergedData | 'depot' | 'carrier' | 'npsCategory' | 'dateRetrait'; direction: 'asc' | 'desc' } | null>({ key: 'noteRecommandation', direction: 'asc' });
 
   const verbatimsData = useMemo(() => {
-    // Start with data that has verbatim info
     let verbatimItems = data.filter(item => item.verbatimData && item.verbatimData.noteRecommandation !== null);
 
-    // Apply date filter based on verbatimData.dateRetrait
+    // Date filtering on verbatimData.dateRetrait
     if (filters.dateRange) {
         const { from, to } = filters.dateRange as DateRange;
         verbatimItems = verbatimItems.filter(item => {
@@ -77,14 +76,33 @@ export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
             }
         });
     } else if (filters.selectedDate) {
-        verbatimItems = verbatimItems.filter(item => {
-            return item.verbatimData?.dateRetrait === filters.selectedDate;
+         const selectedDateStr = format(new Date(filters.selectedDate), 'yyyy-MM-dd');
+         verbatimItems = verbatimItems.filter(item => {
+            return item.verbatimData?.dateRetrait === selectedDateStr;
         });
     }
+    
+    // Apply other filters
+    verbatimItems = verbatimItems.filter(item => {
+        if (filters.depots && filters.depots.length > 0 && !filters.depots.includes(getNomDepot(item.entrepot))) return false;
+        if (filters.warehouses && filters.warehouses.length > 0 && !filters.warehouses.includes(item.warehouse)) return false;
+        if (filters.carriers && filters.carriers.length > 0 && (!item.carrier || !filters.carriers.includes(item.carrier))) return false;
+        if (filters.city && item.ville !== filters.city) return false;
+        if (filters.codePostal && item.codePostal !== filters.codePostal) return false;
+        if (filters.driverName) {
+            const driverName = item.livreur?.toLowerCase() || '';
+            const filterValue = filters.driverName.toLowerCase();
+            if (filters.driverNameFilterType === 'suffix') {
+                if (!driverName.endsWith(filterValue)) return false;
+            } else { // prefix by default
+                if (!driverName.startsWith(filterValue)) return false;
+            }
+        }
+        return true;
+    });
 
     return verbatimItems;
-
-  }, [data, filters.dateRange, filters.selectedDate]);
+  }, [data, filters]);
 
   const npsSummary = useMemo(() => {
     const allNotes = verbatimsData.map(d => d.verbatimData?.noteRecommandation);
