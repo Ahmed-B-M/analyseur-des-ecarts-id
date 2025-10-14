@@ -47,7 +47,7 @@ const calculateNps = (notes: (number | null | undefined)[]) => {
 export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState<{ key: keyof MergedData | 'depot' | 'carrier' | 'npsCategory'; direction: 'asc' | 'desc' } | null>({ key: 'noteRecommandation', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{ key: keyof MergedData | 'depot' | 'carrier' | 'npsCategory' | 'dateRetrait'; direction: 'asc' | 'desc' } | null>({ key: 'noteRecommandation', direction: 'asc' });
 
   const verbatimsData = useMemo(() => {
     return data.filter(item => item.verbatimData && item.verbatimData.noteRecommandation !== null);
@@ -100,7 +100,7 @@ export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
     });
   }, [verbatimsData, searchTerm]);
 
-  type SortKey = keyof MergedData | 'depot' | 'carrier' | 'npsCategory' | 'noteRecommandation' | 'verbatim';
+  type SortKey = keyof MergedData | 'depot' | 'carrier' | 'npsCategory' | 'noteRecommandation' | 'verbatim' | 'dateRetrait';
   
   const sortedData = useMemo(() => {
     let dataToSort = [...filteredData];
@@ -115,6 +115,9 @@ export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
             } else if (sortConfig.key === 'verbatim') {
                 aValue = a.verbatimData?.verbatim;
                 bValue = b.verbatimData?.verbatim;
+            } else if (sortConfig.key === 'dateRetrait') {
+                aValue = a.verbatimData?.dateRetrait;
+                bValue = b.verbatimData?.dateRetrait;
             } else if (sortConfig.key === 'depot') {
                 aValue = getNomDepot(a.entrepot);
                 bValue = getNomDepot(b.entrepot);
@@ -261,6 +264,7 @@ export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead onClick={() => handleSort('dateRetrait')} className="cursor-pointer">Date {renderSortIcon('dateRetrait')}</TableHead>
                     <TableHead onClick={() => handleSort('idTache')} className="cursor-pointer">N° Commande {renderSortIcon('idTache')}</TableHead>
                     <TableHead onClick={() => handleSort('depot')} className="cursor-pointer">Dépôt {renderSortIcon('depot')}</TableHead>
                     <TableHead onClick={() => handleSort('carrier')} className="cursor-pointer">Transporteur {renderSortIcon('carrier')}</TableHead>
@@ -275,6 +279,7 @@ export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
                     const npsCategory = getNpsCategory(item.verbatimData?.noteRecommandation ?? null);
                     return (
                         <TableRow key={`${item.idTache}-${item.livreur}`}>
+                            <TableCell>{item.verbatimData?.dateRetrait}</TableCell>
                             <TableCell>{item.idTache}</TableCell>
                             <TableCell>{getNomDepot(item.entrepot)}</TableCell>
                             <TableCell>{getCarrierFromDriverName(item.livreur) || 'N/A'}</TableCell>
@@ -295,7 +300,7 @@ export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
                         </TableRow>
                     )
                   }) : (
-                      <TableRow><TableCell colSpan={7} className="text-center h-24">Aucune donnée de verbatim à afficher. Veuillez charger un fichier de verbatims.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center h-24">Aucune donnée de verbatim à afficher. Veuillez charger un fichier de verbatims.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -328,4 +333,3 @@ export default function NpsAnalysisView({ data }: { data: MergedData[] }) {
     </div>
   );
 }
-
