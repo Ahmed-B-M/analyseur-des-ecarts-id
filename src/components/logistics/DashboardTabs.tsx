@@ -288,6 +288,7 @@ export default function DashboardTabs({
             <TabsContent value="quality" className="mt-6">
                 <QualitySummary 
                     data={filteredData} 
+                    rawData={rawData}
                     processedActions={filteredCommentsForEmail.processedActions} 
                     savedCategorizedComments={filteredCommentsForEmail.categorizedComments}
                     uncategorizedCommentsForSummary={uncategorizedCommentsForSummary}

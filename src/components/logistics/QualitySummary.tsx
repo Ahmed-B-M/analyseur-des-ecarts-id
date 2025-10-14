@@ -20,12 +20,14 @@ import { CategorizedComment } from './CommentCategorizationTable';
 import QualityEmailGenerator from './QualityEmailGenerator';
 import { getNomDepot } from '@/lib/config-depots';
 import { useLogistics } from '@/context/LogisticsContext';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isWithinInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { DateRange } from 'react-day-picker';
 
 
 interface QualitySummaryProps {
     data: MergedData[];
+    rawData: MergedData[];
     processedActions: SuiviCommentaire[];
     savedCategorizedComments: CategorizedComment[];
     uncategorizedCommentsForSummary: any[];
@@ -55,9 +57,9 @@ const calculateNps = (notes: (number | null | undefined)[]) => {
     };
 };
 
-const QualitySummary = ({ data, processedActions, savedCategorizedComments, uncategorizedCommentsForSummary }: QualitySummaryProps) => {
+const QualitySummary = ({ data, rawData, processedActions, savedCategorizedComments, uncategorizedCommentsForSummary }: QualitySummaryProps) => {
   const { state } = useLogistics();
-  const { filters, rawData } = state;
+  const { filters } = state;
 
   const dateRangeString = useMemo(() => {
     if (filters.dateRange) {
@@ -81,6 +83,56 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
     }
     return 'période sélectionnée';
   }, [filters.dateRange, rawData]);
+
+    const verbatimsData = useMemo(() => {
+    let verbatimItems = rawData.filter(item => item.verbatimData && item.verbatimData.noteRecommandation !== null);
+
+    // Date filtering on verbatimData.dateRetrait
+    if (filters.dateRange) {
+        const { from, to } = filters.dateRange as DateRange;
+        verbatimItems = verbatimItems.filter(item => {
+            if (!item.verbatimData?.dateRetrait) return false;
+            try {
+                const verbatimDate = parseISO(item.verbatimData.dateRetrait);
+                if (from && to) {
+                    return isWithinInterval(verbatimDate, { start: from, end: to });
+                } else if (from) {
+                    return verbatimDate >= from;
+                } else if (to) {
+                    return verbatimDate <= to;
+                }
+                return true;
+            } catch (e) {
+                return false;
+            }
+        });
+    } else if (filters.selectedDate) {
+         const selectedDateStr = format(new Date(filters.selectedDate), 'yyyy-MM-dd');
+         verbatimItems = verbatimItems.filter(item => {
+            return item.verbatimData?.dateRetrait === selectedDateStr;
+        });
+    }
+    
+    // Apply other filters (non-date)
+    return verbatimItems.filter(item => {
+        if (filters.depots && filters.depots.length > 0 && !filters.depots.includes(getNomDepot(item.entrepot))) return false;
+        if (filters.warehouses && filters.warehouses.length > 0 && !filters.warehouses.includes(item.warehouse)) return false;
+        if (filters.carriers && filters.carriers.length > 0 && (!item.carrier || !filters.carriers.includes(item.carrier))) return false;
+        if (filters.city && item.ville !== filters.city) return false;
+        if (filters.codePostal && item.codePostal !== filters.codePostal) return false;
+        if (filters.driverName) {
+            const driverName = item.livreur?.toLowerCase() || '';
+            const filterValue = filters.driverName.toLowerCase();
+            if (filters.driverNameFilterType === 'suffix') {
+                if (!driverName.endsWith(filterValue)) return false;
+            } else { // prefix by default
+                if (!driverName.startsWith(filterValue)) return false;
+            }
+        }
+        return true;
+    });
+  }, [rawData, filters]);
+
 
   const allCommentsForSummary = useMemo(() => {
     const allCategorized = [...savedCategorizedComments, ...uncategorizedCommentsForSummary];
@@ -122,14 +174,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         };
       });
   }, [data, commentsMap]);
-
-  const allDataWithNotes = useMemo(() => {
-    return data.filter(d => d.notation != null);
-  }, [data]);
-  
-  const verbatimsData = useMemo(() => {
-    return data.filter(item => item.verbatimData && item.verbatimData.noteRecommandation !== null);
-  }, [data]);
 
   const npsSummary = useMemo(() => {
     const allNotes = verbatimsData.map(d => d.verbatimData?.noteRecommandation);
@@ -203,17 +247,10 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 
 
   const summaryByCarrier = useMemo(() => {
-    const carrierFilter = filters.carriers && filters.carriers.length > 0;
-
     const allDataGrouped = data.reduce((acc, curr) => {
       const depot = getNomDepot(curr.entrepot);
       const carrier = getCarrierFromDriverName(curr.livreur || '') || 'Inconnu';
       
-      // If carrier filter is active, skip if carrier doesn't match
-      if (carrierFilter && !filters.carriers.includes(carrier)) {
-          return acc;
-      }
-
       const key = `${depot}|${carrier}`;
       if (!acc[key]) {
         acc[key] = { totalRatingValue: 0, ratedTasksCount: 0, totalTasks: 0, onTimeTasks: 0 };
@@ -282,27 +319,32 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         if (a.depot > b.depot) return 1;
         return a.carrier.localeCompare(b.carrier);
     });
-  }, [negativeRatingsData, data, verbatimsData, filters.carriers]);
+  }, [negativeRatingsData, data, verbatimsData]);
 
 
  const summaryByDriver = useMemo(() => {
-    const carrierFilter = filters.carriers && filters.carriers.length > 0;
-
     const tasksByDriver = data.reduce((acc, curr) => {
         const driver = curr.livreur;
         if (!driver) return acc;
         
-        const carrier = getCarrierFromDriverName(driver) || 'Inconnu';
-        if (carrierFilter && !filters.carriers.includes(carrier)) {
-            return acc;
-        }
-
         if (!acc[driver]) {
             acc[driver] = [];
         }
         acc[driver].push(curr);
         return acc;
     }, {} as Record<string, MergedData[]>);
+
+    const npsByDriver = verbatimsData.reduce((acc, curr) => {
+        const driver = curr.livreur;
+        if (!driver) return acc;
+
+        if (!acc[driver]) acc[driver] = [];
+        if (curr.verbatimData?.noteRecommandation !== null && curr.verbatimData?.noteRecommandation !== undefined) {
+            acc[driver].push(curr.verbatimData.noteRecommandation);
+        }
+        return acc;
+    }, {} as Record<string, number[]>);
+
 
     return Object.entries(tasksByDriver).map(([driver, tasks]) => {
         const depot = tasks.length > 0 ? getNomDepot(tasks[0].entrepot) : 'Inconnu';
@@ -331,10 +373,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
             .sort(([, a], [, b]) => b.count - a.count)
             .map(([cat, { count, isAttitude }]) => ({ name: cat, count, isAttitude }));
 
-        const driverNpsNotes = tasks
-            .map(t => t.verbatimData?.noteRecommandation)
-            .filter((n): n is number => n !== null && n !== undefined);
-        const driverNps = calculateNps(driverNpsNotes);
+        const driverNps = calculateNps(npsByDriver[driver] || []);
         
         const onTimeTasks = tasks.filter(t => t.retardStatus === 'onTime').length;
 
@@ -352,7 +391,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
         };
     })
     .sort((a, b) => b.negativeRatingsCount - a.negativeRatingsCount);
-}, [data, commentsMap, filters.carriers]);
+}, [data, commentsMap, verbatimsData]);
 
   
   const unassignedDrivers = useMemo(() => {
@@ -485,7 +524,7 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
                       <TableCell>{negativeRatingsCount}</TableCell>
                       <TableCell>{averageRating}</TableCell>
                       <TableCell>
-                        {categorySummary.length > 0 ? (
+                         {categorySummary.length > 0 ? (
                             categorySummary.map((c, i) => (
                               <React.Fragment key={c.name}>
                                 <span className={cn(c.isAttitude && "text-destructive font-bold")}>{c.count > 1 ? `${c.count} ${c.name}` : c.name}</span>
@@ -525,5 +564,6 @@ const QualitySummary = ({ data, processedActions, savedCategorizedComments, unca
 };
 
 export default QualitySummary;
+
 
 
