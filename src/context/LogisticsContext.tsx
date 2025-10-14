@@ -93,14 +93,8 @@ function logisticsReducer(state: State, action: Action): State {
             const tourneeData = tourneeMap.get(tache.tourneeUniqueId) || null;
             const verbatimData = verbatimMap.get(tache.idTache) || null;
 
-            let finalDate = tache.date;
-            if (verbatimData && action.verbatimDate) {
-                finalDate = format(action.verbatimDate, 'yyyy-MM-dd');
-            }
-
             return {
                 ...tache,
-                date: finalDate,
                 ordre: index + 1,
                 tournee: tourneeData,
                 depot: getNomDepot(tache.entrepot),
