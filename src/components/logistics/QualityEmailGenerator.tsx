@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ interface CarrierSummary {
     nps: number;
     punctuality: number;
     npsTotal: number;
+    tourCount: number; // Added this
 }
 
 interface DriverSummary {
@@ -239,7 +241,9 @@ const generateQualityEmailBody = (
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 14px; border-collapse: collapse;">
           <thead>
             <tr>
-              <th style="${thStyles}">Transporteur (Total Notes)</th>
+              <th style="${thStyles}">Transporteur</th>
+              <th style="${thStyles}">Nb. Tournées</th>
+              <th style="${thStyles}">Total Notes</th>
               <th style="${thStyles}">NPS</th>
               <th style="${thStyles}">Ponctualité</th>
               <th style="${thStyles}">Note Moyenne</th>
@@ -250,7 +254,9 @@ const generateQualityEmailBody = (
           <tbody>
             ${carriersForDepot.map((s, index) => `
               <tr>
-                <td style="${tdStyles(index)}">${s.carrier} (${s.totalRatings})</td>
+                <td style="${tdStyles(index)}">${s.carrier}</td>
+                <td style="${tdStyles(index)}">${s.tourCount}</td>
+                <td style="${tdStyles(index)}">${s.totalRatings}</td>
                 <td style="font-weight:bold; color: ${getNpsColor(s.nps)}; ${tdStyles(index)}">${s.npsTotal ? s.nps : 'N/A'}</td>
                 <td style="font-weight:bold; color: ${getPunctualityColor(s.punctuality)}; ${tdStyles(index)}">${s.punctuality.toFixed(1)}%</td>
                 <td style="font-weight:bold; color: ${getRatingColor(s.averageRating)}; ${tdStyles(index)}">${s.averageRating}</td>

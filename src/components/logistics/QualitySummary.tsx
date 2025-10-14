@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo } from 'react';
 import {
@@ -253,9 +254,10 @@ const QualitySummary = ({ data, rawData, processedActions, savedCategorizedComme
       
       const key = `${depot}|${carrier}`;
       if (!acc[key]) {
-        acc[key] = { totalRatingValue: 0, ratedTasksCount: 0, totalTasks: 0, onTimeTasks: 0 };
+        acc[key] = { totalRatingValue: 0, ratedTasksCount: 0, totalTasks: 0, onTimeTasks: 0, tourIds: new Set<string>() };
       }
       acc[key].totalTasks++;
+      acc[key].tourIds.add(curr.tourneeUniqueId);
       if (curr.retardStatus === 'onTime') {
         acc[key].onTimeTasks++;
       }
@@ -264,7 +266,7 @@ const QualitySummary = ({ data, rawData, processedActions, savedCategorizedComme
         acc[key].totalRatingValue += curr.notation;
       }
       return acc;
-    }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number, totalTasks: number, onTimeTasks: number }>);
+    }, {} as Record<string, { totalRatingValue: number, ratedTasksCount: number, totalTasks: number, onTimeTasks: number, tourIds: Set<string> }>);
 
     const allCommentsInData = data.filter(d => d.commentaire);
 
@@ -306,6 +308,7 @@ const QualitySummary = ({ data, rawData, processedActions, savedCategorizedComme
       const carrierNps = calculateNps(npsByCarrier[key] || []);
       return {
         ...negativeStats,
+        tourCount: allStats?.tourIds.size || 0,
         totalRatings: allStats?.ratedTasksCount || 0,
         averageRating: (allStats?.ratedTasksCount || 0) > 0 ? (allStats.totalRatingValue / allStats.ratedTasksCount).toFixed(2) : 'N/A',
         commentCount: commentCounts[key] || 0,
@@ -490,11 +493,11 @@ const QualitySummary = ({ data, rawData, processedActions, savedCategorizedComme
               </Table>
             </TabsContent>
             <TabsContent value="carrier">
-              <Table>
-                <TableHeader><TableRow><TableHead>Dépôt</TableHead><TableHead>Transporteur (Total Notes)</TableHead><TableHead>NPS</TableHead><TableHead>Ponctualité</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne (sur toutes les notes)</TableHead><TableHead>Nb. Commentaires Associés</TableHead></TableRow></TableHeader>
+               <Table>
+                <TableHeader><TableRow><TableHead>Dépôt</TableHead><TableHead>Transporteur</TableHead><TableHead>Nb. Tournées</TableHead><TableHead>Total Notes</TableHead><TableHead>NPS</TableHead><TableHead>Ponctualité</TableHead><TableHead>Nb. Mauvaises Notes</TableHead><TableHead>Note Moyenne</TableHead><TableHead>Nb. Commentaires</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {summaryByCarrier.map(({ depot, carrier, totalRatings, negativeRatingsCount, averageRating, commentCount, nps, punctuality, npsTotal }, index) => (
-                    <TableRow key={index}><TableCell>{depot}</TableCell><TableCell>{carrier} ({totalRatings})</TableCell><TableCell>{npsTotal ? nps : 'N/A'}</TableCell><TableCell>{punctuality.toFixed(1)}%</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
+                  {summaryByCarrier.map(({ depot, carrier, tourCount, totalRatings, negativeRatingsCount, averageRating, commentCount, nps, punctuality, npsTotal }, index) => (
+                    <TableRow key={index}><TableCell>{depot}</TableCell><TableCell>{carrier}</TableCell><TableCell>{tourCount}</TableCell><TableCell>{totalRatings}</TableCell><TableCell>{npsTotal ? nps : 'N/A'}</TableCell><TableCell>{punctuality.toFixed(1)}%</TableCell><TableCell>{negativeRatingsCount}</TableCell><TableCell>{averageRating}</TableCell><TableCell>{commentCount}</TableCell></TableRow>
                   ))}
                 </TableBody>
               </Table>
